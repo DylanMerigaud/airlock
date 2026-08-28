@@ -5,7 +5,7 @@ URLs a reader can check. The cockpit reads this file; nothing here is retyped by
 
 ## M1: the Grafana loop, end to end
 
-Status: in progress (started 2026-08-28).
+Status: DONE 2026-08-28.
 
 Track decision: Grafana Labs (Airlock v2). The kill criterion switches to ClickHouse (Falsework)
 only if the Agent Engine run cannot reach mcp-grafana on Cloud Run or cannot write the annotation
@@ -96,3 +96,28 @@ Read back through `POST /api/ds/query` on `grafanacloud-prom` with
 [airlock_spike]: annotation created: {"Payload":{"id":1,"message":"Annotation added"}}
 [airlock_spike]: spike done in 4512 ms
 ```
+
+**Step 6, Agent Engine run (22:57 to 23:00 UTC).** Redeploy with the real MCP URL in
+`.agent_engine_config.json` (`adk deploy agent_engine ... --agent_engine_id=1949818395360755712`,
+2 min 21 s), then `uv run python scripts/query_agent_engine.py projects/771466810465/locations/us-central1/reasoningEngines/1949818395360755712 "run the spike"`:
+
+```
+spike start: mcp=https://airlock-mcp-grafana-771466810465.us-central1.run.app/mcp airlock_pkg_importable=True
+mcp tools reachable: ['create_annotation', 'list_datasources', 'query_prometheus']
+prometheus datasource uid: grafanacloud-prom
+promql sum(sum_over_time(airlock_gate_runs_total{gate="spike"}[24h])) => {"data":[{"metric":{},"value":[1787957999.088,"1"]}]}
+annotation created: {"Payload":{"id":2,"message":"Annotation added"}}
+spike done in 2357 ms
+```
+
+Both annotations read back through `GET /api/annotations?dashboardUID=airlock-gates&tags=airlock`:
+
+```
+{"id": 2, "dashboardUID": "airlock-gates", "time": 1787957999440, "text": "spike ok: sum(sum_over_time(airlock_gate_runs_total{gate=\"spike\"}[24h])) answered from agent-engine", "tags": ["airlock", "spike", "agent-engine"]}
+{"id": 1, "dashboardUID": "airlock-gates", "time": 1787957844174, "text": "spike ok: sum(sum_over_time(airlock_gate_runs_total{gate=\"spike\"}[24h])) answered from local", "tags": ["airlock", "spike", "local"]}
+```
+
+### M1 done (2026-08-28 23:01 UTC)
+
+Local run: annotation 1 (tag `local`). Agent Engine run: annotation 2 (tag `agent-engine`). The
+PromQL answer is in both traces. Kill criterion not triggered; track stays Grafana Labs.
