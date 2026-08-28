@@ -63,6 +63,8 @@ ADVISORY_KINDS = {"price", "other"}
 
 def load_substantiation(asset: Asset) -> dict[str, Any]:
     """Evidence on file for this asset: <asset path>.substantiation.yaml, absent for both demo assets."""
+    if not asset.path:
+        return {}
     p = pathlib.Path(asset.path).with_suffix(".substantiation.yaml")
     if p.exists():
         return yaml.safe_load(p.read_text()) or {}

@@ -29,3 +29,10 @@ def test_every_regulated_kind_has_a_rule():
 
     kinds = set(CLAIM_SCHEMA["properties"]["claims"]["items"]["properties"]["kind"]["enum"])
     assert kinds == set(RULES) | ADVISORY_KINDS
+
+
+def test_substantiation_lookup_tolerates_gcs_only_asset():
+    from airlock.gates.base import Asset
+    from airlock.gates.claim import load_substantiation
+
+    assert load_substantiation(Asset(asset_id="x", path="", gcs_uri="gs://b/x.mp4")) == {}

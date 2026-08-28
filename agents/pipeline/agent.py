@@ -30,7 +30,7 @@ from google.genai import types
 from airlock.assets import from_message
 from airlock.gates import brand, claim, provenance, rights
 from airlock.gates.base import GATES, Asset, run_gate
-from airlock.grafana_mcp import make_grafana_toolset
+from airlock.grafana_mcp import make_grafana_toolset, pick_prometheus_uid, tool_text
 from airlock.telemetry import InfluxPusher, line
 from airlock.verdict import GateHealth, Verdict, decide, promql_questions
 
@@ -84,15 +84,6 @@ class GateAgent(BaseAgent):
                           state_delta={STATE_GATE.format(self.gate): payload, STATE_ASSET: asset.__dict__})
 
 
-def tool_text(result: Any) -> str:
-    if isinstance(result, dict):
-        parts = result.get("content")
-        if isinstance(parts, list):
-            return "\n".join(str(p.get("text", p)) if isinstance(p, dict) else str(p) for p in parts)
-        return json.dumps(result)
-    return str(result)
-
-
 def push_verdict_counters(verdict: Verdict, incident_opened: bool) -> None:
     """One sample per verdict so the console's stat tiles and the dashboard count real runs."""
     if not os.environ.get("GRAFANA_INFLUX_URL"):
@@ -132,7 +123,7 @@ class VerdictAgent(BaseAgent):
         try:
             tools = {t.name: t for t in await toolset.get_tools(tool_ctx)}
             ds_text = tool_text(await tools["list_datasources"].run_async(args={"type": "prometheus"}, tool_context=tool_ctx))
-            prom_uid = next(d["uid"] for d in json.loads(ds_text) if d.get("type") == "prometheus")
+            prom_uid = pick_prometheus_uid(ds_text)
             health: dict[str, GateHealth] = {}
             for gate in GATES:
                 answers: dict[str, Any] = {}

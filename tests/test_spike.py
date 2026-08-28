@@ -22,3 +22,10 @@ def test_pick_prometheus_uid_from_list():
 def test_pick_prometheus_uid_missing_raises():
     with pytest.raises(LookupError):
         pick_prometheus_uid(json.dumps([{"uid": "loki1", "type": "loki"}]))
+
+
+def test_pick_prometheus_uid_from_object_answer():
+    from airlock.grafana_mcp import pick_prometheus_uid as pick
+
+    body = json.dumps({"datasources": [{"uid": "grafanacloud-prom", "type": "prometheus"}], "total": 1})
+    assert pick(body) == "grafanacloud-prom"
