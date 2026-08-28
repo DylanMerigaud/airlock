@@ -121,3 +121,70 @@ Both annotations read back through `GET /api/annotations?dashboardUID=airlock-ga
 
 Local run: annotation 1 (tag `local`). Agent Engine run: annotation 2 (tag `agent-engine`). The
 PromQL answer is in both traces. Kill criterion not triggered; track stays Grafana Labs.
+
+## M2: the four gates on real inputs, locally
+
+Status: DONE 2026-08-28 (23:23 UTC).
+
+### Inputs
+
+- Real: `assets/real/CrestToothpa-18-48.mp4`, seconds 18 to 48 of the Prelinger "Crest Toothpaste
+  Commercial 1" (public domain, stream-copied, sha256 in `assets/real/SOURCE.md`). The full 60 s
+  film costs the Video Intelligence API about 4 minutes; the excerpt about 1 to 2.
+- Synthetic, labelled: `assets/synthetic/nimbus-test-clip.mp4`, 8 s from Veo 3.1 on Vertex AI plus
+  ffmpeg overlays, signed with c2patool and a self-issued test certificate (`SYNTHETIC.md`).
+- Rules: `rules/ftc-16-cfr-255.md` (eCFR, 2026-08-01), `rules/asa-rulings.md` (A26-1337640,
+  G26-1344778, both 2026-08-26). Charter: `charter.yaml`. Registry: `rights-registry.yaml`.
+
+### Gates and their sources of truth
+
+| gate | source of truth | decision |
+|---|---|---|
+| rights | Video Intelligence (logos, faces, text, explicit) against the registry | an identifiable element the registry does not clear blocks |
+| claim | gemini-2.5-pro extracts claims with timestamps; 16 CFR 255 and the ASA rulings map each kind | a regulated claim with no substantiation on file blocks |
+| brand | gemini-2.5-flash reads the asset against the charter | mandatory mention, exclusions, tone, palette, typography |
+| provenance | c2pa-python against `trust/trust-anchors.pem` | no manifest, invalid signature or untrusted signer blocks |
+
+Every decision is a plain function under pytest (`tests/`, 36 tests); the models only read.
+
+### Verification, twice in a row
+
+`scripts/with_env.sh uv run python -m airlock.run assets/real/CrestToothpa-18-48.mp4 --gcs-uri gs://airlock-agentic-cinema-assets/real/CrestToothpa-18-48.mp4`
+
+```
+run 1 (23:15 UTC)                                  run 2 (23:19 UTC)
+rights      BLOCK   58697 ms  brand Crest (not_cleared, logo at 16.12s, 0.853); 7 face tracks, no release
+claim       BLOCK   35910 ms  9 regulated claims, first "my side had 21% fewer cavities with Crest." (16 CFR 255.2(a))
+brand       BLOCK   24244 ms  Nimbus wordmark never seen; health claim, comparison, children
+provenance  BLOCK      15 ms  no C2PA manifest in the asset
+                                                   rights BLOCK 119790 ms (same reasons), claim BLOCK 38817 ms (10 claims),
+                                                   brand BLOCK 21527 ms, provenance BLOCK 16 ms
+```
+
+`scripts/with_env.sh uv run python -m airlock.run assets/synthetic/nimbus-test-clip.mp4 --gcs-uri gs://airlock-agentic-cinema-assets/synthetic/nimbus-test-clip.mp4`
+
+```
+run 2 (23:17 UTC)                                  run 3 (23:21 UTC)
+rights      PASS    90208 ms  cleared brand(s): Nimbus; no unreleased face, no explicit content      33700 ms, same
+claim       BLOCK   17853 ms  "Recommended by 9 out of 10 sommeliers." (expert_endorsement, 16 CFR 255.3)   19305 ms, same
+brand       PASS    12750 ms  Nimbus wordmark seen, palette, tone and exclusions respected          56827 ms, same
+provenance  PASS       49 ms  C2PA manifest verified and trusted; signed by Airlock (hackathon test)   23 ms, same
+```
+
+(Run 1 of the synthetic clip, 23:15 UTC, had provenance BLOCK with `signingCredential.untrusted`:
+that is what led to the trust list; see below.)
+
+### What the plan did not know
+
+- Gemini 2.5 flash mis-scales video timestamps (it answered 0.24 for 14 s on the 60 s probe);
+  2.5 pro gets them right. Pro extracts claims, flash reads the charter, as the plan assigned.
+- c2pa-rs 0.90 files `signingCredential.untrusted` under `failure` for a self-issued signer while
+  the state stays `Valid`. The gate now verifies against a studio trust list
+  (`trust/trust-anchors.pem`, the signer's public certificate on the reader's allowed list) and
+  the state becomes `Trusted`. Unknown signer stays a BLOCK with its own rule id.
+- Video Intelligence latency is the wild card: 30 s to 120 s on the same 30 s input, 598 s when
+  three jobs ran at once. The rights gate has a feature set knob and a timeout that turns into an
+  ERROR the verdict treats as an instrument failure. The gates run in parallel inside the pipeline.
+- The agent folder cannot be named `airlock`: ADK imports the agent folder as a top-level module,
+  which shadows the library package. It is `agents/pipeline`.
+- `adk deploy` reads a `.env` in the agent folder over the config's Secret Manager refs (M1).

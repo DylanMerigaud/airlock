@@ -1,6 +1,6 @@
 """The verdict: deterministic rules over the gate results and over what Grafana says about each gate.
 
-The rules, in plain Python and unit-tested; the ADK agent (agents/airlock) is the envelope that
+The rules, in plain Python and unit-tested; the ADK agent (agents/pipeline) is the envelope that
 asks Grafana the three questions per gate through mcp-grafana and writes the annotation.
 
 Three questions per gate (PromQL over the counters the gates push):

@@ -9,6 +9,7 @@ not_cleared or does not know it at all.
 
 from __future__ import annotations
 
+import os
 import pathlib
 import re
 from typing import Any
@@ -30,19 +31,38 @@ def _secs(d: Any) -> float:
     return round(getattr(d, "seconds", 0) + getattr(d, "microseconds", 0) / 1e6, 2)
 
 
+FEATURE_NAMES = {"logo": "LOGO_RECOGNITION", "face": "FACE_DETECTION", "text": "TEXT_DETECTION", "explicit": "EXPLICIT_CONTENT_DETECTION"}
+
+
+def configured_features() -> list[str]:
+    """AIRLOCK_VI_FEATURES, e.g. "logo,face,text"; default all four. Latency scales with the set."""
+    raw = os.environ.get("AIRLOCK_VI_FEATURES", "logo,face,text,explicit")
+    names = [x.strip() for x in raw.split(",") if x.strip()]
+    unknown = [n for n in names if n not in FEATURE_NAMES]
+    if unknown:
+        raise ValueError(f"unknown AIRLOCK_VI_FEATURES entries: {unknown}")
+    return names
+
+
 def annotate(asset: Asset) -> dict[str, Any]:
-    """Call Video Intelligence and flatten what the gate needs. Slow (about 4 min per 60 s clip)."""
+    """Call Video Intelligence and flatten what the gate needs.
+
+    Measured 2026-08-28: 60 s clip with four features 246 s; 30 s excerpt 59 s alone and 598 s when
+    three jobs ran at once; 8 s clip 30 to 90 s. A timeout (AIRLOCK_VI_TIMEOUT_S) raises, and the
+    envelope turns it into an ERROR the verdict treats as an instrument failure.
+    """
     from google.cloud import videointelligence_v1 as vi
 
     client = vi.VideoIntelligenceServiceClient()
-    features = [vi.Feature.LOGO_RECOGNITION, vi.Feature.FACE_DETECTION, vi.Feature.TEXT_DETECTION, vi.Feature.EXPLICIT_CONTENT_DETECTION]
+    names = configured_features()
+    features = [getattr(vi.Feature, FEATURE_NAMES[n]) for n in names]
     request: dict[str, Any] = {"features": features, "video_context": {"face_detection_config": {"include_bounding_boxes": False, "include_attributes": False}}}
     if asset.gcs_uri:
         request["input_uri"] = asset.gcs_uri
     else:
         request["input_content"] = pathlib.Path(asset.path).read_bytes()
     op = client.annotate_video(request=request)
-    a = op.result(timeout=900).annotation_results[0]
+    a = op.result(timeout=float(os.environ.get("AIRLOCK_VI_TIMEOUT_S", "600"))).annotation_results[0]
     logos = [{"name": l.entity.description, "entity_id": l.entity.entity_id,
               "spans": [{"start": _secs(t.segment.start_time_offset), "end": _secs(t.segment.end_time_offset), "confidence": round(t.confidence, 3)} for t in l.tracks]}
              for l in a.logo_recognition_annotations]
@@ -52,7 +72,7 @@ def annotate(asset: Asset) -> dict[str, Any]:
     for f in a.explicit_annotation.frames:
         k = vi.Likelihood(f.pornography_likelihood).name
         explicit[k] = explicit.get(k, 0) + 1
-    return {"logos": logos, "texts": texts, "faces": faces, "explicit_frames": explicit}
+    return {"logos": logos, "texts": texts, "faces": faces, "explicit_frames": explicit, "features": names}
 
 
 def _brand_status(name: str, registry: dict[str, Any]) -> tuple[str, dict[str, Any] | None]:

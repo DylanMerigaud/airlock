@@ -30,7 +30,8 @@ from airlock.assets import from_message
 from airlock.gates import brand, claim, provenance, rights
 from airlock.gates.base import GATES, Asset, run_gate
 from airlock.grafana_mcp import make_grafana_toolset
-from airlock.verdict import GateHealth, decide, promql_questions
+from airlock.telemetry import InfluxPusher, line
+from airlock.verdict import GateHealth, Verdict, decide, promql_questions
 
 CHECKS = {
     "rights": (rights.check, rights.SOURCE_OF_TRUTH),
@@ -88,6 +89,14 @@ def tool_text(result: Any) -> str:
             return "\n".join(str(p.get("text", p)) if isinstance(p, dict) else str(p) for p in parts)
         return json.dumps(result)
     return str(result)
+
+
+def push_verdict_counters(verdict: Verdict, incident_opened: bool) -> None:
+    """One sample per verdict so the console's stat tiles and the dashboard count real runs."""
+    if not os.environ.get("GRAFANA_INFLUX_URL"):
+        return
+    fields: dict[str, int | float] = {"total": 1, "needs_human": 1 if verdict.needs_human else 0, "incidents_total": 1 if incident_opened else 0}
+    InfluxPusher.from_env().push_lines([line("airlock_verdict", {"status": verdict.status, "motive": verdict.motive.replace(" ", "_")}, fields)])
 
 
 def parse_instant_value(text: str) -> float | None:
@@ -162,6 +171,10 @@ class VerdictAgent(BaseAgent):
                 except json.JSONDecodeError:
                     pass
             payload["elapsed_ms"] = int((time.time() - started) * 1000)
+            try:
+                push_verdict_counters(verdict, bool(payload.get("incident_id") or payload.get("incident_raw")))
+            except Exception as exc:  # telemetry must not hide a verdict, but its failure is said
+                payload["telemetry_error"] = f"{type(exc).__name__}: {exc}"
             yield _text_event(ctx, self.name, json.dumps({"stage": "verdict", **payload}, default=str), state_delta={STATE_VERDICT: payload})
         except Exception as exc:
             yield _text_event(ctx, self.name, json.dumps({"stage": "verdict", "status": "ERROR", "motive": "instrument error", "needs_human": True,
