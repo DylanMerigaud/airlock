@@ -3,7 +3,7 @@
   "description": "M1 spike: one PromQL query and one annotation through mcp-grafana on Cloud Run",
   "extra_packages": ["../../airlock"],
   "env_vars": {
-    "AIRLOCK_MCP_URL": "REPLACED_BY_infra/mcp-grafana/deploy.sh",
+    "AIRLOCK_MCP_URL": "https://airlock-mcp-grafana-771466810465.us-central1.run.app/mcp",
     "AIRLOCK_DASHBOARD_UID": "airlock-gates",
     "AIRLOCK_RUNTIME": "agent-engine",
     "AIRLOCK_MCP_TOKEN": {"secret": "airlock-mcp-token", "version": "latest"}

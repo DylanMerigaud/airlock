@@ -26,9 +26,11 @@ deploy() {
     --quiet
 }
 
-# First pass accepts any Host so the service comes up; second pass pins the real hostname.
+# First pass accepts any Host so the service comes up; second pass pins the two real hostnames
+# (Cloud Run serves both the legacy *.a.run.app URL and the deterministic *.run.app one).
 deploy "*"
 URL="$(gcloud run services describe "$SERVICE" --project="$PROJECT" --region="$REGION" --format='value(status.url)')"
-HOST="${URL#https://}"
-deploy "$HOST"
-echo "mcp-grafana url: ${URL}/mcp"
+PROJECT_NUMBER="$(gcloud projects describe "$PROJECT" --format='value(projectNumber)')"
+DET_URL="https://${SERVICE}-${PROJECT_NUMBER}.${REGION}.run.app"
+deploy "${URL#https://},${DET_URL#https://}"
+echo "mcp-grafana url: ${DET_URL}/mcp (also ${URL}/mcp)"
