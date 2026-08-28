@@ -46,8 +46,11 @@ cat > "$SIGNER/manifest.json" <<JSON
   ]
 }
 JSON
-rm -f "$SIGNED"
-c2patool "$OVERLAID" -m "$SIGNER/manifest.json" -o "$SIGNED" >/dev/null
+# Idempotent: a signature carries a timestamp, so re-signing changes the bytes and the hashes in
+# SYNTHETIC.md. Delete the signed file on purpose to re-sign.
+if [[ ! -f "$SIGNED" ]]; then
+  c2patool "$OVERLAID" -m "$SIGNER/manifest.json" -o "$SIGNED" >/dev/null
+fi
 echo "signed: $SIGNED"
 c2patool "$SIGNED" | head -40
 shasum -a 256 "$SIGNED"
@@ -82,8 +85,9 @@ drawbox=x=60:y=ih-230:w=560:h=170:color=white@0.85:t=fill,\
 drawtext=fontfile='$FONT':text='Nimbus':fontcolor=0x1F4E79:fontsize=64:x=90:y=h-210,\
 drawtext=fontfile='$FONT':text='Clear as morning.':fontcolor=0x1F4E79:fontsize=30:x=92:y=h-130" \
   -c:v libx264 -preset medium -crf 18 -pix_fmt yuv420p -an "$CLEAN_UNSIGNED"
-rm -f "$CAL/nimbus-clean-clip.mp4"
-c2patool "$CLEAN_UNSIGNED" -m "$SIGNER/manifest.json" -o "$CAL/nimbus-clean-clip.mp4" >/dev/null
+if [[ ! -f "$CAL/nimbus-clean-clip.mp4" ]]; then
+  c2patool "$CLEAN_UNSIGNED" -m "$SIGNER/manifest.json" -o "$CAL/nimbus-clean-clip.mp4" >/dev/null
+fi
 rm -f "$CLEAN_UNSIGNED"
 echo "clean signed: $CAL/nimbus-clean-clip.mp4"
 shasum -a 256 "$CAL/nimbus-clean-clip.mp4"

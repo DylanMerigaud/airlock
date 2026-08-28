@@ -18,8 +18,20 @@ not on this list is real and named in `assets/real/SOURCE.md`.
   records `c2pa.created` with digitalSourceType trainedAlgorithmicMedia (Veo 3.1) and
   `c2pa.edited` (ffmpeg overlay). The certificate is in `trust/trust-anchors.pem` so the
   provenance gate treats it as the studio's own signer.
-- Signed file sha256: 11ce2b0e439c87b6819adefc5857d431c076e23405192e5c6190489500f3047d
+- Signed file sha256: cf5e05c2665181b92f81ac3c80a02ed99b85e066d4fd72a7ef4f3b54e5efe343
 - The brand "Nimbus", its charter (`charter.yaml`) and its registry entry are fictional.
+
+## assets/synthetic/calibration/nimbus-clean-clip.mp4 (labelled "synthetic test asset" on screen)
+
+- The same Veo clip with the wordmark and tagline only, no claim, signed with the same test
+  certificate. It is the asset that should PASS all four gates, and the "defect removed" input of
+  the calibration ledger (`python -m airlock.calibrate --gate claim --defect-removed`).
+- sha256: 89dcb1549e9d8d95d0b9f5c6c99917b7d3c1430c999ede7af67076dfc5a7b732
+
+## assets/synthetic/calibration/nimbus-defect-*.mp4
+
+- Injected defects for the ledger: a pure red urgency banner (brand), the manifest stripped and a
+  signed copy with one byte flipped (provenance). Built by the same script from the same Veo clip.
 
 ## Nothing else
 
