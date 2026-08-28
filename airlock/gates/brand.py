@@ -42,7 +42,8 @@ def prompt_for(charter: dict[str, Any]) -> str:
     return (
         "You are checking a video asset against a brand charter. The charter, in YAML:\n\n"
         + yaml.safe_dump(charter, sort_keys=False)
-        + "\nReport: whether the brand wordmark (the brand name as written text or logo) is seen and when; every piece of "
+        + f"\nThe wordmark is the exact word \"{charter.get('brand')}\" written on screen or on a product. Report wordmark_seen "
+        f"as true only if that exact word appears; a different brand name does not count. Then: every piece of "
         "on-screen text; the dominant colours of the frames as hex; the tone words that describe the delivery; every charter "
         "exclusion that the asset violates, quoting the evidence with its timestamp; any other brand name seen. Be literal."
     )

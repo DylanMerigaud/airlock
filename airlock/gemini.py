@@ -7,6 +7,7 @@ gemini-2.5-flash does the cheaper reads (brand charter, escalation text).
 
 from __future__ import annotations
 
+import functools
 import json
 import os
 import pathlib
@@ -20,7 +21,9 @@ FAST_MODEL = "gemini-2.5-flash"
 INLINE_LIMIT_BYTES = 19_000_000
 
 
+@functools.lru_cache(maxsize=1)
 def client() -> genai.Client:
+    """One client per process: a temporary Client gets collected while its request is in flight."""
     project = os.environ.get("GOOGLE_CLOUD_PROJECT", "airlock-agentic-cinema")
     location = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
     return genai.Client(vertexai=True, project=project, location=location)

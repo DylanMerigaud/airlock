@@ -15,3 +15,12 @@ Every file in this folder is a real, named asset. None was fabricated for the de
   claim that maps onto 16 CFR 255.3 (expert endorsements) and 255.4 (endorsements by organizations).
 
 The mp4 itself is not committed (see .gitignore); `scripts/fetch_assets.sh` downloads it and checks the hash.
+
+## CrestToothpa-18-48.mp4 (the demo asset)
+
+- The same film, seconds 18 to 48, cut with `ffmpeg -ss 18 -t 30 -c copy` (stream copy, no re-encode),
+  because the Video Intelligence API takes about 4 minutes on the full 60 s and about 1 minute on
+  30 s (measured 2026-08-28), and the demo video is one take of 180 s.
+- The excerpt holds the brand on screen, the 21 percent testimonial, the "more dentists recommend"
+  line and the American Dental Association seal.
+- sha256: 97ccbcdc8316277909b25591b79a5a307c463089e6558ed1a14ddd2f0114edd4

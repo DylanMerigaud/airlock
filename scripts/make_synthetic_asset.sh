@@ -16,8 +16,8 @@ FONT="${AIRLOCK_FONT:-/System/Library/Fonts/Supplemental/Arial Bold.ttf}"
 # 1. Overlays: wordmark (charter primary blue on a white box), tagline, and the claim from 3 s on.
 ffmpeg -v error -y -i "$RAW" -vf "\
 drawbox=x=60:y=ih-230:w=560:h=170:color=white@0.85:t=fill,\
-drawtext=fontfile='$FONT':text='Nimbus':fontcolor=0x1F4E79:fontsize=64:x=90:y=ih-210,\
-drawtext=fontfile='$FONT':text='Clear as morning.':fontcolor=0x1F4E79:fontsize=30:x=92:y=ih-130,\
+drawtext=fontfile='$FONT':text='Nimbus':fontcolor=0x1F4E79:fontsize=64:x=90:y=h-210,\
+drawtext=fontfile='$FONT':text='Clear as morning.':fontcolor=0x1F4E79:fontsize=30:x=92:y=h-130,\
 drawtext=fontfile='$FONT':text='Recommended by 9 out of 10 sommeliers.':fontcolor=white:fontsize=40:box=1:boxcolor=0x1F4E79@0.9:boxborderw=18:x=(w-text_w)/2:y=80:enable='gte(t,3)'" \
   -c:v libx264 -preset medium -crf 18 -pix_fmt yuv420p -an "$OVERLAID"
 

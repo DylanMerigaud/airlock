@@ -10,13 +10,31 @@ Three outcomes:
 from __future__ import annotations
 
 import json
+import pathlib
 from typing import Any
 
 from airlock.gates.base import Asset, GateResult
 
-SOURCE_OF_TRUTH = "C2PA manifest (c2pa-python, cryptographic verification)"
+SOURCE_OF_TRUTH = "C2PA manifest (c2pa-python, cryptographic verification against trust/trust-anchors.pem)"
 RULE_MANIFEST_REQUIRED = "airlock:provenance:manifest-required"
 RULE_SIGNATURE_VALID = "airlock:provenance:signature-valid"
+RULE_SIGNER_TRUSTED = "airlock:provenance:signer-trusted"
+TRUST_ANCHORS = pathlib.Path(__file__).resolve().parents[2] / "trust" / "trust-anchors.pem"
+
+
+def reader_context(trust_pem: pathlib.Path = TRUST_ANCHORS):
+    """A c2pa Context whose allowed list is the studio's own signing certificates.
+
+    Without it a self-issued signer validates as Valid with signingCredential.untrusted in the
+    failures (measured 2026-08-28 on c2pa-rs 0.90.16); with it the state is Trusted.
+    """
+    import c2pa
+
+    trust: dict[str, Any] = {}
+    if trust_pem.exists():
+        trust["allowed_list"] = trust_pem.read_text()
+    settings = c2pa.Settings.from_dict({"trust": trust, "verify": {"verify_trust": True}})
+    return c2pa.ContextBuilder().with_settings(settings).build()
 
 
 def read_manifest_store(path: str) -> dict[str, Any] | None:
@@ -24,7 +42,7 @@ def read_manifest_store(path: str) -> dict[str, Any] | None:
     import c2pa
 
     try:
-        reader = c2pa.Reader(path)
+        reader = c2pa.Reader(path, context=reader_context())
     except Exception as exc:  # c2pa raises a ManifestNotFound subclass with 'no JUMBF data found'
         if "ManifestNotFound" in type(exc).__name__ or "no JUMBF" in str(exc) or "not found" in str(exc).lower():
             return None
@@ -63,13 +81,19 @@ def decide(store: dict[str, Any] | None) -> GateResult:
                           evidence=[{"manifest": None}], rule_ids=[RULE_MANIFEST_REQUIRED], source_of_truth=SOURCE_OF_TRUTH)
     s = summarize(store)
     state = (s.get("validation_state") or "").lower()
-    if s["failure_codes"] or state == "invalid":
+    untrusted = [c for c in s["failure_codes"] if c.startswith("signingCredential")]
+    other = [c for c in s["failure_codes"] if not c.startswith("signingCredential")]
+    if other or state == "invalid":
         return GateResult(gate="provenance", status="BLOCK",
-                          reasons=[f"C2PA manifest present but validation failed: {', '.join(s['failure_codes']) or state}"],
+                          reasons=[f"C2PA manifest present but validation failed: {', '.join(other) or state}"],
                           evidence=[s], rule_ids=[RULE_SIGNATURE_VALID], source_of_truth=SOURCE_OF_TRUTH)
-    reason = f"C2PA manifest verified ({s.get('validation_state') or 'valid'}); signed by {s.get('issuer') or 'unknown issuer'}"
+    if untrusted or state != "trusted":
+        return GateResult(gate="provenance", status="BLOCK",
+                          reasons=[f"C2PA signature valid but the signer is not on the trust list: {s.get('issuer') or 'unknown issuer'} ({', '.join(untrusted) or state})"],
+                          evidence=[s], rule_ids=[RULE_SIGNER_TRUSTED], source_of_truth=SOURCE_OF_TRUTH)
+    reason = f"C2PA manifest verified and trusted; signed by {s.get('issuer')}; created by {s.get('claim_generator')}"
     return GateResult(gate="provenance", status="PASS", reasons=[reason], evidence=[s],
-                      rule_ids=[RULE_MANIFEST_REQUIRED, RULE_SIGNATURE_VALID], source_of_truth=SOURCE_OF_TRUTH)
+                      rule_ids=[RULE_MANIFEST_REQUIRED, RULE_SIGNATURE_VALID, RULE_SIGNER_TRUSTED], source_of_truth=SOURCE_OF_TRUTH)
 
 
 def check(asset: Asset) -> GateResult:
