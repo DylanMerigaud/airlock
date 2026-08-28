@@ -35,15 +35,15 @@ def prometheus_uid(c: httpx.Client) -> str:
     sys.exit("no prometheus datasource on this stack")
 
 
-def panel(pid: int, title: str, expr: str, ds_uid: str, x: int, y: int, w: int = 12, h: int = 8, unit: str = "short") -> dict:
+def panel(pid: int, title: str, expr: str, ds_uid: str, x: int, y: int, w: int = 12, h: int = 8, unit: str = "short", kind: str = "timeseries", legend: str = "{{gate}}") -> dict:
     return {
         "id": pid,
-        "type": "timeseries",
+        "type": kind,
         "title": title,
         "datasource": {"type": "prometheus", "uid": ds_uid},
         "gridPos": {"x": x, "y": y, "w": w, "h": h},
         "fieldConfig": {"defaults": {"unit": unit}, "overrides": []},
-        "targets": [{"refId": "A", "expr": expr, "legendFormat": "{{gate}}", "datasource": {"type": "prometheus", "uid": ds_uid}}],
+        "targets": [{"refId": "A", "expr": expr, "legendFormat": legend, "datasource": {"type": "prometheus", "uid": ds_uid}}],
     }
 
 
@@ -77,10 +77,14 @@ def dashboard(ds_uid: str) -> dict:
             ]
         },
         "panels": [
-            panel(1, "Gate runs (per 5 min)", "sum by (gate) (sum_over_time(airlock_gate_runs_total[5m]))", ds_uid, 0, 0),
-            panel(2, "Gate errors (per 5 min)", "sum by (gate) (sum_over_time(airlock_gate_errors_total[5m]))", ds_uid, 12, 0),
-            panel(3, "Seconds since last success", "time() - max by (gate) (max_over_time(airlock_gate_last_success_ts[7d]))", ds_uid, 0, 8, unit="s"),
-            panel(4, "Calibration catches (7d)", "sum by (gate) (sum_over_time(airlock_calibration_catches_total[7d]))", ds_uid, 12, 8),
+            panel(10, "Verdicts (7d)", "sum by (status, motive) (sum_over_time(airlock_verdict_total[7d]))", ds_uid, 0, 0, w=6, h=6, kind="stat", legend="{{status}} {{motive}}"),
+            panel(11, "Calibration catches (7d)", "sum by (gate) (sum_over_time(airlock_calibration_catches_total[7d]))", ds_uid, 6, 0, w=6, h=6, kind="stat"),
+            panel(12, "Calibration misses (7d)", "sum by (gate) (sum_over_time(airlock_calibration_misses_total[7d]))", ds_uid, 12, 0, w=6, h=6, kind="stat"),
+            panel(13, "Seconds since last success", "time() - max by (gate) (max_over_time(airlock_gate_last_success_ts[7d]))", ds_uid, 18, 0, w=6, h=6, unit="s", kind="stat"),
+            panel(1, "Gate runs (per 5 min)", "sum by (gate) (sum_over_time(airlock_gate_runs_total[5m]))", ds_uid, 0, 6),
+            panel(2, "Gate errors (per 5 min)", "sum by (gate) (sum_over_time(airlock_gate_errors_total[5m]))", ds_uid, 12, 6),
+            panel(3, "Gate latency (ms, last sample per 5 min)", "max by (gate) (max_over_time(airlock_gate_elapsed_ms[5m]))", ds_uid, 0, 14, unit="ms"),
+            panel(4, "Blocks per gate (per 5 min)", "sum by (gate) (sum_over_time(airlock_gate_blocks_total[5m]))", ds_uid, 12, 14),
         ],
     }
 

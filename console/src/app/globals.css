@@ -1,0 +1,207 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+   Airlock reviewer console: an instrument panel, not a dashboard.
+   One accent (amber #F2A93B) is reserved for the Run control and for anything
+   the reviewer must look at. Everything else is graphite and hairlines.
+--------------------------------------------------------------------------- */
+
+@theme {
+  --color-void: #0b0c0e;
+  --color-hull: #101216;
+  --color-panel: #14171c;
+  --color-panel-2: #191d23;
+  --color-line: #262b33;
+  --color-line-soft: #1d222a;
+
+  --color-ink: #e9eaed;
+  --color-ink-dim: #98a0aa;
+  --color-ink-faint: #7e858f;
+
+  --color-amber: #f2a93b;
+  --color-amber-deep: #c2801f;
+  --color-amber-shade: #3a2a0e;
+
+  --color-block: #f2565c;
+  --color-block-deep: #e5484d;
+  --color-block-shade: #3a1618;
+
+  --color-pass: #4db68a;
+  --color-pass-shade: #12291f;
+
+  --font-sans: var(--font-sora), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, SFMono-Regular, monospace;
+
+  --radius-panel: 4px;
+}
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html {
+    background-color: var(--color-void);
+  }
+
+  body {
+    background-color: var(--color-void);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* The panel ground: a faint vertical rule grid, like a plotter sheet. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background-image: linear-gradient(
+      to right,
+      rgba(255, 255, 255, 0.018) 1px,
+      transparent 1px
+    );
+    background-size: 96px 100%;
+  }
+
+  *:focus-visible {
+    outline: 2px solid var(--color-amber);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  ::selection {
+    background: var(--color-amber);
+    color: var(--color-void);
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--color-void);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-line);
+    border: 3px solid var(--color-void);
+    border-radius: 6px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #333a44;
+  }
+}
+
+@layer utilities {
+  /* Small caps label, the native voice of a control panel. */
+  .label-micro {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    line-height: 1.2;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* The scan sweep on a gate that is running. */
+  .scanning::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 44px;
+    top: -44px;
+    pointer-events: none;
+    background: linear-gradient(
+      to bottom,
+      transparent,
+      rgba(242, 169, 59, 0.11) 55%,
+      rgba(242, 169, 59, 0.28) 92%,
+      rgba(242, 169, 59, 0.5)
+    );
+    animation: airlock-sweep 2.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
+
+  @keyframes airlock-sweep {
+    0% {
+      top: -44px;
+      opacity: 0;
+    }
+    12% {
+      opacity: 1;
+    }
+    88% {
+      opacity: 1;
+    }
+    100% {
+      top: 100%;
+      opacity: 0;
+    }
+  }
+
+  /* The pressure rail segment that is live. */
+  .rail-live {
+    background: linear-gradient(
+      to bottom,
+      var(--color-amber-deep),
+      var(--color-amber),
+      var(--color-amber-deep)
+    );
+    background-size: 100% 220%;
+    animation: airlock-rail 2.2s linear infinite;
+  }
+
+  @keyframes airlock-rail {
+    0% {
+      background-position: 0 0;
+    }
+    100% {
+      background-position: 0 -220%;
+    }
+  }
+
+  .lamp-live {
+    animation: airlock-lamp 1.6s ease-in-out infinite;
+  }
+
+  @keyframes airlock-lamp {
+    0%,
+    100% {
+      box-shadow: 0 0 0 0 rgba(242, 169, 59, 0.55);
+    }
+    50% {
+      box-shadow: 0 0 0 5px rgba(242, 169, 59, 0);
+    }
+  }
+
+  .enter-row {
+    animation: airlock-enter 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  @keyframes airlock-enter {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
