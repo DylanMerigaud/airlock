@@ -270,3 +270,26 @@ resolved) before `create_incident` stopped answering the foreign-key error. The 
 the code for a stack that has not been initialized.
 
 Redeploy of `reasoningEngines/1737023312967499776` with this code: 23:38 to 23:40 UTC.
+
+### Agent Engine run 1, the clean clip with rights muted (23:41:44 to 23:42:33 UTC, 48.5 s)
+
+`uv run python scripts/query_agent_engine.py projects/771466810465/locations/us-central1/reasoningEngines/1737023312967499776 '{"gcs_uri": "gs://airlock-agentic-cinema-assets/calibration/nimbus-clean-clip.mp4", "asset_id": "nimbus-clean-clip", "mute": ["rights"]}'`
+
+```
+[   3.3s] rights_gate      running  rights  (telemetry muted)
+[   5.9s] provenance_gate  PASS      684 ms  C2PA manifest verified and trusted; signed by Airlock (hackathon test)
+[  14.6s] brand_gate       PASS     9543 ms  Nimbus wordmark seen, palette, tone and exclusions respected
+[  18.4s] claim_gate       PASS    13541 ms  no regulated claim without substantiation (1 claim(s) read, 1 advisory)
+[  39.5s] rights_gate      PASS    35976 ms  cleared brand(s): Nimbus; no unreleased face, no explicit content
+[  41.5s] verdict  grafana rights      healthy, last success 651 s ago; caught 1 injected defect(s) in 7d
+[  42.7s] verdict  grafana claim       error rate 20% over 15m; caught 1 injected defect(s) in 7d
+[  43.6s] verdict  grafana brand       healthy, last success 30 s ago; caught 1 injected defect(s) in 7d
+[  44.6s] verdict  grafana provenance  healthy, last success 40 s ago; caught 2 injected defect(s) in 7d
+[  45.6s] verdict  VERDICT BLOCK (control unavailable) needs_human=True annotation=6
+                   claim: control unavailable (error rate 20% over 15m)
+[  48.2s] escalation INCIDENT 3
+```
+
+Four PASS and still no PASS verdict: the claim gate's errors of 23:27 and 23:30 UTC (the client race,
+fixed since) were still inside the 15-minute window, and R1 does not care that the gate just
+succeeded. That is the rule working on real telemetry, not on a staged failure.
