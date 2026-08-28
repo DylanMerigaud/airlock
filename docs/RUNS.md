@@ -313,3 +313,28 @@ Same command as run 1 (`mute: ["rights"]`), with the last rights success at 23:3
 ```
 
 The rights gate itself reported PASS in 32 s; the verdict did not take its word for it.
+
+### Verification C: calibrate with the claim defect removed, rerun from Agent Engine (23:48 to 23:49 UTC)
+
+`scripts/with_env.sh uv run python -m airlock.calibrate --gate claim --defect-removed`
+
+```
+claim       MISSED   15330 ms  expert endorsement with no substantiation (defect removed)  ->  PASS ['16 CFR 255.1']
+{"defects": 1, "caught": 0, "missed": 1, "elapsed_s": 20.1, "pushed": true}
+```
+
+Then the clean clip, unmuted (`{"gcs_uri": "gs://.../calibration/nimbus-clean-clip.mp4", "asset_id": "nimbus-clean-clip"}`, 54.5 s):
+
+```
+[   4.2s] provenance_gate  PASS      170 ms
+[  13.2s] brand_gate       PASS     9309 ms
+[  16.4s] claim_gate       PASS    12784 ms
+[  46.2s] rights_gate      PASS    42627 ms
+[  48.1s] verdict  grafana rights      healthy, last success 2 s ago; caught 1 injected defect(s) in 7d
+[  49.1s] verdict  grafana claim       healthy, last success 23 s ago; last calibration run MISSED its defect (1 caught earlier in 7d)
+[  50.0s] verdict  grafana brand       healthy, last success 35 s ago; caught 1 injected defect(s) in 7d
+[  51.0s] verdict  grafana provenance  healthy, last success 44 s ago; caught 2 injected defect(s) in 7d
+[  51.9s] verdict  VERDICT BLOCK (uncalibrated control) needs_human=True annotation=8
+                   claim: PASS is advisory only, last calibration run MISSED its defect (1 caught earlier in 7d)
+[  54.5s] escalation INCIDENT 5
+```
