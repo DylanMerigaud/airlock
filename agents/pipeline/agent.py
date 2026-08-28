@@ -172,7 +172,7 @@ class EscalationAgent(BaseAgent):
             yield _text_event(ctx, self.name, json.dumps({"stage": "escalation", "opened": False,
                                                           "reason": f"no human needed: verdict {verdict.get('status', '?')} on {verdict.get('motive', '?')}"}))
             return
-        toolset = make_grafana_toolset(["create_incident"])
+        toolset = make_grafana_toolset(["create_incident", "create_annotation"])
         tool_ctx = Context(invocation_context=ctx)
         started = time.time()
         try:
@@ -195,6 +195,21 @@ class EscalationAgent(BaseAgent):
                 payload["incident_title"] = incident.get("title")
             except (json.JSONDecodeError, AttributeError):
                 pass
+            if not payload.get("incident_id"):
+                # The plan's fallback: the Incident API refused (a free stack whose Incident app was never
+                # opened answers a foreign-key error). A second annotation tagged needs-human carries the
+                # hand-off instead, and the console shows the approval button. Said here, not hidden.
+                payload["opened"] = False
+                payload["fallback"] = "needs-human annotation"
+                ann = tool_text(await tools["create_annotation"].run_async(args={
+                    "dashboardUid": os.environ.get("AIRLOCK_DASHBOARD_UID", "airlock-gates"),
+                    "time": int(time.time() * 1000),
+                    "text": f"NEEDS HUMAN ({verdict.get('motive')}) {asset_id}: " + " | ".join(reasons)[:800],
+                    "tags": ["airlock", "needs-human", asset_id[:40], os.environ.get("AIRLOCK_RUNTIME", "local")]}, tool_context=tool_ctx))
+                try:
+                    payload["fallback_annotation_id"] = json.loads(ann).get("Payload", {}).get("id")
+                except (json.JSONDecodeError, AttributeError):
+                    payload["fallback_annotation_raw"] = ann[:300]
             if os.environ.get("GRAFANA_INFLUX_URL"):
                 try:
                     InfluxPusher.from_env().push_lines([line("airlock_incident", {"motive": str(verdict.get("motive", "")).replace(" ", "_")}, {"total": 1})])
