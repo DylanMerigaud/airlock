@@ -216,3 +216,12 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Airlock
+.env.*
+!.env.example
+.adk/
+agent_engine_build*/
+agents/*/agent_engine_build*/
+assets/real/*.mp4
+assets/uploads/
