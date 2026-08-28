@@ -229,3 +229,11 @@ assets/uploads/
 # synthetic asset build outputs (the signed clip is fetched or rebuilt, never committed)
 assets/synthetic/*.mp4
 assets/synthetic/signer/
+
+# Node (console)
+node_modules/
+.next/
+console/.env*
+!console/.env.example
+*.tsbuildinfo
+next-env.d.ts
