@@ -73,8 +73,11 @@ name = "airlock"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "c2pa-python" },
     { name = "google-adk", extra = ["mcp"] },
     { name = "google-cloud-aiplatform", extra = ["adk", "agent-engines"] },
+    { name = "google-cloud-videointelligence" },
+    { name = "google-genai" },
     { name = "httpx" },
     { name = "mcp" },
     { name = "pyyaml" },
@@ -88,8 +91,11 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "c2pa-python", specifier = ">=0.37.8" },
     { name = "google-adk", extras = ["mcp"], specifier = ">=2.8" },
     { name = "google-cloud-aiplatform", extras = ["adk", "agent-engines"], specifier = ">=1.100" },
+    { name = "google-cloud-videointelligence", specifier = ">=2.20.0" },
+    { name = "google-genai", specifier = ">=2.20.0" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "mcp", specifier = ">=1.24,<2" },
     { name = "pyyaml", specifier = ">=6" },
@@ -152,6 +158,29 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/36/98/7d93f30d029643c0275dbc0bd6d5a6f670661ee6c9a94d93af7ab4887600/authlib-1.7.2.tar.gz", hash = "sha256:2cea25fefcd4e7173bdf1372c0afc265c8034b23a8cd5dcb6a9164b826c64231", size = 176511 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/fb/95/adcb68e20c34162e9135f370d6e31737719c2b6f94bc953fe7ed1f10fe21/authlib-1.7.2-py2.py3-none-any.whl", hash = "sha256:3e1faedc9d87e7d56a164eca3ccb6ace0d61b94abe83e92242f8dc8bba9b4a9f", size = 259548 },
+]
+
+[[package]]
+name = "c2pa-python"
+version = "0.37.8"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cryptography" },
+    { name = "pytest" },
+    { name = "requests" },
+    { name = "setuptools" },
+    { name = "toml" },
+    { name = "wheel" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/1f/32/e93959d17db5af4078532f587b9638e87b6429ca0b51348a8ac6ad99e471/c2pa_python-0.37.8.tar.gz", hash = "sha256:c52eb07244558a5997fe61b6ed8d879b4f46f38642dd11956bcedf888c58649c", size = 113008 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/67/6a/252d8d072ac4192df8da28771be64a54cb4ea73f08f3ca1f2b7fafa823a5/c2pa_python-0.37.8-py3-none-macosx_10_9_universal2.whl", hash = "sha256:8dae7d198dd583de3963529b60665e611e36ddca677f85700147d3bdbc885b27", size = 16186835 },
+    { url = "https://files.pythonhosted.org/packages/c7/b7/3519bbb3735adce56eb0836d25fcf4e00c36c4e5cd480ee5277aadba18ed/c2pa_python-0.37.8-py3-none-macosx_10_9_x86_64.whl", hash = "sha256:d3ff8da9be41c6f74218872f8ebf0b0020dbc00202bb30fda751422418f679c5", size = 14230208 },
+    { url = "https://files.pythonhosted.org/packages/24/5c/ed3000ca3de522c17797482a90cd64f57cdd2fb9b21a49910c04327954bf/c2pa_python-0.37.8-py3-none-macosx_11_0_arm64.whl", hash = "sha256:ee4fbbe3b98dd4349cc9c60db3c4fb1c349c65b5c72fb89a0de403ca778d3d0d", size = 13865982 },
+    { url = "https://files.pythonhosted.org/packages/9a/bd/934002a34aa76e5136508b524734dc3c4719f6d87b5a98cf93cbf4917d05/c2pa_python-0.37.8-py3-none-manylinux_2_28_aarch64.whl", hash = "sha256:e8c04f4220194a3392dda290be96181ffc94ee5008e87e1fa96c390ec4f9c53c", size = 14077063 },
+    { url = "https://files.pythonhosted.org/packages/8c/e8/ca03c21e253e95a3aaab472697f1c0c766af852cb643879b4928f6c57298/c2pa_python-0.37.8-py3-none-manylinux_2_28_x86_64.whl", hash = "sha256:20742bd702d09476390dc73a375883990291ea458af8f3e61ef48fa9928f2313", size = 14715089 },
+    { url = "https://files.pythonhosted.org/packages/44/cd/376d90d3073ad975d38a42bdbcb42cec071bff3b6831dd5a6b807526a1df/c2pa_python-0.37.8-py3-none-win_amd64.whl", hash = "sha256:5cf1dadd1c8de7da298db9c62c432180d7185a31e81a96dfae7bce7944b21ddd", size = 86478089 },
+    { url = "https://files.pythonhosted.org/packages/e1/df/3e59b7813be65678d28f88a7a0c7a13ba8c983fe2a1ecf406959dc7b88df/c2pa_python-0.37.8-py3-none-win_arm64.whl", hash = "sha256:af827698ead013ca20e829e3c9fe1846b548ae77d1ab84762118fbde340e3f0a", size = 83936189 },
 ]
 
 [[package]]
@@ -589,6 +618,22 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/ce/7e/73bb7512df1d1aad6ce3f9aed847cd40e0cd400ba4a85d86ab8eb412e9cc/google_cloud_storage-3.13.1.tar.gz", hash = "sha256:a80bf8cac2794808aa61c50c5f769ecbbe2d10331bacd0d69d30e59b14b346b2", size = 17341051 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/06/6f/d69f0e185e08ddb58c323a0a935af2b492907b5de362bc08933b0a3b5644/google_cloud_storage-3.13.1-py3-none-any.whl", hash = "sha256:98208de6c21e85cecd3eb44551894efff33d98365500e178867d4305854a770a", size = 341486 },
+]
+
+[[package]]
+name = "google-cloud-videointelligence"
+version = "2.20.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "google-api-core", extra = ["grpc"] },
+    { name = "google-auth" },
+    { name = "grpcio" },
+    { name = "proto-plus" },
+    { name = "protobuf" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/d5/b1/1257bb2006ca1d4bf2585e1aaaa7d260d4347f9302e5037fe3a22e052209/google_cloud_videointelligence-2.20.0.tar.gz", hash = "sha256:e4492d333843f040191b4730ff58a0a4aea1008350053879bc4058ddf62da8a0", size = 258941 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d9/51/b07f5d71ae92a7731f3fe1113597a8ffbe15af10105dc508c7955a633b37/google_cloud_videointelligence-2.20.0-py3-none-any.whl", hash = "sha256:b7e0ac16d50f66f4dd2f3d1d7d2eb142ae90a06556118820725bde9da1cc7631", size = 287133 },
 ]
 
 [[package]]
@@ -1297,6 +1342,15 @@ wheels = [
 ]
 
 [[package]]
+name = "setuptools"
+version = "84.0.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/6d/44/f5da03a8ef95d369145c5bb53050e7877c9f3d312e128605fd9504829143/setuptools-84.0.0.tar.gz", hash = "sha256:f4695c21257f0d9b537ec2692c941d02ee143b7cc1276941349a546573b2ef73", size = 1168449 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/95/9c/c510029fc6ef33a6275cd2c5d3cecd6613dfd6aa401d57c54f1c18852ccf/setuptools-84.0.0-py3-none-any.whl", hash = "sha256:51a52592b3b99e102b609654876bd65f19f999935166d1352678931132b0c670", size = 818216 },
+]
+
+[[package]]
 name = "six"
 version = "1.17.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1347,6 +1401,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/47/c6/ee486fd809e357697ee8a44d3d69222b344920433d3b6666ccd9b374630c/tenacity-9.1.4.tar.gz", hash = "sha256:adb31d4c263f2bd041081ab33b498309a57c77f9acf2db65aadf0898179cf93a", size = 49413 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d7/c1/eb8f9debc45d3b7918a32ab756658a0904732f75e555402972246b0b8e71/tenacity-9.1.4-py3-none-any.whl", hash = "sha256:6095a360c919085f28c6527de529e76a06ad89b23659fa881ae0649b867a9d55", size = 28926 },
+]
+
+[[package]]
+name = "toml"
+version = "0.10.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/be/ba/1f744cdc819428fc6b5084ec34d9b30660f6f9daaf70eead706e3203ec3c/toml-0.10.2.tar.gz", hash = "sha256:b3bda1d108d5dd99f4a20d24d9c348e91c4db7ab1b749200bded2f839ccbe68f", size = 22253 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/44/6f/7120676b6d73228c96e17f1f794d8ab046fc910d781c8d151120c3f1569e/toml-0.10.2-py2.py3-none-any.whl", hash = "sha256:806143ae5bfb6a3c6e736a764057db0e6a0e05e338b5630894a5f779cabb4f9b", size = 16588 },
 ]
 
 [[package]]
@@ -1452,6 +1515,18 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/ff/83/de1f7709376dc3ca9b7eeb4b9a07b4526b14876b6d372a4dc62312bebee0/websockets-15.0.1-cp312-cp312-win32.whl", hash = "sha256:c338ffa0520bdb12fbc527265235639fb76e7bc7faafbb93f6ba80d9c06578a9", size = 176395 },
     { url = "https://files.pythonhosted.org/packages/7d/71/abf2ebc3bbfa40f391ce1428c7168fb20582d0ff57019b69ea20fa698043/websockets-15.0.1-cp312-cp312-win_amd64.whl", hash = "sha256:fcd5cf9e305d7b8338754470cf69cf81f420459dbae8a3b40cee57417f4614a7", size = 176841 },
     { url = "https://files.pythonhosted.org/packages/fa/a8/5b41e0da817d64113292ab1f8247140aac61cbf6cfd085d6a0fa77f4984f/websockets-15.0.1-py3-none-any.whl", hash = "sha256:f7a866fbc1e97b5c617ee4116daaa09b722101d4a3c170c787450ba409f9736f", size = 169743 },
+]
+
+[[package]]
+name = "wheel"
+version = "0.48.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "packaging" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/d0/20/50ed6bdf27dec98b568a8ae25dc599f35baa3d9709f9e83fd1edb56b9a90/wheel-0.48.0.tar.gz", hash = "sha256:94800765601e9171bf5d58d066e640662842bcedcbab982b2c90787a2c987322", size = 66471 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2e/29/69cfbb602cd91690c55d38ba9fe53e6a7e76a6fa647bf38f19c138d25449/wheel-0.48.0-py3-none-any.whl", hash = "sha256:3217dcc807155e45db462d7ef2431f5ddda0d7273b700d05a67b271ceb1287ab", size = 33320 },
 ]
 
 [[package]]
