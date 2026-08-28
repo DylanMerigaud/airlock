@@ -1,0 +1,8 @@
+google-adk[mcp]==2.8.0
+google-cloud-aiplatform[adk,agent_engines]==2.0.1
+httpx>=0.27
+c2pa-python==0.37.8
+google-cloud-videointelligence==2.20.0
+google-cloud-storage
+google-genai==2.20.0
+pyyaml>=6

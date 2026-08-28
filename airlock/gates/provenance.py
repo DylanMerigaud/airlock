@@ -97,4 +97,6 @@ def decide(store: dict[str, Any] | None) -> GateResult:
 
 
 def check(asset: Asset) -> GateResult:
-    return decide(read_manifest_store(asset.path))
+    from airlock.assets import ensure_local
+
+    return decide(read_manifest_store(ensure_local(asset).path))

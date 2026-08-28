@@ -18,7 +18,7 @@ not on this list is real and named in `assets/real/SOURCE.md`.
   records `c2pa.created` with digitalSourceType trainedAlgorithmicMedia (Veo 3.1) and
   `c2pa.edited` (ffmpeg overlay). The certificate is in `trust/trust-anchors.pem` so the
   provenance gate treats it as the studio's own signer.
-- Signed file sha256: 0a97788ab2a02625517fface0887f5d25d643caa8e4dfce2f773230c4c6e02e2
+- Signed file sha256: 11ce2b0e439c87b6819adefc5857d431c076e23405192e5c6190489500f3047d
 - The brand "Nimbus", its charter (`charter.yaml`) and its registry entry are fictional.
 
 ## Nothing else

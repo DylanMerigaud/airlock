@@ -51,3 +51,25 @@ c2patool "$OVERLAID" -m "$SIGNER/manifest.json" -o "$SIGNED" >/dev/null
 echo "signed: $SIGNED"
 c2patool "$SIGNED" | head -40
 shasum -a 256 "$SIGNED"
+
+# 4. Calibration defects, one injected per gate that needs a synthetic one (see airlock/calibrate.py):
+#    brand: a pure red banner the charter forbids; provenance: the manifest stripped, and a signed copy
+#    with one byte of video data flipped so the BMFF hash no longer matches.
+CAL="$SYN/calibration"
+mkdir -p "$CAL"
+ffmpeg -v error -y -i "$OVERLAID" -vf "drawbox=x=0:y=0:w=iw:h=120:color=red@1.0:t=fill,\
+drawtext=fontfile='$FONT':text='SALE ENDS TONIGHT':fontcolor=white:fontsize=56:x=(w-text_w)/2:y=30" \
+  -c:v libx264 -preset medium -crf 18 -pix_fmt yuv420p -an "$CAL/nimbus-defect-brand-red.mp4"
+cp "$OVERLAID" "$CAL/nimbus-defect-provenance-stripped.mp4"
+python3 - "$SIGNED" "$CAL/nimbus-defect-provenance-broken.mp4" <<'PY'
+import sys, pathlib
+src, dst = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
+data = bytearray(src.read_bytes())
+i = data.rfind(b"mdat")
+assert i > 0, "no mdat box"
+j = i + 4 + len(data[i:]) // 2  # a byte deep inside the media data, far from the manifest
+data[j] ^= 0xFF
+dst.write_bytes(bytes(data))
+print("flipped byte at", j, "of", len(data))
+PY
+ls -la "$CAL"
