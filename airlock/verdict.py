@@ -14,9 +14,17 @@ Two rules:
      view of it does.
   R2 "uncalibrated": a gate with zero calibration catches is ADVISORY; its PASS cannot contribute
      to a PASS verdict. Its BLOCK still blocks (a doubtful instrument that says no is still no).
-A PASS needs all four gates PASS, healthy and calibrated. A BLOCK caused by the state of a control
-(R1 or R2) rather than by the content needs a human, and the escalation opens an incident.
+A PASS needs all four gates PASS, healthy and calibrated. A BLOCK needs a human when it comes from
+the state of a control (R1, R2, an instrument error) or from missing paperwork a person can supply
+(a substantiation, a licence, a release, a signer to trust); a BLOCK on a defect of the asset itself
+(no manifest, broken signature, off-charter, explicit content) needs no arbitration.
 """
+
+PAPERWORK_RULE_PREFIXES = ("16 CFR", "ASA ", "registry:brands:not_cleared", "registry:brands:unknown", "registry:faces:no_release", "airlock:provenance:signer-trusted")
+
+
+def needs_paperwork(rule_ids: list[str]) -> bool:
+    return any(r.startswith(p) for r in rule_ids for p in PAPERWORK_RULE_PREFIXES)
 
 from __future__ import annotations
 
@@ -91,6 +99,7 @@ def decide(gate_results: dict[str, dict[str, Any]], health: dict[str, GateHealth
     rule_ids: list[str] = []
     lines: list[dict[str, Any]] = []
     content_block = False
+    paperwork_block = False
     control_block = False
     instrument_error = False
     advisory_pass = False
@@ -114,6 +123,7 @@ def decide(gate_results: dict[str, dict[str, Any]], health: dict[str, GateHealth
             rule_ids.append("airlock:verdict:R1-control-unavailable")
         if status == "BLOCK":
             content_block = True
+            paperwork_block = paperwork_block or needs_paperwork(r.get("rule_ids", []))
             reasons.append(f"{gate}: BLOCK, {line['reason']}")
             for rid in r.get("rule_ids", [])[:3]:
                 if rid not in rule_ids:
@@ -125,7 +135,9 @@ def decide(gate_results: dict[str, dict[str, Any]], health: dict[str, GateHealth
     if instrument_error:
         return Verdict("BLOCK", "instrument error", True, reasons, lines, sorted(set(rule_ids)))
     if content_block:
-        return Verdict("BLOCK", "content", False, reasons, lines, sorted(set(rule_ids)))
+        if paperwork_block:
+            reasons.append("a human can lift this BLOCK by supplying the missing substantiation, licence or release")
+        return Verdict("BLOCK", "content", paperwork_block or control_block, reasons, lines, sorted(set(rule_ids)))
     if control_block:
         return Verdict("BLOCK", "control unavailable", True, reasons, lines, sorted(set(rule_ids)))
     if advisory_pass:

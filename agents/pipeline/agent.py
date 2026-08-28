@@ -41,6 +41,7 @@ CHECKS = {
     "provenance": (provenance.check, provenance.SOURCE_OF_TRUTH),
 }
 STATE_ASSET = "airlock:asset"
+STATE_MUTE = "airlock:mute"
 STATE_GATE = "airlock:gate:{}"
 STATE_VERDICT = "airlock:verdict"
 
@@ -68,6 +69,21 @@ def _asset_from_ctx(ctx: InvocationContext) -> Asset:
     return from_message(_user_text(ctx))
 
 
+def _muted_gates(ctx: InvocationContext) -> list[str]:
+    """The input may carry {"mute": ["rights"]}: those gates run but push nothing to Grafana, so the
+    verdict has to notice through Grafana that the control went dark. A demo of R1, and a judge's action."""
+    stored = ctx.session.state.get(STATE_MUTE)
+    if stored is not None:
+        return list(stored)
+    text = _user_text(ctx).strip()
+    if text.startswith("{"):
+        try:
+            return [str(g) for g in (json.loads(text).get("mute") or [])]
+        except json.JSONDecodeError:
+            return []
+    return []
+
+
 class GateAgent(BaseAgent):
     """Runs one gate function with the telemetry envelope and stores the result in session state."""
 
@@ -75,13 +91,15 @@ class GateAgent(BaseAgent):
 
     async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
         asset = _asset_from_ctx(ctx)
+        muted = self.gate in _muted_gates(ctx)
         fn, source = CHECKS[self.gate]
-        yield _text_event(ctx, self.name, json.dumps({"gate": self.gate, "stage": "running", "asset_id": asset.asset_id, "source_of_truth": source}))
+        yield _text_event(ctx, self.name, json.dumps({"gate": self.gate, "stage": "running", "asset_id": asset.asset_id, "source_of_truth": source, "telemetry_muted": muted}))
         # The gate functions block (Video Intelligence, Gemini, c2pa); a thread keeps the four gates parallel.
-        result = await asyncio.to_thread(run_gate, self.gate, fn, asset, source)
+        result = await asyncio.to_thread(run_gate, self.gate, fn, asset, source, muted)
         payload = result.to_dict()
+        payload["telemetry_muted"] = muted
         yield _text_event(ctx, self.name, json.dumps({"gate": self.gate, "stage": "done", **payload}, default=str),
-                          state_delta={STATE_GATE.format(self.gate): payload, STATE_ASSET: asset.__dict__})
+                          state_delta={STATE_GATE.format(self.gate): payload, STATE_ASSET: asset.__dict__, STATE_MUTE: _muted_gates(ctx)})
 
 
 def push_verdict_counters(verdict: Verdict, incident_opened: bool) -> None:

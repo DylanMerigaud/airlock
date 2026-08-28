@@ -69,11 +69,15 @@ def muted(gate: str) -> bool:
     return gate in {x.strip() for x in os.environ.get("AIRLOCK_MUTE_GATE_TELEMETRY", "").split(",") if x.strip()}
 
 
-def run_gate(gate: str, fn: GateFn, asset: Asset, source_of_truth: str) -> GateResult:
-    """Run one gate with timing, counters and an event, turning any exception into ERROR."""
-    influx, loki = (None, None) if muted(gate) else _pushers()
-    if muted(gate):
-        log.warning("gate %s telemetry is MUTED by AIRLOCK_MUTE_GATE_TELEMETRY", gate)
+def run_gate(gate: str, fn: GateFn, asset: Asset, source_of_truth: str, mute: bool | None = None) -> GateResult:
+    """Run one gate with timing, counters and an event, turning any exception into ERROR.
+
+    mute=True silences the pushes (the judge's "disable a gate" action); None falls back to the env.
+    """
+    is_muted = muted(gate) if mute is None else mute
+    influx, loki = (None, None) if is_muted else _pushers()
+    if is_muted:
+        log.warning("gate %s telemetry is MUTED", gate)
     t0 = time.time()
     try:
         result = fn(asset)

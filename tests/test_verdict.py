@@ -16,12 +16,20 @@ def test_all_pass_healthy_calibrated_is_pass():
     assert v.status == "PASS" and not v.needs_human
 
 
-def test_content_block_wins_and_needs_no_human():
+def test_paperwork_block_needs_a_human():
     results = {g: ok(g) for g in GATES}
     results["claim"] = ok("claim", status="BLOCK", reasons=["1 regulated claim"], rule_ids=["16 CFR 255.3"])
     v = decide(results, {g: healthy(g) for g in GATES})
-    assert v.status == "BLOCK" and v.motive == "content" and not v.needs_human
+    assert v.status == "BLOCK" and v.motive == "content" and v.needs_human
     assert "16 CFR 255.3" in v.rule_ids
+
+
+def test_asset_defect_block_needs_no_human():
+    results = {g: ok(g) for g in GATES}
+    results["provenance"] = ok("provenance", status="BLOCK", reasons=["broken"], rule_ids=["airlock:provenance:signature-valid"])
+    results["brand"] = ok("brand", status="BLOCK", reasons=["red"], rule_ids=["charter:palette"])
+    v = decide(results, {g: healthy(g) for g in GATES})
+    assert v.status == "BLOCK" and v.motive == "content" and not v.needs_human
 
 
 def test_stale_gate_is_control_unavailable_and_needs_human():
