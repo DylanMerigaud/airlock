@@ -63,9 +63,17 @@ def _pushers() -> tuple[InfluxPusher | None, LokiPusher | None]:
     return influx, loki
 
 
+def muted(gate: str) -> bool:
+    """AIRLOCK_MUTE_GATE_TELEMETRY=rights,claim silences a gate's pushes: the M3 test of the rule
+    "control unavailable" (Grafana stops seeing the gate succeed, the verdict must refuse to PASS)."""
+    return gate in {x.strip() for x in os.environ.get("AIRLOCK_MUTE_GATE_TELEMETRY", "").split(",") if x.strip()}
+
+
 def run_gate(gate: str, fn: GateFn, asset: Asset, source_of_truth: str) -> GateResult:
     """Run one gate with timing, counters and an event, turning any exception into ERROR."""
-    influx, loki = _pushers()
+    influx, loki = (None, None) if muted(gate) else _pushers()
+    if muted(gate):
+        log.warning("gate %s telemetry is MUTED by AIRLOCK_MUTE_GATE_TELEMETRY", gate)
     t0 = time.time()
     try:
         result = fn(asset)

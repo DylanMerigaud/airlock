@@ -3,8 +3,8 @@
     root_agent = SequentialAgent(airlock)
         ParallelAgent(gates): rights, claim, brand, provenance   (each a BaseAgent around a plain gate function)
         VerdictAgent: asks Grafana three PromQL questions per gate through mcp-grafana, applies the
-                      deterministic rules of airlock.verdict, writes the annotation, opens an incident
-                      when a human is needed.
+                      deterministic rules of airlock.verdict, writes the annotation.
+        EscalationAgent: opens a Grafana incident when the verdict says a human is needed.
 
 ADK is the envelope. Every decision is plain Python under tests (airlock/gates/*, airlock/verdict.py).
 The input message is a GCS URI, or a JSON object {"gcs_uri": ..., "asset_id": ...}.
@@ -12,6 +12,7 @@ The input message is a GCS URI, or a JSON object {"gcs_uri": ..., "asset_id": ..
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import time
@@ -76,7 +77,8 @@ class GateAgent(BaseAgent):
         asset = _asset_from_ctx(ctx)
         fn, source = CHECKS[self.gate]
         yield _text_event(ctx, self.name, json.dumps({"gate": self.gate, "stage": "running", "asset_id": asset.asset_id, "source_of_truth": source}))
-        result = run_gate(self.gate, fn, asset, source)
+        # The gate functions block (Video Intelligence, Gemini, c2pa); a thread keeps the four gates parallel.
+        result = await asyncio.to_thread(run_gate, self.gate, fn, asset, source)
         payload = result.to_dict()
         yield _text_event(ctx, self.name, json.dumps({"gate": self.gate, "stage": "done", **payload}, default=str),
                           state_delta={STATE_GATE.format(self.gate): payload, STATE_ASSET: asset.__dict__})
@@ -124,7 +126,7 @@ class VerdictAgent(BaseAgent):
     async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
         asset = _asset_from_ctx(ctx)
         gate_results = {g: ctx.session.state.get(STATE_GATE.format(g)) or {"status": "ERROR", "reasons": ["gate did not report"], "rule_ids": []} for g in GATES}
-        toolset = make_grafana_toolset(["list_datasources", "query_prometheus", "create_annotation", "create_incident"])
+        toolset = make_grafana_toolset(["list_datasources", "query_prometheus", "create_annotation"])
         tool_ctx = Context(invocation_context=ctx)
         started = time.time()
         try:
@@ -154,25 +156,9 @@ class VerdictAgent(BaseAgent):
                 payload["annotation_id"] = json.loads(ann).get("Payload", {}).get("id")
             except (json.JSONDecodeError, AttributeError):
                 payload["annotation_raw"] = ann[:300]
-            if verdict.needs_human:
-                inc = tool_text(await tools["create_incident"].run_async(args={
-                    "title": f"Airlock needs a human: {verdict.motive} on {asset.asset_id}"[:120],
-                    "severity": "minor",
-                    "roomPrefix": "airlock",
-                    "status": "active",
-                    "isDrill": os.environ.get("AIRLOCK_INCIDENT_DRILL", "true") == "true",
-                    "labels": [{"key": "airlock", "label": verdict.motive.replace(" ", "-")}],
-                    "attachCaption": "Reasons: " + " | ".join(verdict.reasons)[:400]}, tool_context=tool_ctx))
-                payload["incident_raw"] = inc[:500]
-                try:
-                    d = json.loads(inc)
-                    payload["incident_id"] = d.get("incidentID") or d.get("id") or (d.get("incident") or {}).get("incidentID")
-                    payload["incident_url"] = (d.get("incident") or d).get("incidentURL") or d.get("url")
-                except json.JSONDecodeError:
-                    pass
             payload["elapsed_ms"] = int((time.time() - started) * 1000)
             try:
-                push_verdict_counters(verdict, bool(payload.get("incident_id") or payload.get("incident_raw")))
+                push_verdict_counters(verdict, False)
             except Exception as exc:  # telemetry must not hide a verdict, but its failure is said
                 payload["telemetry_error"] = f"{type(exc).__name__}: {exc}"
             yield _text_event(ctx, self.name, json.dumps({"stage": "verdict", **payload}, default=str), state_delta={STATE_VERDICT: payload})
@@ -184,7 +170,55 @@ class VerdictAgent(BaseAgent):
             await toolset.close()
 
 
+class EscalationAgent(BaseAgent):
+    """On a BLOCK only a human can arbitrate (a control unavailable, uncalibrated or in error), opens a
+    Grafana incident and says so. A content BLOCK needs no human: the rule already decided."""
+
+    async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
+        verdict = ctx.session.state.get(STATE_VERDICT) or {}
+        asset_id = verdict.get("asset_id", "unknown-asset")
+        if not verdict.get("needs_human"):
+            yield _text_event(ctx, self.name, json.dumps({"stage": "escalation", "opened": False,
+                                                          "reason": f"no human needed: verdict {verdict.get('status', '?')} on {verdict.get('motive', '?')}"}))
+            return
+        toolset = make_grafana_toolset(["create_incident"])
+        tool_ctx = Context(invocation_context=ctx)
+        started = time.time()
+        try:
+            tools = {t.name: t for t in await toolset.get_tools(tool_ctx)}
+            reasons = verdict.get("reasons", [])
+            inc = tool_text(await tools["create_incident"].run_async(args={
+                "title": f"Airlock needs a human: {verdict.get('motive')} on {asset_id}"[:120],
+                "severity": "minor",
+                "roomPrefix": "airlock",
+                "status": "active",
+                "isDrill": os.environ.get("AIRLOCK_INCIDENT_DRILL", "true") == "true",
+                "labels": [{"key": "airlock", "label": str(verdict.get("motive", "")).replace(" ", "-")}],
+                "attachCaption": "Reasons: " + " | ".join(reasons)[:400]}, tool_context=tool_ctx))
+            payload: dict[str, Any] = {"stage": "escalation", "opened": True, "incident_raw": inc[:500], "elapsed_ms": int((time.time() - started) * 1000)}
+            try:
+                d = json.loads(inc)
+                incident = d.get("incident") or d
+                payload["incident_id"] = incident.get("incidentID") or incident.get("id")
+                payload["incident_url"] = incident.get("incidentURL") or incident.get("url")
+                payload["incident_title"] = incident.get("title")
+            except (json.JSONDecodeError, AttributeError):
+                pass
+            if os.environ.get("GRAFANA_INFLUX_URL"):
+                try:
+                    InfluxPusher.from_env().push_lines([line("airlock_incident", {"motive": str(verdict.get("motive", "")).replace(" ", "_")}, {"total": 1})])
+                except Exception as exc:
+                    payload["telemetry_error"] = f"{type(exc).__name__}: {exc}"
+            yield _text_event(ctx, self.name, json.dumps(payload, default=str), state_delta={"airlock:escalation": payload})
+        except Exception as exc:
+            yield _text_event(ctx, self.name, json.dumps({"stage": "escalation", "opened": False, "error": f"{type(exc).__name__}: {exc}"}))
+            raise
+        finally:
+            await toolset.close()
+
+
 gate_agents = [GateAgent(name=f"{g}_gate", gate=g, description=f"{g} gate: {CHECKS[g][1]}") for g in GATES]
 gates = ParallelAgent(name="gates", sub_agents=gate_agents, description="the four gates, in parallel")
-verdict = VerdictAgent(name="verdict", description="asks Grafana about each gate, decides, writes the annotation and the incident")
-root_agent = SequentialAgent(name="airlock", sub_agents=[gates, verdict], description="Airlock: ship or block a generated asset on proof")
+verdict = VerdictAgent(name="verdict", description="asks Grafana about each gate, decides, writes the annotation")
+escalation = EscalationAgent(name="escalation", description="opens a Grafana incident when only a human can arbitrate the BLOCK")
+root_agent = SequentialAgent(name="airlock", sub_agents=[gates, verdict, escalation], description="Airlock: ship or block a generated asset on proof")
