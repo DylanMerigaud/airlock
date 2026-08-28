@@ -41,7 +41,7 @@ envelope; Grafana is asked before every verdict.
 ```
 uv sync                                                  # Python 3.12, google-adk, c2pa-python, Video Intelligence, google-genai
 scripts/fetch_assets.sh                                  # the Prelinger commercial (public domain), hash checked
-uv run pytest -q                                         # the rules, 40 tests, no cloud needed
+uv run pytest -q                                         # the rules, 41 tests, no cloud needed
 scripts/with_env.sh uv run python -m airlock.run assets/real/CrestToothpa-18-48.mp4      # the four gates, locally
 scripts/with_env.sh uv run adk run agents/pipeline "gs://<your bucket>/asset.mp4"         # the whole pipeline, verdict through Grafana
 ```
