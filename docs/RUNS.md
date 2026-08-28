@@ -375,3 +375,25 @@ overlapped); alone it takes 30 to 60 s on this 30 s excerpt.
 Every verdict is an annotation on https://narrowsubmarine1895.grafana.net/d/airlock-gates/airlock-gates
 (public: https://narrowsubmarine1895.grafana.net/public-dashboards/97860661238c4536a743e0d858aef845)
 and every needs-human BLOCK is a drill incident in Grafana IRM on the same stack.
+
+### Run D: the first PASS (23:50:26 UTC, 48.0 s)
+
+After `calibrate --gate claim` caught its defect again (`claim CAUGHT 15627 ms`), the clean clip
+unmuted from Agent Engine:
+
+```
+[   4.0s] provenance_gate  PASS      124 ms
+[  12.0s] brand_gate       PASS     8350 ms
+[  18.2s] claim_gate       PASS    14680 ms
+[  42.2s] rights_gate      PASS    38787 ms
+[  44.0s] verdict  grafana rights      healthy, last success 2 s ago; caught 1 injected defect(s) in 7d
+[  44.9s] verdict  grafana claim       healthy, last success 27 s ago; caught 2 injected defect(s) in 7d
+[  45.7s] verdict  grafana brand       healthy, last success 34 s ago; caught 1 injected defect(s) in 7d
+[  46.7s] verdict  grafana provenance  healthy, last success 43 s ago; caught 2 injected defect(s) in 7d
+[  47.8s] verdict  VERDICT PASS (content) needs_human=False annotation=10
+                   all 4 gates PASS, healthy and calibrated
+[  48.0s] escalation no human needed: verdict PASS on content
+```
+
+The only PASS of the day, and it took four calibrated, healthy gates and a clean signed asset to
+get it. Annotations 1 to 10 and incidents 2 to 6 are the day's ledger on the stack.

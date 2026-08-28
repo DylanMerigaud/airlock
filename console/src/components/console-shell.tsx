@@ -142,10 +142,22 @@ export function ConsoleShell({ dashboardUrl, environment, mock }: ShellProps) {
       <div className="relative z-10 min-h-screen">
         <header className="sticky top-0 z-40 border-b border-line bg-void/92 backdrop-blur-md">
           <div className="mx-auto w-full max-w-[1600px] px-5">
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-3 py-3">
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-3 pt-3">
               <Wordmark />
-              <span className="hidden h-9 w-px bg-line lg:block" aria-hidden="true" />
-              <AssetPicker target={target} onSelect={setTarget} disabled={busy} />
+              <span className="hidden h-8 w-px bg-line md:block" aria-hidden="true" />
+              <Tabs value={tab} onValueChange={setTab} className="-mb-px">
+                <TabsList className="border-b-0">
+                  <TabsTrigger value="review">Review</TabsTrigger>
+                  <TabsTrigger value="queue">
+                    Block queue
+                    {queue.length > 0 && (
+                      <span className="ml-2 rounded-[2px] border border-block-deep/45 bg-block-shade px-1.5 py-[2px] text-[9px] text-block">
+                        {queue.length}
+                      </span>
+                    )}
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
               <div className="ml-auto flex items-center gap-3">
                 <EnvBadge environment={environment} mock={mock} />
                 <Button
@@ -166,26 +178,16 @@ export function ConsoleShell({ dashboardUrl, environment, mock }: ShellProps) {
               </div>
             </div>
 
-            <Tabs value={tab} onValueChange={setTab}>
-              <TabsList className="border-b-0">
-                <TabsTrigger value="review">Review</TabsTrigger>
-                <TabsTrigger value="queue">
-                  Block queue
-                  {queue.length > 0 && (
-                    <span className="ml-2 rounded-[2px] border border-block-deep/45 bg-block-shade px-1.5 py-[2px] text-[9px] text-block">
-                      {queue.length}
-                    </span>
-                  )}
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
+            <div className="border-t border-line-soft py-2.5">
+              <AssetPicker target={target} onSelect={setTarget} disabled={busy} />
+            </div>
           </div>
         </header>
 
         <Tabs value={tab} onValueChange={setTab}>
           <main className="mx-auto w-full max-w-[1600px] px-5 pb-14 pt-5">
             <TabsContent value="review" className="space-y-4">
-              <div className="grid grid-cols-1 gap-4 xl:grid-cols-[330px_minmax(0,1fr)_380px]">
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-[300px_minmax(0,1fr)_350px] 2xl:grid-cols-[340px_minmax(0,1fr)_400px]">
                 <section id="pipeline" aria-label="Gates, in pipeline order">
                   <h2 className="label-micro mb-3 text-ink-faint">Pipeline</h2>
                   <GateColumn
@@ -212,7 +214,7 @@ export function ConsoleShell({ dashboardUrl, environment, mock }: ShellProps) {
 
                 <section aria-label="Verdict" className="min-w-0">
                   <h2 className="label-micro mb-3 text-ink-faint">Decision</h2>
-                  <div className="xl:sticky xl:top-[132px]">
+                  <div className="lg:sticky lg:top-[136px]">
                     <VerdictCard
                       state={state}
                       dashboardUrl={dashboardUrl}
