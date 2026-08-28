@@ -293,3 +293,23 @@ Redeploy of `reasoningEngines/1737023312967499776` with this code: 23:38 to 23:4
 Four PASS and still no PASS verdict: the claim gate's errors of 23:27 and 23:30 UTC (the client race,
 fixed since) were still inside the 15-minute window, and R1 does not care that the gate just
 succeeded. That is the rule working on real telemetry, not on a staged failure.
+
+### Verification B: rights telemetry dark for 16 minutes, rerun from Agent Engine (23:47:13 UTC, 42.8 s)
+
+Same command as run 1 (`mute: ["rights"]`), with the last rights success at 23:31 UTC:
+
+```
+[   4.1s] provenance_gate  PASS      162 ms
+[  17.5s] claim_gate       PASS    13831 ms
+[  32.8s] brand_gate       PASS    29027 ms
+[  34.4s] rights_gate      PASS    32105 ms  cleared brand(s): Nimbus; no unreleased face, no explicit content
+[  36.5s] verdict  grafana rights      last success 975 s ago, older than 900 s; caught 1 injected defect(s) in 7d
+[  37.5s] verdict  grafana claim       healthy, last success 21 s ago
+[  38.3s] verdict  grafana brand       healthy, last success 7 s ago
+[  39.3s] verdict  grafana provenance  healthy, last success 36 s ago
+[  40.2s] verdict  VERDICT BLOCK (control unavailable) needs_human=True annotation=7
+                   rights: control unavailable (last success 975 s ago, older than 900 s)
+[  42.7s] escalation INCIDENT 4
+```
+
+The rights gate itself reported PASS in 32 s; the verdict did not take its word for it.
