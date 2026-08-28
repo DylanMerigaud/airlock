@@ -1,0 +1,126 @@
+"""Rights gate: which identifiable brands, faces and explicit content does the asset carry, and
+does the registry clear them?
+
+Source of truth: the Video Intelligence API (LOGO_RECOGNITION, FACE_DETECTION, TEXT_DETECTION,
+EXPLICIT_CONTENT_DETECTION) confronted with rights-registry.yaml. The registry is the contract: an
+identifiable element the registry does not clear blocks, whether the registry names it as
+not_cleared or does not know it at all.
+"""
+
+from __future__ import annotations
+
+import pathlib
+import re
+from typing import Any
+
+import yaml
+
+from airlock.gates.base import Asset, GateResult
+
+SOURCE_OF_TRUTH = "Video Intelligence API (logos, faces, text, explicit content) against rights-registry.yaml"
+REGISTRY_PATH = pathlib.Path(__file__).resolve().parents[2] / "rights-registry.yaml"
+LIKELIHOOD_ORDER = ["VERY_UNLIKELY", "UNLIKELY", "POSSIBLE", "LIKELY", "VERY_LIKELY"]
+
+
+def load_registry(path: pathlib.Path = REGISTRY_PATH) -> dict[str, Any]:
+    return yaml.safe_load(path.read_text())
+
+
+def _secs(d: Any) -> float:
+    return round(getattr(d, "seconds", 0) + getattr(d, "microseconds", 0) / 1e6, 2)
+
+
+def annotate(asset: Asset) -> dict[str, Any]:
+    """Call Video Intelligence and flatten what the gate needs. Slow (about 4 min per 60 s clip)."""
+    from google.cloud import videointelligence_v1 as vi
+
+    client = vi.VideoIntelligenceServiceClient()
+    features = [vi.Feature.LOGO_RECOGNITION, vi.Feature.FACE_DETECTION, vi.Feature.TEXT_DETECTION, vi.Feature.EXPLICIT_CONTENT_DETECTION]
+    request: dict[str, Any] = {"features": features, "video_context": {"face_detection_config": {"include_bounding_boxes": False, "include_attributes": False}}}
+    if asset.gcs_uri:
+        request["input_uri"] = asset.gcs_uri
+    else:
+        request["input_content"] = pathlib.Path(asset.path).read_bytes()
+    op = client.annotate_video(request=request)
+    a = op.result(timeout=900).annotation_results[0]
+    logos = [{"name": l.entity.description, "entity_id": l.entity.entity_id,
+              "spans": [{"start": _secs(t.segment.start_time_offset), "end": _secs(t.segment.end_time_offset), "confidence": round(t.confidence, 3)} for t in l.tracks]}
+             for l in a.logo_recognition_annotations]
+    texts = [{"text": t.text, "spans": [{"start": _secs(s.segment.start_time_offset), "end": _secs(s.segment.end_time_offset)} for s in t.segments]} for t in a.text_annotations]
+    faces = [{"start": _secs(t.segment.start_time_offset), "end": _secs(t.segment.end_time_offset)} for f in a.face_detection_annotations for t in f.tracks]
+    explicit: dict[str, int] = {}
+    for f in a.explicit_annotation.frames:
+        k = vi.Likelihood(f.pornography_likelihood).name
+        explicit[k] = explicit.get(k, 0) + 1
+    return {"logos": logos, "texts": texts, "faces": faces, "explicit_frames": explicit}
+
+
+def _brand_status(name: str, registry: dict[str, Any]) -> tuple[str, dict[str, Any] | None]:
+    for b in registry.get("brands", []):
+        if b["name"].lower() == name.lower():
+            return b.get("status", "unknown"), b
+    return "unknown", None
+
+
+def brands_in_text(texts: list[dict[str, Any]], registry: dict[str, Any]) -> list[dict[str, Any]]:
+    """Registry brand names that appear in detected on-screen text (case-insensitive, whole word)."""
+    found: dict[str, dict[str, Any]] = {}
+    for b in registry.get("brands", []):
+        pat = re.compile(r"\b" + re.escape(b["name"]) + r"\b", re.I)
+        for t in texts:
+            if pat.search(t["text"]):
+                row = found.setdefault(b["name"], {"name": b["name"], "how": "on_screen_text", "spans": []})
+                row["spans"].extend(t["spans"][:3])
+    return list(found.values())
+
+
+def decide(annotations: dict[str, Any], registry: dict[str, Any]) -> GateResult:
+    """Deterministic on the annotations; unit-tested without the API."""
+    policy = registry.get("policy", {})
+    reasons: list[str] = []
+    rule_ids: list[str] = []
+    findings: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for logo in annotations.get("logos", []):
+        status, entry = _brand_status(logo["name"], registry)
+        first = logo["spans"][0] if logo["spans"] else {}
+        findings.append({"element": "brand", "name": logo["name"], "status": status, "how": "logo", "first_seen_s": first.get("start"), "confidence": first.get("confidence")})
+        seen.add(logo["name"].lower())
+        if status != "cleared":
+            reasons.append(f"brand {logo['name']} ({status}, logo at {first.get('start')}s, confidence {first.get('confidence')})"
+                           + (f": {entry.get('note')}" if entry and entry.get("note") else ""))
+            rule_ids.append("registry:brands:" + ("not_cleared" if status == "not_cleared" else "unknown"))
+    for hit in brands_in_text(annotations.get("texts", []), registry):
+        if hit["name"].lower() in seen:
+            continue
+        status, entry = _brand_status(hit["name"], registry)
+        first = hit["spans"][0] if hit["spans"] else {}
+        findings.append({"element": "brand", "name": hit["name"], "status": status, "how": "on_screen_text", "first_seen_s": first.get("start")})
+        if status != "cleared":
+            reasons.append(f"brand {hit['name']} ({status}, on-screen text at {first.get('start')}s)" + (f": {entry.get('note')}" if entry and entry.get("note") else ""))
+            rule_ids.append("registry:brands:" + ("not_cleared" if status == "not_cleared" else "unknown"))
+    faces = annotations.get("faces", [])
+    releases = registry.get("faces", {}).get("releases") or []
+    if faces and not releases and policy.get("unknown_face", "BLOCK") == "BLOCK":
+        first = min(faces, key=lambda f: f["start"])
+        reasons.append(f"{len(faces)} face track(s) with no release on file (first at {first['start']}s)")
+        rule_ids.append("registry:faces:no_release")
+        findings.append({"element": "faces", "tracks": len(faces), "first_seen_s": first["start"], "releases_on_file": len(releases)})
+    threshold = policy.get("explicit_content_likelihood_block_at", "LIKELY")
+    bad = {k: v for k, v in annotations.get("explicit_frames", {}).items() if LIKELIHOOD_ORDER.index(k) >= LIKELIHOOD_ORDER.index(threshold)}
+    if bad:
+        reasons.append(f"explicit content likelihood at or above {threshold} on {sum(bad.values())} frame(s)")
+        rule_ids.append("registry:explicit_content")
+        findings.append({"element": "explicit", "frames": bad})
+    evidence = [{"findings": findings, "logos": annotations.get("logos", []), "face_tracks": len(faces),
+                 "text_lines": len(annotations.get("texts", [])), "explicit_frames": annotations.get("explicit_frames", {})}]
+    if reasons:
+        return GateResult(gate="rights", status="BLOCK", reasons=reasons, evidence=evidence, rule_ids=sorted(set(rule_ids)), source_of_truth=SOURCE_OF_TRUTH)
+    cleared = [f["name"] for f in findings if f.get("status") == "cleared"]
+    return GateResult(gate="rights", status="PASS", evidence=evidence, rule_ids=["registry:brands", "registry:faces", "registry:explicit_content"],
+                      reasons=[("cleared brand(s): " + ", ".join(cleared) + "; " if cleared else "no brand, ") + "no unreleased face, no explicit content"],
+                      source_of_truth=SOURCE_OF_TRUTH)
+
+
+def check(asset: Asset) -> GateResult:
+    return decide(annotate(asset), load_registry())

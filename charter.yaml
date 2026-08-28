@@ -1,0 +1,23 @@
+# Brand charter of the synthetic test brand "Nimbus" (a fictional sparkling water; see SYNTHETIC.md).
+# The brand gate checks a generated asset against this file. Real brands would ship their own.
+brand: Nimbus
+tagline: "Clear as morning."
+palette:
+  primary: "#1F4E79"      # deep blue, wordmark and titles
+  accent: "#F2A93B"       # amber, one accent only
+  background: ["#FFFFFF", "#F4F1EA"]  # white or warm off-white
+  forbidden: ["#FF0000", "#00FF00"]   # pure red and pure green never appear
+tone:
+  voice: ["calm", "plain", "premium", "unhurried"]
+  never: ["shouting", "urgency", "countdown", "scarcity", "medical authority"]
+typography:
+  wordmark_case: "Title case"
+  max_words_on_screen: 12
+mandatory_mentions:
+  - text: "Nimbus"
+    where: "wordmark visible at least once"
+exclusions:
+  - "no health or medical claim of any kind"
+  - "no comparison with another brand"
+  - "no children"
+  - "no discount or price"

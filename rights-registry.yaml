@@ -1,0 +1,25 @@
+# What the rights gate knows. A brand, face or work that is not in this file is UNKNOWN, and an
+# unknown identifiable element blocks: the gate has no right to assume a clearance it cannot see.
+brands:
+  - name: Nimbus
+    owner: "fictional (Airlock synthetic test brand)"
+    status: cleared
+    note: "Not a real trademark; see SYNTHETIC.md."
+  - name: Crest
+    owner: "Procter and Gamble"
+    status: not_cleared
+    note: "Real registered trademark. No licence on file for this asset."
+  - name: "American Dental Association"
+    owner: "American Dental Association"
+    status: not_cleared
+    note: "Organisation name and seal; an endorsement needs its written consent (16 CFR 255.4)."
+faces:
+  # No real person is cleared. Any detected face without a matching release blocks.
+  releases: []
+works:
+  # Music, footage or artwork with a licence on file.
+  licences: []
+policy:
+  unknown_brand: BLOCK
+  unknown_face: BLOCK
+  explicit_content_likelihood_block_at: LIKELY

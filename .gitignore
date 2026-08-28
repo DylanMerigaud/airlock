@@ -225,3 +225,7 @@ agent_engine_build*/
 agents/*/agent_engine_build*/
 assets/real/*.mp4
 assets/uploads/
+
+# synthetic asset build outputs (the signed clip is fetched or rebuilt, never committed)
+assets/synthetic/*.mp4
+assets/synthetic/signer/
