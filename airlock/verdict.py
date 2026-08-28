@@ -20,12 +20,6 @@ the state of a control (R1, R2, an instrument error) or from missing paperwork a
 (no manifest, broken signature, off-charter, explicit content) needs no arbitration.
 """
 
-PAPERWORK_RULE_PREFIXES = ("16 CFR", "ASA ", "registry:brands:not_cleared", "registry:brands:unknown", "registry:faces:no_release", "airlock:provenance:signer-trusted")
-
-
-def needs_paperwork(rule_ids: list[str]) -> bool:
-    return any(r.startswith(p) for r in rule_ids for p in PAPERWORK_RULE_PREFIXES)
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -36,6 +30,12 @@ from airlock.gates.base import GATES
 STALE_AFTER_S = 15 * 60
 ERROR_WINDOW = "15m"
 CALIBRATION_WINDOW = "7d"
+PAPERWORK_RULE_PREFIXES = ("16 CFR", "ASA ", "registry:brands:not_cleared", "registry:brands:unknown", "registry:faces:no_release", "airlock:provenance:signer-trusted")
+
+
+def needs_paperwork(rule_ids: list[str]) -> bool:
+    return any(r.startswith(p) for r in rule_ids for p in PAPERWORK_RULE_PREFIXES)
+
 
 VerdictStatus = Literal["PASS", "BLOCK"]
 Motive = Literal["content", "control unavailable", "uncalibrated control", "instrument error"]
