@@ -1,21 +1,34 @@
 {
   "display_name": "airlock",
   "description": "Airlock: four gates in parallel, then a verdict that asks Grafana before it rules and writes back an annotation and an incident",
-  "extra_packages": ["../../airlock", "../../charter.yaml", "../../rights-registry.yaml", "../../trust", "../../rules"],
+  "extra_packages": [
+    "../../airlock",
+    "../../charter.yaml",
+    "../../rights-registry.yaml",
+    "../../trust",
+    "../../rules"
+  ],
   "env_vars": {
     "AIRLOCK_MCP_URL": "https://airlock-mcp-grafana-771466810465.us-central1.run.app/mcp",
     "AIRLOCK_DASHBOARD_UID": "airlock-gates",
     "AIRLOCK_RUNTIME": "agent-engine",
     "AIRLOCK_ASSETS_BUCKET": "airlock-agentic-cinema-assets",
-    "GOOGLE_CLOUD_PROJECT": "airlock-agentic-cinema",
-    "GOOGLE_CLOUD_LOCATION": "us-central1",
-    "GOOGLE_GENAI_USE_VERTEXAI": "1",
     "GRAFANA_INFLUX_URL": "https://prometheus-prod-67-prod-us-west-0.grafana.net/api/v1/push/influx/write",
     "GRAFANA_INFLUX_USER": "3546988",
     "GRAFANA_LOKI_URL": "https://logs-prod-021.grafana.net",
     "GRAFANA_LOKI_USER": "1769169",
-    "AIRLOCK_MCP_TOKEN": {"secret": "airlock-mcp-token", "version": "latest"},
-    "GRAFANA_INFLUX_TOKEN": {"secret": "grafana-influx-token", "version": "latest"},
-    "GRAFANA_LOKI_TOKEN": {"secret": "grafana-influx-token", "version": "latest"}
+    "AIRLOCK_MCP_TOKEN": {
+      "secret": "airlock-mcp-token",
+      "version": "latest"
+    },
+    "GRAFANA_INFLUX_TOKEN": {
+      "secret": "grafana-influx-token",
+      "version": "latest"
+    },
+    "GRAFANA_LOKI_TOKEN": {
+      "secret": "grafana-influx-token",
+      "version": "latest"
+    },
+    "AIRLOCK_PROJECT": "airlock-agentic-cinema"
   }
 }

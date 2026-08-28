@@ -7,10 +7,10 @@ gemini-2.5-flash does the cheaper reads (brand charter, escalation text).
 
 from __future__ import annotations
 
-import functools
 import json
 import os
 import pathlib
+import threading
 from typing import Any
 
 from google import genai
@@ -21,12 +21,24 @@ FAST_MODEL = "gemini-2.5-flash"
 INLINE_LIMIT_BYTES = 19_000_000
 
 
-@functools.lru_cache(maxsize=1)
+_client_lock = threading.Lock()
+_client: genai.Client | None = None
+
+
 def client() -> genai.Client:
-    """One client per process: a temporary Client gets collected while its request is in flight."""
-    project = os.environ.get("GOOGLE_CLOUD_PROJECT", "airlock-agentic-cinema")
-    location = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
-    return genai.Client(vertexai=True, project=project, location=location)
+    """One client per process, built under a lock.
+
+    A temporary Client gets collected while its request is in flight (measured 2026-08-28, "Cannot
+    send a request, as the client has been closed"); two gates constructing it at once from two
+    threads reproduced the same error through the losing instance's destructor.
+    """
+    global _client
+    with _client_lock:
+        if _client is None:
+            project = os.environ.get("GOOGLE_CLOUD_PROJECT") or os.environ.get("AIRLOCK_PROJECT", "airlock-agentic-cinema")
+            location = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
+            _client = genai.Client(vertexai=True, project=project, location=location)
+        return _client
 
 
 def video_part(path: str, gcs_uri: str | None, mime_type: str = "video/mp4") -> types.Part:

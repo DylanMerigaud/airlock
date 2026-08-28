@@ -16,7 +16,7 @@ BUCKET = os.environ.get("AIRLOCK_ASSETS_BUCKET", "airlock-agentic-cinema-assets"
 def _storage_client():
     from google.cloud import storage
 
-    return storage.Client(project=os.environ.get("GOOGLE_CLOUD_PROJECT", "airlock-agentic-cinema"))
+    return storage.Client(project=os.environ.get("GOOGLE_CLOUD_PROJECT") or os.environ.get("AIRLOCK_PROJECT", "airlock-agentic-cinema"))
 
 
 def download(gcs_uri: str, dest_dir: str | None = None) -> str:
