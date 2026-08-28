@@ -248,3 +248,25 @@ initialized through the UI, and the fallback annotation is in the code either wa
 
 Agent Engine: `reasoningEngines/1737023312967499776` (display name `airlock`), first deploy 23:32 UTC.
 Public dashboard for the judges: https://narrowsubmarine1895.grafana.net/public-dashboards/97860661238c4536a743e0d858aef845
+
+### Local run 5, the loop closed (23:39 to 23:40 UTC)
+
+`scripts/with_env.sh uv run adk run agents/pipeline '{"gcs_uri": "gs://airlock-agentic-cinema-assets/real/CrestToothpa-18-48.mp4", "asset_id": "CrestToothpa-18-48", "mute": ["rights"]}'`
+
+```
+provenance BLOCK  4617 ms | brand BLOCK 13338 ms | claim BLOCK 41208 ms | rights BLOCK 65304 ms (telemetry muted)
+verdict: rights healthy, last success 533 s ago, 1 catch | claim error rate 40% over 15m, 1 catch | brand healthy, 1 catch | provenance healthy, 2 catches
+VERDICT BLOCK (content) needs_human True, annotation 5
+  rights: BLOCK, brand Crest (not_cleared, logo at 16.12s, confidence 0.853): Real registered trademark. No licence on file for this asset.
+  claim: BLOCK, 9 regulated claim(s) with no substantiation on file; first at 7.5s: "my side had 21% fewer cavities with Crest." (consumer_testimonial, 16 CFR 255.2(a))
+  brand: BLOCK, mandatory mention missing: the Nimbus wordmark is never seen
+  provenance: BLOCK, no C2PA manifest in the asset
+  a human can lift this BLOCK by supplying the missing substantiation, licence or release
+escalation: INCIDENT 2 opened in Grafana Incident: "Airlock needs a human: content on CrestToothpa-18-48" (drill, Minor, label airlock=content)
+```
+
+Grafana Incident had to be opened once from the UI (app slug `grafana-irm-app`; a drill declared and
+resolved) before `create_incident` stopped answering the foreign-key error. The fallback stays in
+the code for a stack that has not been initialized.
+
+Redeploy of `reasoningEngines/1737023312967499776` with this code: 23:38 to 23:40 UTC.
