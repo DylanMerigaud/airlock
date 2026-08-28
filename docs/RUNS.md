@@ -191,7 +191,7 @@ that is what led to the trust list; see below.)
 
 ## M3: the verdict agent, the calibration ledger, the loop closed
 
-Status: in progress (started 2026-08-28 23:20 UTC).
+Status: DONE 2026-08-28 (23:51 UTC).
 
 ### Shape
 
@@ -338,3 +338,40 @@ Then the clean clip, unmuted (`{"gcs_uri": "gs://.../calibration/nimbus-clean-cl
                    claim: PASS is advisory only, last calibration run MISSED its defect (1 caught earlier in 7d)
 [  54.5s] escalation INCIDENT 5
 ```
+
+### Verification A: the Prelinger excerpt from Agent Engine (23:48:50 UTC, 119.4 s)
+
+`uv run python scripts/query_agent_engine.py projects/771466810465/locations/us-central1/reasoningEngines/1737023312967499776 'gs://airlock-agentic-cinema-assets/real/CrestToothpa-18-48.mp4'`
+
+```
+[   3.9s] provenance_gate  BLOCK     117 ms  no C2PA manifest in the asset
+[  12.2s] brand_gate       BLOCK    8501 ms  mandatory mention missing: the Nimbus wordmark is never seen
+[  23.4s] claim_gate       BLOCK   20003 ms  8 regulated claim(s) with no substantiation on file; first at 7.1s: "my side had 21% fewer cavities with Crest." (16 CFR 255.2(a))
+[ 111.4s] rights_gate      BLOCK  108158 ms  brand Crest (not_cleared, logo at 16.12s, confidence 0.853): Real registered trademark. No licence on file for this asset.
+[ 113.2s] verdict  grafana rights      healthy, last success 3 s ago; caught 1 injected defect(s) in 7d
+[ 114.4s] verdict  grafana claim       healthy, last success 1 s ago; caught 2 injected defect(s) in 7d
+[ 115.3s] verdict  grafana brand       healthy, last success 8 s ago; caught 1 injected defect(s) in 7d
+[ 116.2s] verdict  grafana provenance  healthy, last success 17 s ago; caught 2 injected defect(s) in 7d
+[ 117.1s] verdict  VERDICT BLOCK (content) needs_human=True annotation=9
+                   rights: BLOCK, brand Crest (not_cleared, logo at 16.12s, confidence 0.853) ...
+                   claim: BLOCK, 8 regulated claim(s) with no substantiation on file ...
+                   brand: BLOCK, mandatory mention missing: the Nimbus wordmark is never seen
+                   provenance: BLOCK, no C2PA manifest in the asset
+                   a human can lift this BLOCK by supplying the missing substantiation, licence or release
+[ 119.3s] escalation INCIDENT 6
+```
+
+The rights gate took 108 s because three Video Intelligence jobs ran at once (runs A, C and D
+overlapped); alone it takes 30 to 60 s on this 30 s excerpt.
+
+### M3 done (2026-08-28 23:51 UTC)
+
+| verification | run | verdict | annotation | incident |
+|---|---|---|---|---|
+| A: Prelinger clip from Agent Engine, three PromQL answers per gate in the trace | 23:48:50 | BLOCK, content | 9 | 6 |
+| B: rights pushes dark 16 min, rerun | 23:47:13 | BLOCK, control unavailable | 7 | 4 |
+| C: calibrate with the claim defect removed, rerun | 23:48:47 | BLOCK, uncalibrated control | 8 | 5 |
+
+Every verdict is an annotation on https://narrowsubmarine1895.grafana.net/d/airlock-gates/airlock-gates
+(public: https://narrowsubmarine1895.grafana.net/public-dashboards/97860661238c4536a743e0d858aef845)
+and every needs-human BLOCK is a drill incident in Grafana IRM on the same stack.

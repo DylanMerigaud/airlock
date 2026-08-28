@@ -164,16 +164,15 @@ export function AssetPicker({
   const uploadSelected = target.startsWith("gs://") && !PRESET_ASSETS.some((a) => a.gcs === target);
 
   return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="label-micro sr-only" id="asset-picker-label">
-          Asset under review
-        </span>
-        <div
-          role="group"
-          aria-labelledby="asset-picker-label"
-          className="flex flex-wrap items-center gap-2"
-        >
+    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
+      <span className="label-micro text-ink-faint" id="asset-picker-label">
+        Asset
+      </span>
+      <div
+        role="group"
+        aria-labelledby="asset-picker-label"
+        className="flex flex-wrap items-center gap-2"
+      >
           {PRESET_ASSETS.map((asset) => (
             <PresetChip
               key={asset.id}
@@ -226,17 +225,16 @@ export function AssetPicker({
                 {uploadedName}
               </Badge>
             )}
-          </div>
         </div>
       </div>
 
-      <p className="font-mono text-[10px] leading-[1.5] text-ink-faint">
-        MP4, 30 s and 50 MB at most.
-      </p>
-
-      {uploadError && (
-        <p role="alert" className="max-w-[60ch] text-[11.5px] leading-[1.5] text-block">
+      {uploadError ? (
+        <p role="alert" className="max-w-[52ch] text-[11.5px] leading-[1.5] text-block">
           {uploadError}
+        </p>
+      ) : (
+        <p className="font-mono text-[10px] leading-[1.5] text-ink-faint">
+          MP4, 30 s and 50 MB at most
         </p>
       )}
 
