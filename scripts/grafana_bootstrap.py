@@ -35,14 +35,22 @@ def prometheus_uid(c: httpx.Client) -> str:
     sys.exit("no prometheus datasource on this stack")
 
 
-def panel(pid: int, title: str, expr: str, ds_uid: str, x: int, y: int, w: int = 12, h: int = 8, unit: str = "short", kind: str = "timeseries", legend: str = "{{gate}}") -> dict:
+GATE = 'gate!="spike"'  # the M1 spike series stays in Grafana as history, out of the gate panels
+
+
+def panel(pid: int, title: str, expr: str, ds_uid: str, x: int, y: int, w: int = 12, h: int = 8, unit: str = "short", kind: str = "timeseries",
+          legend: str = "{{gate}}", thresholds: list | None = None) -> dict:
+    defaults: dict = {"unit": unit}
+    if thresholds:
+        defaults["thresholds"] = {"mode": "absolute", "steps": thresholds}
+        defaults["color"] = {"mode": "thresholds"}
     return {
         "id": pid,
         "type": kind,
         "title": title,
         "datasource": {"type": "prometheus", "uid": ds_uid},
         "gridPos": {"x": x, "y": y, "w": w, "h": h},
-        "fieldConfig": {"defaults": {"unit": unit}, "overrides": []},
+        "fieldConfig": {"defaults": defaults, "overrides": []},
         "targets": [{"refId": "A", "expr": expr, "legendFormat": legend, "datasource": {"type": "prometheus", "uid": ds_uid}}],
     }
 
@@ -78,13 +86,16 @@ def dashboard(ds_uid: str) -> dict:
         },
         "panels": [
             panel(10, "Verdicts (7d)", "sum by (status, motive) (sum_over_time(airlock_verdict_total[7d]))", ds_uid, 0, 0, w=6, h=6, kind="stat", legend="{{status}} {{motive}}"),
-            panel(11, "Calibration catches (7d)", "sum by (gate) (sum_over_time(airlock_calibration_catches_total[7d]))", ds_uid, 6, 0, w=6, h=6, kind="stat"),
-            panel(12, "Calibration misses (7d)", "sum by (gate) (sum_over_time(airlock_calibration_misses_total[7d]))", ds_uid, 12, 0, w=6, h=6, kind="stat"),
-            panel(13, "Seconds since last success", "time() - max by (gate) (max_over_time(airlock_gate_last_success_ts[7d]))", ds_uid, 18, 0, w=6, h=6, unit="s", kind="stat"),
-            panel(1, "Gate runs (per 5 min)", "sum by (gate) (sum_over_time(airlock_gate_runs_total[5m]))", ds_uid, 0, 6),
-            panel(2, "Gate errors (per 5 min)", "sum by (gate) (sum_over_time(airlock_gate_errors_total[5m]))", ds_uid, 12, 6),
-            panel(3, "Gate latency (ms, last sample per 5 min)", "max by (gate) (max_over_time(airlock_gate_elapsed_ms[5m]))", ds_uid, 0, 14, unit="ms"),
-            panel(4, "Blocks per gate (per 5 min)", "sum by (gate) (sum_over_time(airlock_gate_blocks_total[5m]))", ds_uid, 12, 14),
+            panel(11, "Calibration catches (7d)", f"sum by (gate) (sum_over_time(airlock_calibration_catches_total{{{GATE}}}[7d]))", ds_uid, 6, 0, w=6, h=6, kind="stat",
+                  thresholds=[{"color": "red", "value": None}, {"color": "green", "value": 1}]),
+            panel(12, "Calibration misses (7d)", f"sum by (gate) (sum_over_time(airlock_calibration_misses_total{{{GATE}}}[7d]))", ds_uid, 12, 0, w=6, h=6, kind="stat",
+                  thresholds=[{"color": "green", "value": None}, {"color": "orange", "value": 1}]),
+            panel(13, "Seconds since last success (stale past 900 s)", f"time() - max by (gate) (max_over_time(airlock_gate_last_success_ts{{{GATE}}}[7d]))", ds_uid, 18, 0, w=6, h=6, unit="s", kind="stat",
+                  thresholds=[{"color": "green", "value": None}, {"color": "red", "value": 900}]),
+            panel(1, "Gate runs (per 5 min)", f"sum by (gate) (sum_over_time(airlock_gate_runs_total{{{GATE}}}[5m]))", ds_uid, 0, 6),
+            panel(2, "Gate errors (per 5 min)", f"sum by (gate) (sum_over_time(airlock_gate_errors_total{{{GATE}}}[5m]))", ds_uid, 12, 6),
+            panel(3, "Gate latency (ms, last sample per 5 min)", f"max by (gate) (max_over_time(airlock_gate_elapsed_ms{{{GATE}}}[5m]))", ds_uid, 0, 14, unit="ms"),
+            panel(4, "Blocks per gate (per 5 min)", f"sum by (gate) (sum_over_time(airlock_gate_blocks_total{{{GATE}}}[5m]))", ds_uid, 12, 14),
         ],
     }
 
