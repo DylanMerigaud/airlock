@@ -4,6 +4,7 @@ verdict; this is what gives a gate the right to block.
 
     python -m airlock.calibrate            # all gates
     python -m airlock.calibrate --gate claim
+    python -m airlock.calibrate --gate claim --defect-removed   # the M3 test: the ledger records a MISS
 
 Defects (assets/synthetic/calibration and assets/real, built by scripts/make_synthetic_asset.sh):
   rights      the Crest excerpt: a real trademark the registry does not clear, real faces without release
@@ -52,6 +53,16 @@ DEFECTS: list[Defect] = [
            f"gs://{BUCKET}/calibration/nimbus-defect-provenance-broken.mp4", "BLOCK", "signature-valid"),
 ]
 
+# The same inputs with the defect taken out: the gate should PASS them, so a calibration run that still
+# expects a BLOCK records a MISS. This is how the verdict is shown refusing a PASS from a gate whose
+# last calibration failed (M3 verification C).
+CLEAN_INPUTS: dict[str, tuple[str, str]] = {
+    "claim": ("assets/synthetic/calibration/nimbus-clean-clip.mp4", f"gs://{BUCKET}/calibration/nimbus-clean-clip.mp4"),
+    "brand": ("assets/synthetic/calibration/nimbus-clean-clip.mp4", f"gs://{BUCKET}/calibration/nimbus-clean-clip.mp4"),
+    "provenance": ("assets/synthetic/calibration/nimbus-clean-clip.mp4", f"gs://{BUCKET}/calibration/nimbus-clean-clip.mp4"),
+    "rights": ("assets/synthetic/calibration/nimbus-clean-clip.mp4", f"gs://{BUCKET}/calibration/nimbus-clean-clip.mp4"),
+}
+
 CHECKS: dict[str, tuple[Callable[[Asset], GateResult], str]] = {
     "rights": (rights.check, rights.SOURCE_OF_TRUTH),
     "claim": (claim.check, claim.SOURCE_OF_TRUTH),
@@ -86,8 +97,12 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--gate", choices=GATES, default=None)
     ap.add_argument("--no-push", action="store_true", help="run the defects, push nothing")
+    ap.add_argument("--defect-removed", action="store_true", help="run the clean input in place of the defect (records a MISS)")
     args = ap.parse_args()
     defects = [d for d in DEFECTS if not args.gate or d.gate == args.gate]
+    if args.defect_removed:
+        defects = [Defect(d.gate, d.name + " (defect removed)", CLEAN_INPUTS[d.gate][0], CLEAN_INPUTS[d.gate][1], d.expected_status, d.expected_rule_substring)
+                   for d in defects][:1 if args.gate else None]
     t0 = time.time()
     with ThreadPoolExecutor(max_workers=len(defects)) as pool:
         rows = list(pool.map(run_defect, defects))

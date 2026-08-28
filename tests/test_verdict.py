@@ -8,7 +8,8 @@ def ok(gate, **over):
 
 
 def healthy(gate, **over):
-    return GateHealth(gate, error_rate_15m=over.get("err", 0.0), seconds_since_success=over.get("age", 30.0), calibration_catches_7d=over.get("catches", 3.0))
+    return GateHealth(gate, error_rate_15m=over.get("err", 0.0), seconds_since_success=over.get("age", 30.0),
+                      calibration_catches_7d=over.get("catches", 3.0), last_calibration_caught=over.get("last", 1.0))
 
 
 def test_all_pass_healthy_calibrated_is_pass():
@@ -81,3 +82,15 @@ def test_promql_names_the_gate():
     q = promql_questions("rights")
     assert 'gate="rights"' in q["error_rate_15m"] and "[15m]" in q["error_rate_15m"]
     assert "airlock_calibration_catches_total" in q["calibration_catches_7d"]
+
+
+def test_last_calibration_missed_makes_the_gate_advisory():
+    health = {g: healthy(g) for g in GATES}
+    health["claim"] = healthy("claim", catches=2.0, last=0.0)
+    v = decide({g: ok(g) for g in GATES}, health)
+    assert v.status == "BLOCK" and v.motive == "uncalibrated control"
+    assert any("MISSED" in r for r in v.reasons)
+
+
+def test_promql_has_the_last_calibration_question():
+    assert "last_over_time" in promql_questions("claim")["last_calibration_caught"]

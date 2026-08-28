@@ -150,8 +150,9 @@ class VerdictAgent(BaseAgent):
                         args={"datasourceUid": prom_uid, "expr": expr, "queryType": "instant", "endTime": "now"}, tool_context=tool_ctx))
                     answers[key] = {"expr": expr, "value": parse_instant_value(raw)}
                 health[gate] = GateHealth(gate, answers["error_rate_15m"]["value"], answers["seconds_since_success"]["value"],
-                                          answers["calibration_catches_7d"]["value"], raw=answers)
-                yield _text_event(ctx, self.name, json.dumps({"stage": "grafana", "gate": gate, "answers": answers, "health": health[gate].describe(), "calibrated": health[gate].calibrated}))
+                                          answers["calibration_catches_7d"]["value"], answers["last_calibration_caught"]["value"], raw=answers)
+                yield _text_event(ctx, self.name, json.dumps({"stage": "grafana", "gate": gate, "answers": answers, "health": health[gate].describe(),
+                                                              "calibrated": health[gate].calibrated, "calibration": health[gate].calibration_note()}))
             verdict = decide(gate_results, health)
             payload = verdict.to_dict()
             payload["asset_id"] = asset.asset_id

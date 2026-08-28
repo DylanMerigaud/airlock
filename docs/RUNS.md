@@ -188,3 +188,63 @@ that is what led to the trust list; see below.)
 - The agent folder cannot be named `airlock`: ADK imports the agent folder as a top-level module,
   which shadows the library package. It is `agents/pipeline`.
 - `adk deploy` reads a `.env` in the agent folder over the config's Secret Manager refs (M1).
+
+## M3: the verdict agent, the calibration ledger, the loop closed
+
+Status: in progress (started 2026-08-28 23:20 UTC).
+
+### Shape
+
+`agents/pipeline`: `SequentialAgent(airlock) = ParallelAgent(gates: rights, claim, brand, provenance)
+then verdict then escalation`. The gates are `BaseAgent`s around the plain gate functions, run in
+threads so the four are really parallel (measured: the first version serialized them because the
+gate functions block the event loop). The verdict is a `BaseAgent` that asks Grafana through
+mcp-grafana (list_datasources, then per gate the PromQL questions of `airlock/verdict.py`),
+applies the rules, writes the annotation. The escalation opens the incident when the verdict says
+a human is needed, or falls back to a `needs-human` annotation when the Incident API refuses.
+The input is a GCS URI, or `{"gcs_uri": ..., "asset_id": ..., "mute": ["rights"]}` where `mute`
+silences a gate's telemetry (a judge's "disable a gate" action).
+
+Deviation from the plan, and why: the plan said three PromQL questions per gate; there are four,
+the third being asked twice (catches over 7 days, and whether the last calibration run caught its
+defect), because verification C ("calibrate with the claim defect removed, rerun, claim is
+ADVISORY") cannot be shown with a 7-day count that stays positive.
+
+### Calibration ledger (`python -m airlock.calibrate`, 23:21 to 23:28 UTC)
+
+```
+rights      CAUGHT  298291 ms  real trademark not cleared, faces without release  ->  BLOCK ['registry:brands:not_cleared', 'registry:faces:no_release']
+claim       MISSED    1188 ms  expert endorsement with no substantiation  ->  ERROR []      (a bug on GCS-only assets, fixed; rerun below)
+brand       CAUGHT   27906 ms  forbidden red banner and urgency copy  ->  BLOCK ['charter:exclusions', 'charter:palette']
+provenance  CAUGHT      55 ms  manifest stripped  ->  BLOCK ['airlock:provenance:manifest-required']
+provenance  CAUGHT      68 ms  signed copy with one byte flipped  ->  BLOCK ['airlock:provenance:signature-valid']
+claim       CAUGHT   16455 ms  expert endorsement with no substantiation  ->  BLOCK ['16 CFR 255.3', 'ASA A26-1337640 (CAP 3.7)']   (rerun 23:27)
+```
+
+The miss was pushed as a miss: the ledger is what happened, not what was intended.
+
+### Local pipeline runs (`scripts/with_env.sh uv run adk run agents/pipeline "gs://.../synthetic/nimbus-test-clip.mp4"`)
+
+Run 3 (23:27 UTC), with a race in the Gemini client construction that made the claim gate fail:
+
+```
+rights PASS 31077 ms | brand PASS 15397 ms | provenance PASS 6529 ms | claim ERROR 1021 ms (client closed)
+verdict: grafana rights healthy 9 s ago, calibrated | claim error rate 30% over 15m | brand healthy | provenance healthy, 2 catches
+VERDICT BLOCK (instrument error) needs_human True, annotation 3
+escalation: create_incident refused by the stack: "Counter.Insert ... foreign key constraint fails (grafana_incident.Counters)"
+```
+
+Run 4 (23:30 UTC), race fixed:
+
+```
+provenance PASS 5428 ms | brand PASS 14445 ms | claim BLOCK 25619 ms | rights PASS 46593 ms   (parallel, 66 s wall)
+verdict: rights healthy 10 s ago | claim error rate 33% over 15m (the run-3 error, honestly still in the window) | brand healthy | provenance healthy
+VERDICT BLOCK (content) needs_human False, annotation 4: "Recommended by 9 out of 10 sommeliers." (expert_endorsement, 16 CFR 255.3)
+escalation: no human needed
+```
+
+The Incident refusal is the signature of an Incident app never opened on the stack; it is being
+initialized through the UI, and the fallback annotation is in the code either way.
+
+Agent Engine: `reasoningEngines/1737023312967499776` (display name `airlock`), first deploy 23:32 UTC.
+Public dashboard for the judges: https://narrowsubmarine1895.grafana.net/public-dashboards/97860661238c4536a743e0d858aef845

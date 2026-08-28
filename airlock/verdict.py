@@ -3,17 +3,18 @@
 The rules, in plain Python and unit-tested; the ADK agent (agents/pipeline) is the envelope that
 asks Grafana the three questions per gate through mcp-grafana and writes the annotation.
 
-Three questions per gate (PromQL over the counters the gates push):
+Three questions per gate (PromQL over the counters the gates push), the third in two parts:
   1. error rate over 15 min          errors / runs
   2. seconds since the last success   time() - last_success_ts
-  3. calibration catches over 7 days  injected defects the gate actually caught
+  3. calibration: catches over 7 days, and whether the LAST calibration run caught its defect
 
 Two rules:
   R1 "control unavailable": a gate with errors in the window, or whose last success Grafana cannot
      see within STALE_AFTER_S, forces BLOCK. The gate's own self-report does not count; Grafana's
      view of it does.
-  R2 "uncalibrated": a gate with zero calibration catches is ADVISORY; its PASS cannot contribute
-     to a PASS verdict. Its BLOCK still blocks (a doubtful instrument that says no is still no).
+  R2 "uncalibrated": a gate with zero calibration catches in the window, or whose last calibration
+     run missed its defect, is ADVISORY; its PASS cannot contribute to a PASS verdict. Its BLOCK still
+     blocks (a doubtful instrument that says no is still no).
 A PASS needs all four gates PASS, healthy and calibrated. A BLOCK needs a human when it comes from
 the state of a control (R1, R2, an instrument error) or from missing paperwork a person can supply
 (a substantiation, a licence, a release, a signer to trust); a BLOCK on a defect of the asset itself
@@ -46,6 +47,7 @@ def promql_questions(gate: str) -> dict[str, str]:
         "error_rate_15m": f'sum(sum_over_time(airlock_gate_errors_total{{gate="{gate}"}}[{ERROR_WINDOW}])) / clamp_min(sum(sum_over_time(airlock_gate_runs_total{{gate="{gate}"}}[{ERROR_WINDOW}])), 1)',
         "seconds_since_success": f'time() - max(max_over_time(airlock_gate_last_success_ts{{gate="{gate}"}}[{CALIBRATION_WINDOW}]))',
         "calibration_catches_7d": f'sum(sum_over_time(airlock_calibration_catches_total{{gate="{gate}"}}[{CALIBRATION_WINDOW}]))',
+        "last_calibration_caught": f'max(last_over_time(airlock_calibration_catches_total{{gate="{gate}"}}[{CALIBRATION_WINDOW}]))',
     }
 
 
@@ -57,6 +59,7 @@ class GateHealth:
     error_rate_15m: float | None
     seconds_since_success: float | None
     calibration_catches_7d: float | None
+    last_calibration_caught: float | None = None  # 1 caught, 0 missed, None never calibrated
     raw: dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -67,7 +70,16 @@ class GateHealth:
 
     @property
     def calibrated(self) -> bool:
-        return (self.calibration_catches_7d or 0) > 0
+        if (self.calibration_catches_7d or 0) <= 0:
+            return False
+        return self.last_calibration_caught is None or self.last_calibration_caught > 0
+
+    def calibration_note(self) -> str:
+        if (self.calibration_catches_7d or 0) <= 0:
+            return f"no injected defect caught in {CALIBRATION_WINDOW}"
+        if self.last_calibration_caught is not None and self.last_calibration_caught <= 0:
+            return f"last calibration run MISSED its defect ({int(self.calibration_catches_7d)} caught earlier in {CALIBRATION_WINDOW})"
+        return f"caught {int(self.calibration_catches_7d)} injected defect(s) in {CALIBRATION_WINDOW}"
 
     def describe(self) -> str:
         if self.error_rate_15m is not None and self.error_rate_15m > 0:
@@ -109,6 +121,7 @@ def decide(gate_results: dict[str, dict[str, Any]], health: dict[str, GateHealth
         status = r.get("status", "ERROR")
         line = {"gate": gate, "status": status, "reason": (r.get("reasons") or [""])[0],
                 "health": h.describe() if h else "no health data", "calibrated": bool(h and h.calibrated),
+                "calibration": h.calibration_note() if h else "no calibration data",
                 "calibration_catches_7d": h.calibration_catches_7d if h else None,
                 "rule_ids": r.get("rule_ids", [])}
         lines.append(line)
@@ -130,7 +143,7 @@ def decide(gate_results: dict[str, dict[str, Any]], health: dict[str, GateHealth
                     rule_ids.append(rid)
         elif h is not None and not h.calibrated:
             advisory_pass = True
-            reasons.append(f"{gate}: PASS is advisory only, the gate has caught no injected defect in {CALIBRATION_WINDOW}")
+            reasons.append(f"{gate}: PASS is advisory only, {h.calibration_note()}")
             rule_ids.append("airlock:verdict:R2-uncalibrated")
     if instrument_error:
         return Verdict("BLOCK", "instrument error", True, reasons, lines, sorted(set(rule_ids)))

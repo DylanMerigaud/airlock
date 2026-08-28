@@ -73,3 +73,17 @@ dst.write_bytes(bytes(data))
 print("flipped byte at", j, "of", len(data))
 PY
 ls -la "$CAL"
+
+# 5. The clean clip: wordmark and tagline only, no claim, signed with the same test certificate.
+#    It is the asset that should PASS all four gates, and the "defect removed" input of the ledger.
+CLEAN_UNSIGNED="$CAL/nimbus-clean-unsigned.mp4"
+ffmpeg -v error -y -i "$RAW" -vf "\
+drawbox=x=60:y=ih-230:w=560:h=170:color=white@0.85:t=fill,\
+drawtext=fontfile='$FONT':text='Nimbus':fontcolor=0x1F4E79:fontsize=64:x=90:y=h-210,\
+drawtext=fontfile='$FONT':text='Clear as morning.':fontcolor=0x1F4E79:fontsize=30:x=92:y=h-130" \
+  -c:v libx264 -preset medium -crf 18 -pix_fmt yuv420p -an "$CLEAN_UNSIGNED"
+rm -f "$CAL/nimbus-clean-clip.mp4"
+c2patool "$CLEAN_UNSIGNED" -m "$SIGNER/manifest.json" -o "$CAL/nimbus-clean-clip.mp4" >/dev/null
+rm -f "$CLEAN_UNSIGNED"
+echo "clean signed: $CAL/nimbus-clean-clip.mp4"
+shasum -a 256 "$CAL/nimbus-clean-clip.mp4"
