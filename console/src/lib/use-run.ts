@@ -250,7 +250,8 @@ export function useRun(): RunHandle {
           }
           verdict = parsed.payload;
           verdictStatus = parsed.payload.status;
-          elapsedMs = parsed.payload.elapsed_ms ?? elapsedMs;
+          // The verdict's own elapsed_ms is the Grafana round trip only; the run's wall time
+          // comes with the done frame and is the number the card and the spec strip show.
           escalationStatus = "RUNNING";
           step = parsed.payload.needs_human
             ? "Escalation agent opening an incident"
@@ -360,7 +361,7 @@ export function useRun(): RunHandle {
                 ...prev,
                 phase: "settled",
                 step: null,
-                elapsedMs: prev.elapsedMs ?? elapsed,
+                elapsedMs: elapsed,
                 gates: GATE_ORDER.reduce(
                   (acc, gate) => {
                     acc[gate] =
