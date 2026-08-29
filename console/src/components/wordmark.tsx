@@ -27,7 +27,7 @@ export function Wordmark() {
         <rect x="9.45" y="4.4" width="1.1" height="11.2" fill="#F2A93B" />
       </svg>
       <span className="flex flex-col leading-none">
-        <span className="text-[17px] font-semibold tracking-[-0.02em] text-ink">Airlock</span>
+        <h1 className="text-[17px] font-semibold tracking-[-0.02em] text-ink">Airlock</h1>
         <span className="label-micro mt-[3px] text-ink-faint">Reviewer console</span>
       </span>
     </div>

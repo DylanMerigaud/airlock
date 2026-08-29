@@ -6,3 +6,9 @@ next-env.d.ts
 .env.*.local
 *.tsbuildinfo
 .DS_Store
+
+# The repo root ignores "lib/" (a Python build artifact) and that pattern also
+# matches console/src/lib, which holds source the app cannot build without.
+# Re-include the directory here: a negation on the files alone is not enough,
+# git never descends into an excluded directory.
+!src/lib/

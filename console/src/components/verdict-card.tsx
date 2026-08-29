@@ -28,11 +28,11 @@ function RuleChips({ ids, heading }: { ids: string[]; heading: string }) {
   if (groups.length === 0) return null;
   return (
     <section className="border-t border-line-soft px-4 py-3.5">
-      <h4 className="label-micro text-ink-faint">{heading}</h4>
+      <h3 className="label-micro text-ink-faint">{heading}</h3>
       <div className="mt-2.5 space-y-2.5">
         {groups.map((group) => (
           <div key={group.source}>
-            <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-ink-faint/80">
+            <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-ink-faint">
               {group.source}
             </p>
             <ul className="mt-1.5 flex flex-wrap gap-1.5">
@@ -56,7 +56,7 @@ function C2paLine({ gates }: { gates: Record<GateName, GateCardState> }) {
   if (!reading) return null;
   return (
     <section className="border-t border-line-soft px-4 py-3">
-      <h4 className="label-micro text-ink-faint">Provenance</h4>
+      <h3 className="label-micro text-ink-faint">Provenance</h3>
       <p
         className={cn(
           "mt-1.5 font-mono text-[11px] leading-[1.55]",
@@ -208,9 +208,9 @@ export function VerdictCard({
 
           {(verdict.reasons?.length ?? 0) > 0 && (
             <section className="border-t border-line-soft px-4 py-3.5">
-              <h4 className="label-micro text-ink-faint">
+              <h3 className="label-micro text-ink-faint">
                 {verdict.status === "PASS" ? "What the gates found" : "Why it is blocked"}
-              </h4>
+              </h3>
               <ul className="mt-2.5 space-y-2">
                 {(verdict.reasons ?? []).map((reason, i) => (
                   <li key={i} className="flex gap-2.5 text-[12.5px] leading-[1.55] text-ink">

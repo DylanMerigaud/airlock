@@ -266,7 +266,7 @@ function EscalationRow({
           <h3 className="font-mono text-[11px] uppercase tracking-[0.16em] text-ink-dim">
             escalation
           </h3>
-          <p className="mt-1 truncate text-[11.5px] text-ink-faint">{line}</p>
+          <p className="mt-1 line-clamp-2 text-[11.5px] leading-[1.4] text-ink-faint">{line}</p>
         </div>
         <StatusChip status={status} />
       </div>

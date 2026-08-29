@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { resolveAsset } from "@/lib/assets";
+import { PRESET_ASSETS, resolveAsset } from "@/lib/assets";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,9 +35,26 @@ function sleep(msValue: number, signal: AbortSignal): Promise<void> {
   });
 }
 
-/** Mock mode: replay the recorded run, one line at a time, with real pauses. */
-async function replayFixture(relay: Relay, signal: AbortSignal) {
-  const file = path.join(process.cwd(), "fixtures", "run-nimbus-instrument-error.jsonl");
+/**
+ * Mock mode replays a run recorded against the real pipeline. Each preloaded
+ * asset has its own recording; anything else replays the instrument-error run,
+ * which is the state a reviewer most needs the console to get right.
+ */
+const MOCK_FIXTURES: Record<string, string> = {
+  crest: "run-crest-incident.jsonl",
+  nimbus: "run-nimbus-block.jsonl",
+};
+const DEFAULT_FIXTURE = "run-nimbus-instrument-error.jsonl";
+
+function fixtureFor(asset: string): string {
+  if (MOCK_FIXTURES[asset]) return MOCK_FIXTURES[asset];
+  const preset = PRESET_ASSETS.find((a) => a.gcs === asset);
+  if (preset && MOCK_FIXTURES[preset.id]) return MOCK_FIXTURES[preset.id];
+  return DEFAULT_FIXTURE;
+}
+
+async function replayFixture(fixture: string, relay: Relay, signal: AbortSignal) {
+  const file = path.join(process.cwd(), "fixtures", fixture);
   let raw: string;
   try {
     raw = await readFile(file, "utf8");
@@ -227,7 +244,7 @@ export async function POST(request: Request) {
 
       try {
         if (mock) {
-          await replayFixture(relay, request.signal);
+          await replayFixture(fixtureFor(asset), relay, request.signal);
         } else {
           await relayAgentEngine(gcsUri, relay, request.signal);
         }

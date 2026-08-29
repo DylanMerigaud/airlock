@@ -9,9 +9,15 @@ Next.js 15 App Router, TypeScript, Tailwind 4, pnpm. Apache-2.0.
 
 ## Run locally in mock mode, three commands
 
-Mock mode needs no cloud credentials. It replays a recorded run
-(`fixtures/run-nimbus-instrument-error.jsonl`, an instrument-error verdict) over the same SSE
-relay the live agent uses, and serves fixture health and stats marked MOCK in the interface.
+Mock mode needs no cloud credentials. It replays a run recorded against the real pipeline over
+the same SSE relay the live agent uses, and serves fixture health and stats marked MOCK in the
+interface. Each preloaded asset has its own recording:
+
+| Asset picked | Fixture replayed | What it shows |
+| --- | --- | --- |
+| Crest | `fixtures/run-crest-incident.jsonl` | BLOCK on content, four failing gates, an incident opened |
+| Nimbus | `fixtures/run-nimbus-block.jsonl` | Three gates PASS, claim BLOCK on 16 CFR 255.3, no human needed |
+| An uploaded clip | `fixtures/run-nimbus-instrument-error.jsonl` | A gate that failed while running, so nothing is cleared |
 
 ```
 pnpm install
@@ -73,6 +79,6 @@ Every one of them runs on the Node runtime. When Grafana cannot be reached the s
 - The block queue is per browser, in `localStorage`. Nothing about a run leaves the session except
   what the agents themselves wrote to Grafana.
 - "Mark reviewed by a human" flips the verdict card locally. In production it closes the incident.
-- Mock health mirrors the recorded run exactly, so the claim gate reads degraded at a 30 percent
-  error rate there. The uncalibrated ADVISORY state is served by the same code path when Grafana
-  reports no calibration catch for a gate.
+- Mock health mirrors `fixtures/run-nimbus-block.jsonl`, so the claim gate reads degraded at a
+  33 percent error rate there. The uncalibrated ADVISORY state is served by the same code path
+  when Grafana reports no calibration catch for a gate.
