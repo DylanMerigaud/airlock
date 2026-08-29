@@ -11,6 +11,25 @@ Track decision: Grafana Labs (Airlock v2). The kill criterion switches to ClickH
 only if the Agent Engine run cannot reach mcp-grafana on Cloud Run or cannot write the annotation
 after the auth options are exhausted. Not triggered.
 
+**Idea gate, run late (2026-08-29, after M1 to M4b already stood).** The plan
+(`career/hackathon-evals/BUILD-AIRLOCK-V2-2026-08-28.md` in growth-cockpit) already carried the
+result of this check as pre-existing evidence ("9 of 9 gates PASS") before the first commit; it was
+never re-run inside this repo's own `RUNS.md`, so it is logged here for the record.
+`python3 career/hackathon-evals/check.py --type idea ideas/airlock-v2.md` (growth-cockpit repo):
+
+```
+PASS  G17 zero em-dash / en-dash
+PASS  G1 corpus lu  (12 gagnants cites)
+PASS  G2 insight non-evident
+PASS  G3 vertical etroit
+PASS  G7 eligibilite copiee
+PASS  G6 demo a 50 pourcent
+PASS  G4 multi-agent  (6 agents)
+PASS  G5 primitive sponsor
+PASS  G8 track choisi
+RESULTAT: PASS mecanique
+```
+
 ### Auth path chosen
 
 mcp-grafana 1.3.0 ships its own inbound bearer (`--server-auth-token`, env
@@ -708,3 +727,99 @@ PASS  G44 audio present  (aac)         RESULTAT: PASS mecanique
 Open for the human pass: a 26.6 s stretch with no voice from 46 s to 73 s (the claim gate reading
 the Crest film) which the script now fills with a line on the brand landing; whether 1.5 s of wait
 kept before each labelled cut reads as a cut; the ASA scroll position; the landing hold.
+
+## Continuity check (2026-08-29, 14:40 to 15:10 UTC, about 12 hours after draft 2)
+
+A fresh session picked the build back up from a clean `git clone` of the public repo (no assumed
+local state). It was briefed to continue M1; the repo already showed M1 through M4b DONE and M5 in
+progress, so this pass is a regression and drift check before M5 resumes, not a repeat of M1. The
+idea gate rerun is logged above under M1. Track decision stands: Grafana Labs, kill criterion not
+triggered, no cause to switch to ClickHouse (Falsework).
+
+### Live infra, unchanged from the M1 to M4b record
+
+```
+GET /api/health (airlock-console)   200  ok:true mock:false  4 gates read from Grafana, all "degraded"
+                                          (last success 44000+ s ago: nothing has run in 12 hours,
+                                          expected, not a defect; docs/DEMO-DAY.md step 1-2 already
+                                          calls for a fresh calibration run before recording)
+GET /api/stats (airlock-console)    200  {"checked_7d":23,"passed_7d":8,"blocked_7d":15,"incidents_7d":14,
+                                          "gates_calibrated":4,"gates_total":4}
+POST /mcp (airlock-mcp-grafana)     401  (bearer required, as built; service answers)
+GET /public-dashboards/... (Grafana) 200
+gcloud billing projects describe airlock-agentic-cinema --format="value(billingEnabled)"   True
+gcloud run services list --region=us-central1        airlock-console, airlock-mcp, airlock-mcp-grafana, all present
+reasoningEngines.list                                 1737023312967499776 (airlock), 1949818395360755712 (airlock-spike), both present
+```
+
+Nothing torn down, nothing expired, nothing renamed. The account is dylanmerigaud@gmail.com, as
+the plan requires.
+
+### Regression check on a clean checkout
+
+```
+uv sync                                    clean
+uv run pytest -q                           44 passed, 2 skipped in 4.91s
+                                            (the 2 skips are test_provenance.py needing
+                                            scripts/fetch_assets.sh and make_synthetic_asset.sh,
+                                            which a fresh clone has not run; not a code regression)
+pnpm install && pnpm typecheck (console)   clean, no errors
+pnpm lint (console)                        clean, no errors
+pnpm build (console)                       Compiled successfully, all 6 routes generated
+```
+
+### The ASA scroll beat, checked against the live page, not re-guessed
+
+Draft 2's write-up flagged "the ASA scroll position" as open for a human to watch. Read
+`video/record.mjs:355-386` before touching anything: `scrollIntoViewIfNeeded` on the first
+"assessment" text, then `window.scrollBy(0, 16)` every 90 ms for the full 8 s beat (about 86 steps,
+1376 px). Ran that exact sequence against the real page with a throwaway Playwright script
+(`video/asa_probe.mjs`, kept, no shipped pipeline changed, no GCP call, public page only):
+
+```
+assessment heading bbox: { x: 380, y: 2209.9, width: 760, height: 40.8 }
+scrollY right after scrollIntoViewIfNeeded: 1690
+document scrollHeight: 6586
+steps: 86  total scrollBy px: 1376  final scrollY: 3066
+visible text lines at end of beat:
+  2. Upheld
+  The CAP Code stated that medicinal or medical claims and indications could only ...
+  We also understood that NutriPaw's Dental Powder was not licensed by the VMD for ...
+  3. Upheld
+  The ASA considered consumers would understand the claims "breaks down tartar cem ...
+```
+
+The beat starts on the assessment heading and ends inside the actual upheld reasoning, on topic
+the whole way. Verdict: not a bug, no change made to `record.mjs`. The open item was a request for
+a human eyeball, not a defect; this measurement answers it without needing to record a whole new
+take to find out. If the ASA page's layout changes before the real recording, `asa_probe.mjs`
+reruns in about 5 s with no GCP cost and no wait, so it stays in `video/` as a pre-flight check for
+`docs/DEMO-DAY.md` step 1.
+
+### What this pass did not do, and why
+
+No new video draft was rendered. The other three open items from draft 2 (the 1.5 s compressed-cut
+caption, the 26.6 s brand-landing gap, the landing hold) are paced/aesthetic calls the project's
+own `video/README.md` already assigns to a human watching the footage, not to the render gates;
+guessing at a fix and re-rendering without watching the result would spend real Video Intelligence
+and Text-to-Speech calls against the 87.79 EUR hackathon credit for an unverified outcome, and the
+whole take gets re-assembled again regardless once Dylan's real voice replaces the synthetic one.
+The mechanical gates were rechecked instead, on the current text with no video yet:
+
+```
+check.py --type submission docs/DEVPOST.md   FAIL, G19 exigences du track (1 case non cochee)
+                                               (the video checkbox; expected, everything else PASSes)
+check.py --type video docs/VIDEO-SCRIPT.md    PASS mecanique (G37 WARN: render checklist unticked,
+                                               normal before a shoot)
+```
+
+### What is actually left before 2026-09-03
+
+- M5 (video): draft 2 exists (synthetic voice, PASS mecanique, 178.5 s). Next real step is Dylan
+  watching draft 2 and deciding on the three open pacing items, then recording his own voice over
+  the script (`video/README.md`), which is the one step this build session cannot do itself.
+  `docs/DEMO-DAY.md` already has the runbook for the final take.
+- M6 (repo and Devpost text): effectively done. `docs/DEVPOST.md` passes every gate except the
+  video checkbox, which resolves the moment M5 does.
+- M7 (practitioner quotes): two DMs are drafted and ready in `docs/PRACTITIONER-ASK.md`; sending
+  them is explicitly Dylan's own action through his own doors, not this session's.
