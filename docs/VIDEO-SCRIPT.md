@@ -20,7 +20,7 @@ stale when the take begins; it is switched back on at 2:10, on camera.
 
 ## 2. The system acting
 
-[0:25] Pick the Crest commercial (Prelinger Archives, 1960s, public domain, 15 s excerpt). Click Run airlock. The gate cards turn to RUNNING with the step named: "Video Intelligence: logos, faces, text", "gemini-2.5-pro reading claims", "gemini-2.5-flash against the charter", "C2PA manifest". | "A real commercial with a real trademark on screen. The four gates run in parallel on Vertex AI Agent Engine."
+[0:25] Pick the Crest commercial (Prelinger Archives, 1960s, public domain, 30 s excerpt). Click Run airlock. The gate cards turn to RUNNING with the step named: "Video Intelligence: logos, faces, text", "gemini-2.5-pro reading claims", "gemini-2.5-flash against the charter", "C2PA manifest". | "A real commercial with a real trademark on screen. The four gates run in parallel on Vertex AI Agent Engine."
 [0:30] Provenance lands first: BLOCK, no C2PA manifest. | "Provenance is a cryptographic check, not an opinion: this film was shot decades before C2PA existed."
 [0:40] Brand lands: BLOCK, the charter exclusions quoted. Claim lands: BLOCK, "more dentists recommend" under 16 CFR 255.3, the American Dental Association seal under 255.4, the ASA reference beside them. | "The claim gate reads every claim with its timestamp and maps it to the rule: an expert endorsement, an organisation endorsement, no substantiation on file."
 [0:55] Rights lands: BLOCK, the Crest logo with its confidence, the faces with no release. | "Rights: the Video Intelligence API found the logo and the faces; the registry clears neither."
@@ -37,7 +37,7 @@ stale when the take begins; it is switched back on at 2:10, on camera.
 
 ## Checklist de rendu
 
-- [ ] The 15 s Crest excerpt run measured three times alone on the recording day, under 40 s each; otherwise the beat budget moves and the script is re-timed
+- [ ] The Crest run measured three times alone on the recording day; the rights gate costs 30 to 45 s whatever the input length (measured 2026-08-29), so each run is 45 to 75 s and the take is re-timed from the draft's cue log, not from this script's targets
 - [ ] Rights telemetry muted at least 16 minutes before the take (one muted run of the clean clip, then nothing unmuted)
 - [ ] Calibration ledger run within the day (`python -m airlock.calibrate`), every gate CAUGHT, so the PASS at the end is earned
 - [ ] The synthetic clip regenerated only if a visible artefact appears (none on 2026-08-28)

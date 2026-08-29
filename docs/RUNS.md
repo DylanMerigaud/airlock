@@ -639,3 +639,17 @@ should hit `/mcp` instead (401 without a bearer still proves the service answers
 URL: `https://airlock-mcp-771466810465.us-central1.run.app` (`/mcp` for tools, `/healthz` locally
 and in `docker run` only, not on this Cloud Run host). Revision `airlock-mcp-00002-89h`. 46 of 46
 tests green, both demo assets answer through the deployed tool exactly as the pipeline does.
+
+## M5: the video
+
+Status: in progress (started 2026-08-29 01:00 UTC).
+
+Script v2 (`docs/VIDEO-SCRIPT.md`): three runs in one take, one decision shown three ways (the real
+film blocked on its content; a clean signed asset blocked because a control went dark; the same
+asset passed once the control is back). The staleness rule cannot be shown after an unmuted run in
+the same take, which is why the muted run comes before the PASS. Voice: Dylan's for the final;
+drafts use Google Cloud Text-to-Speech and say so in their file name.
+
+Timing measured 2026-08-29 01:03 UTC on a 15 s Crest excerpt: rights 47 s, claim 25 s. The rights
+gate does not get faster with a shorter input (30 s excerpt: 43 to 72 s), so the 30 s excerpt stays
+and each run is 45 to 75 s. The draft's cue log, not the script's targets, sets the final timing.

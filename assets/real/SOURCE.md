@@ -29,6 +29,7 @@ The mp4 itself is not committed (see .gitignore); `scripts/fetch_assets.sh` down
 
 - The same film, seconds 33 to 48, cut with `ffmpeg -ss 33 -t 15 -c copy` (stream copy): the
   "more dentists recommend" line, the Crest box on screen, the American Dental Association seal.
-  Cut because the video's beat for the real asset is 40 s and the Video Intelligence API needs about
-  a minute on the 30 s excerpt (measured 2026-08-29).
+  Cut to test whether a shorter input makes the rights gate faster. Measured 2026-08-29: rights 47 s
+  on 15 s against 43 to 72 s on 30 s; the Video Intelligence API has a fixed cost of 30 to 45 s
+  whatever the length, so the 30 s excerpt stays the demo asset. Kept for the record.
 - sha256: ccd690bdc933ed4f67faffdebbb327302be87c0ae576a10b11344697c8ad5f1e
