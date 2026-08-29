@@ -4,6 +4,10 @@ Studios ship dozens of generated assets a week, and nobody can prove which one w
 which rule, and whether the check itself was working. Airlock answers one question per asset:
 can this ship, on what proof, and was the control that said so in a state to say it?
 
+Try it, no login: https://airlock-console-771466810465.us-central1.run.app (pick an asset, run the airlock, read the trace; the two demo assets and a clean one that PASSes, or upload a 30 s clip).
+
+![The reviewer console after the Crest commercial ran: four gate cards on BLOCK, the event timeline, the verdict card with the reasons, the rule chips grouped by authority and the incident id](docs/img/console-crest-block-2026-08-29.png)
+
 ![The Airlock gates dashboard on Grafana Cloud, 2026-08-28: verdicts, calibration catches and misses, seconds since each gate last succeeded, runs, errors, latency and blocks per gate, with one annotation per verdict](docs/img/grafana-public-dashboard-2026-08-28.png)
 
 Public dashboard (no login): https://narrowsubmarine1895.grafana.net/public-dashboards/97860661238c4536a743e0d858aef845
@@ -87,6 +91,16 @@ pushes the catch or the miss to Grafana. The ledger of 2026-08-28:
 The two claim misses are real: one was a bug on GCS-only assets (fixed the same hour), the other
 was `--defect-removed`, the deliberate miss that shows the verdict refusing a PASS from a gate whose
 last calibration failed (`docs/RUNS.md`, verification C).
+
+## The console
+
+`console/`: Next.js on Cloud Run. One page: the asset picker (two demo assets, a clean signed clip
+that PASSes, an upload), the pipeline column (one card per gate with its source of truth, status
+and calibration line read from Grafana, a "mute telemetry" switch to disable a gate and watch the
+verdict refuse), the event timeline with the raw agent events, the verdict card with the reasons
+and the rules cited, the stat tiles and the spec strip, and a BLOCK queue tab. Mock mode
+(`AIRLOCK_MOCK=1`) replays recorded runs so it builds and runs without a credential
+(`console/README.md`). Lighthouse on the hosted URL: accessibility 95, best practices 100.
 
 ## What is proven, and where
 
