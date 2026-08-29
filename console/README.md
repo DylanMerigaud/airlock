@@ -1,9 +1,14 @@
 # Airlock reviewer console
 
-The surface a brand-safety reviewer opens: pick a generated asset, run it through the four
-Airlock gates, and read the verdict with the rule that produced it. The console never shows a
-PASS that Grafana could not back: every gate card carries what the instrument itself reports,
-and a gate that has never caught an injected defect is marked ADVISORY.
+The surface a brand-safety reviewer opens: watch the clip, run it through the four Airlock
+gates, and read every finding against the second of the clip it was read at. The console never
+shows a PASS that Grafana could not back: every check row carries what the instrument itself
+reports, and a gate that has never caught an injected defect is marked ADVISORY.
+
+Three views in the top bar. **Review** is the clip: a large player, a scrubber carrying one
+marker per timestamped finding coloured by the gate that wrote it, the findings threaded beside
+the player oldest first, and the checks as a checklist whose summary line is the verdict.
+**Trace** is the raw event timeline of the run. **Queue** is the session's BLOCK worklist.
 
 Next.js 15 App Router, TypeScript, Tailwind 4, pnpm. Apache-2.0.
 
@@ -61,7 +66,7 @@ output, listening on `$PORT`). The script prints the service URL when it is done
 | `POST /api/upload` | One MP4 up to 50 MB into `gs://$AIRLOCK_ASSETS_BUCKET/uploads/`. The browser refuses clips over 30 s before the upload starts. |
 | `GET /api/health` | The three PromQL answers per gate (error rate, seconds since success, calibration catches over 7d) through the Grafana datasource API. Cached 20 s. |
 | `GET /api/stats` | Seven day verdict and incident totals, plus how many gates are calibrated. Cached 20 s. |
-| `GET /api/asset/[id]` | Streams a preloaded clip out of Cloud Storage with the server credentials, for the preview dialog. |
+| `GET /api/asset/[id]` | Streams a preloaded clip out of Cloud Storage with the server credentials, for the player on the stage. In mock mode it answers 503, so the stage falls back to the poster and says so. |
 
 Every one of them runs on the Node runtime. When Grafana cannot be reached the stat tiles read
 `unavailable` in red and say why on hover: no placeholder number is ever shown.
@@ -80,22 +85,27 @@ Every one of them runs on the Node runtime. When Grafana cannot be reached the s
 
 ## Muting a gate's telemetry
 
-Every gate card carries a **Mute telemetry** switch, off by default. It is how the demo shows
+Every check row expands onto a **Mute telemetry** switch, off by default. It is how the demo shows
 that the console never takes a gate's own word for it: the gate still runs and still answers, but
 it pushes nothing to Grafana, and the verdict agent has to notice through Grafana that the control
-went dark. A muted gate carries a `muted` chip on its card and on its timeline rows.
+went dark. A muted gate carries a `muted` chip on its check row and on its timeline rows.
 
 The switch state belongs to the run: the browser sends `{ "asset": "...", "mute": ["rights"] }` to
 `POST /api/run`, the route hands the pipeline
 `{"gcs_uri": "...", "asset_id": "...", "mute": ["rights"]}` instead of the bare URI, and the gate
 events come back carrying `telemetry_muted`. It stays armed between runs until it is switched back
-off. In mock mode the recorded fixtures carry no such flag, so the chips come from the switches.
+off. In mock mode the chips come from the switches and from the recording: the run replayed for
+Crest was itself recorded with the rights gate muted, so its rights row carries the chip.
 
 ## Notes for anyone reading the code
 
 - The block queue is per browser, in `localStorage`. Nothing about a run leaves the session except
   what the agents themselves wrote to Grafana.
-- "Mark reviewed by a human" flips the verdict card locally. In production it closes the incident.
+- A finding becomes a marker on the scrubber when its sentence names a second of the clip, which
+  is parsed narrowly: `at 16.12s`, `first at 7.5s`, `at 3.0s`. A bare `533 s ago` in a health
+  line is a duration, not a position, and never becomes one (`src/lib/timecodes.ts`).
+- "Mark reviewed by a human" flips the decision record locally. In production it closes the
+  incident.
 - Mock health mirrors `fixtures/run-nimbus-block.jsonl`, so the claim gate reads degraded at a
   33 percent error rate there. The uncalibrated ADVISORY state is served by the same code path
   when Grafana reports no calibration catch for a gate.

@@ -24,38 +24,39 @@ export function BlockQueue({
     <Panel>
       <PanelHeader>
         <PanelTitle>Blocked in this session</PanelTitle>
-        <span className="tabular font-mono text-[10.5px] text-ink-faint">
+        <span className="tabular font-mono text-[10.5px] text-ink-soft">
           {entries.length} run{entries.length === 1 ? "" : "s"}
         </span>
       </PanelHeader>
 
       {entries.length === 0 ? (
         <div className="px-8 py-16 text-center">
-          <p className="mx-auto max-w-[52ch] text-[13px] leading-[1.6] text-ink-faint">
+          <p className="mx-auto max-w-[52ch] text-[13px] leading-[1.6] text-ink-soft">
             Nothing blocked yet in this browser. Every run that ends BLOCK lands here with its
             motive and its first reason, so a reviewer can work through the queue.
           </p>
         </div>
       ) : (
-        <table className="w-full border-collapse text-left">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[720px] border-collapse text-left">
           <caption className="sr-only">
             Runs of this browser session that ended in a block
           </caption>
           <thead>
             <tr className="border-b border-line-soft">
-              <th scope="col" className="label-micro px-4 py-2.5 text-ink-faint">
+              <th scope="col" className="label-micro px-4 py-2.5 text-ink-soft">
                 Asset
               </th>
-              <th scope="col" className="label-micro px-4 py-2.5 text-ink-faint">
+              <th scope="col" className="label-micro px-4 py-2.5 text-ink-soft">
                 Motive
               </th>
-              <th scope="col" className="label-micro px-4 py-2.5 text-ink-faint">
+              <th scope="col" className="label-micro px-4 py-2.5 text-ink-soft">
                 First reason
               </th>
-              <th scope="col" className="label-micro px-4 py-2.5 text-ink-faint">
+              <th scope="col" className="label-micro px-4 py-2.5 text-ink-soft">
                 When
               </th>
-              <th scope="col" className="label-micro px-4 py-2.5 text-right text-ink-faint">
+              <th scope="col" className="label-micro px-4 py-2.5 text-right text-ink-soft">
                 Action
               </th>
             </tr>
@@ -67,7 +68,7 @@ export function BlockQueue({
                   <span className="block text-[12.5px] leading-[1.4] text-ink">
                     {entry.assetLabel}
                   </span>
-                  <span className="mt-1 block font-mono text-[10px] text-ink-faint">
+                  <span className="mt-1 block font-mono text-[10px] text-ink-soft">
                     {entry.asset}
                   </span>
                 </td>
@@ -85,15 +86,15 @@ export function BlockQueue({
                     {entry.motive}
                   </Badge>
                   {entry.needsHuman && (
-                    <span className="mt-1.5 block font-mono text-[9.5px] uppercase tracking-[0.12em] text-amber">
+                    <span className="mt-1.5 block font-mono text-[9.5px] uppercase tracking-[0.12em] text-ember">
                       needs a human
                     </span>
                   )}
                 </td>
-                <td className="max-w-[380px] px-4 py-3 text-[12.5px] leading-[1.5] text-ink-dim">
+                <td className="max-w-[380px] px-4 py-3 text-[12.5px] leading-[1.5] text-ink-mid">
                   {entry.reason}
                 </td>
-                <td className="tabular whitespace-nowrap px-4 py-3 font-mono text-[10.5px] text-ink-faint">
+                <td className="tabular whitespace-nowrap px-4 py-3 font-mono text-[10.5px] text-ink-soft">
                   {stamp(entry.at)}
                 </td>
                 <td className="px-4 py-3 text-right">
@@ -110,6 +111,7 @@ export function BlockQueue({
             ))}
           </tbody>
         </table>
+        </div>
       )}
     </Panel>
   );

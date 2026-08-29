@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Sora, IBM_Plex_Mono } from "next/font/google";
+import { Sora, IBM_Plex_Mono, Newsreader } from "next/font/google";
 import "./globals.css";
 
 const sora = Sora({
@@ -15,6 +15,15 @@ const plexMono = IBM_Plex_Mono({
   display: "swap",
 });
 
+// The editorial voice: the verdict word, the wordmark and the section headings.
+const newsreader = Newsreader({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  style: ["normal", "italic"],
+  variable: "--font-newsreader",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: "Airlock reviewer console",
   description:
@@ -22,19 +31,22 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0b0c0e",
-  colorScheme: "dark",
+  themeColor: "#f6f3ec",
+  colorScheme: "light",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${sora.variable} ${plexMono.variable}`}>
+    <html
+      lang="en"
+      className={`${sora.variable} ${plexMono.variable} ${newsreader.variable}`}
+    >
       <body>
         <a
-          href="#pipeline"
-          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-[3px] focus:border focus:border-amber focus:bg-hull focus:px-3 focus:py-2 focus:font-mono focus:text-[12px] focus:text-amber"
+          href="#stage"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-[3px] focus:border focus:border-ember focus:bg-card focus:px-3 focus:py-2 focus:font-mono focus:text-[12px] focus:text-ember"
         >
-          Skip to the pipeline
+          Skip to the asset
         </a>
         {children}
       </body>

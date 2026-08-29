@@ -25,6 +25,8 @@ export type GateCardState = {
   muted: boolean;
   /** Health and calibration as the verdict agent read them, when it sent them. */
   reported: ReportedInstrument | null;
+  /** The order this gate reported in, so the findings thread reads oldest first. */
+  settledAt: number | null;
 };
 
 export type RowTone = "neutral" | "pass" | "block" | "amber";
@@ -71,6 +73,7 @@ function freshGates(muted: GateName[] = []): Record<GateName, GateCardState> {
         probe: null,
         muted: muted.includes(gate),
         reported: null,
+        settledAt: null,
       };
       return acc;
     },
@@ -195,7 +198,13 @@ export function useRun(): RunHandle {
         } else if (parsed.kind === "gate-done") {
           const gate = parsed.gate;
           const muted = gates[gate].muted || parsed.payload.telemetry_muted === true;
-          gates[gate] = { ...gates[gate], status: parsed.payload.status, done: parsed.payload, muted };
+          gates[gate] = {
+            ...gates[gate],
+            status: parsed.payload.status,
+            done: parsed.payload,
+            muted,
+            settledAt: counter.current,
+          };
           const stillRunning = GATE_ORDER.filter((g) => gates[g].status === "RUNNING");
           step = stillRunning.length > 0 ? GATE_STEP[stillRunning[0]] : "Verdict agent asking Grafana about every gate";
           rows = [

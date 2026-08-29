@@ -9,7 +9,7 @@ export type SwitchProps = Omit<React.ComponentProps<"button">, "onChange"> & {
 };
 
 /**
- * A breaker switch, not a pill: square knob, hairline track, amber only when
+ * A breaker switch, not a pill: square knob, hairline track, ember only when
  * it is armed. The children are the visible label and the accessible name.
  */
 export function Switch({
@@ -38,24 +38,22 @@ export function Switch({
       className={cn(
         "group inline-flex items-center gap-2 text-left transition-colors",
         "font-mono text-[10.5px] uppercase leading-none tracking-[0.12em]",
-        "disabled:pointer-events-none disabled:opacity-40",
-        checked ? "text-amber" : "text-ink-faint hover:text-ink-dim",
+        "disabled:pointer-events-none disabled:opacity-45",
+        checked ? "text-ember" : "text-ink-soft hover:text-ink",
         className,
       )}
     >
       <span
         aria-hidden="true"
         className={cn(
-          "flex h-[14px] w-[26px] shrink-0 items-center rounded-[2px] border transition-colors",
-          checked
-            ? "border-amber/60 bg-amber-shade"
-            : "border-line bg-panel-2 group-hover:border-[#39404b]",
+          "flex h-[15px] w-[27px] shrink-0 items-center rounded-[2px] border transition-colors",
+          checked ? "border-ember-line bg-ember-wash" : "border-line bg-card-sunk group-hover:border-ink-soft",
         )}
       >
         <span
           className={cn(
-            "block h-[8px] w-[8px] transition-transform duration-150",
-            checked ? "translate-x-[14px] bg-amber" : "translate-x-[2px] bg-ink-faint",
+            "block h-[9px] w-[9px] transition-transform duration-150",
+            checked ? "translate-x-[14px] bg-ember" : "translate-x-[2px] bg-ink-soft",
           )}
         />
       </span>

@@ -9,23 +9,16 @@ const SPECS = [
   "Apache-2.0",
 ];
 
+/** What the console runs on, one line, the way a colophon sits under a page. */
 export function SpecStrip({ lastRunMs }: { lastRunMs: number | null }) {
   return (
     <section
       aria-label="What this console runs on"
-      className="flex flex-wrap items-center gap-x-2 gap-y-2 rounded-[4px] border border-line-soft bg-hull px-3.5 py-3"
+      className="border-t border-line-soft py-3 font-mono text-[10px] leading-[1.7] tracking-[0.02em] text-ink-soft"
     >
-      {SPECS.map((spec) => (
-        <span
-          key={spec}
-          className="rounded-[2px] border border-line bg-panel px-2 py-1 font-mono text-[10px] leading-none tracking-[0.03em] text-ink-faint"
-        >
-          {spec}
-        </span>
-      ))}
-      <span className="ml-auto font-mono text-[10px] tracking-[0.03em] text-ink-faint">
-        last run {lastRunMs === null ? "not measured yet" : ms(lastRunMs)}
-      </span>
+      {SPECS.join("  ·  ")}
+      {"  ·  last run "}
+      {lastRunMs === null ? "not measured yet" : ms(lastRunMs)}
     </section>
   );
 }

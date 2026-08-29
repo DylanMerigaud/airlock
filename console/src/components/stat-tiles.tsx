@@ -15,7 +15,7 @@ export type StatsView = {
   error: string | null;
 };
 
-function Tile({
+function Stat({
   label,
   value,
   suffix,
@@ -28,38 +28,36 @@ function Tile({
   suffix?: string;
   unavailable: boolean;
   reason: string | null;
-  accent?: "block" | "pass" | "amber";
+  accent?: "block" | "pass";
 }) {
-  const body =
-    unavailable || value === null ? (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span className="cursor-help font-mono text-[13px] uppercase tracking-[0.1em] text-block">
-            unavailable
-          </span>
-        </TooltipTrigger>
-        <TooltipContent>{reason ?? "Grafana returned no sample for this query."}</TooltipContent>
-      </Tooltip>
-    ) : (
-      <span
-        className={cn(
-          "tabular text-[30px] font-semibold leading-none tracking-[-0.03em]",
-          accent === "block" ? "text-block" : accent === "pass" ? "text-pass" : "text-ink",
-        )}
-      >
-        {value}
-        {suffix && <span className="ml-1 text-[15px] font-normal text-ink-faint">{suffix}</span>}
-      </span>
-    );
-
   return (
-    <div className="border-l border-line px-4 py-3.5 first:border-l-0">
-      <p className="label-micro text-ink-faint">{label}</p>
-      <p className="mt-2.5 flex h-[30px] items-end">{body}</p>
+    <div className="flex items-baseline gap-2 whitespace-nowrap">
+      <span className="label-micro text-ink-soft">{label}</span>
+      {unavailable || value === null ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="cursor-help font-mono text-[11px] uppercase tracking-[0.1em] text-block">
+              unavailable
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>{reason ?? "Grafana returned no sample for this query."}</TooltipContent>
+        </Tooltip>
+      ) : (
+        <span
+          className={cn(
+            "tabular text-[17px] font-semibold leading-none",
+            accent === "block" ? "text-block" : accent === "pass" ? "text-pass" : "text-ink",
+          )}
+        >
+          {value}
+          {suffix && <span className="ml-1 text-[11px] font-normal text-ink-soft">{suffix}</span>}
+        </span>
+      )}
     </div>
   );
 }
 
+/** The seven day ledger, inline: five numbers and where they came from. */
 export function StatTiles({ stats, loading }: { stats: StatsView | null; loading: boolean }) {
   const unavailable = !loading && (!stats || !stats.ok);
   const reason = stats?.error ?? "The console could not reach the stats route.";
@@ -67,41 +65,39 @@ export function StatTiles({ stats, loading }: { stats: StatsView | null; loading
   return (
     <section
       aria-label="Seven day totals, read from Grafana"
-      className="grid grid-cols-2 rounded-[4px] border border-line bg-panel sm:grid-cols-3 lg:grid-cols-5"
+      className="flex flex-wrap items-baseline gap-x-6 gap-y-3 border-t border-line py-3.5"
     >
-      <Tile
-        label="Assets checked 7d"
-        value={stats?.checked_7d ?? null}
-        unavailable={unavailable}
-        reason={reason}
-      />
-      <Tile
-        label="Blocked 7d"
+      <Stat label="Checked" value={stats?.checked_7d ?? null} unavailable={unavailable} reason={reason} />
+      <Stat
+        label="Blocked"
         value={stats?.blocked_7d ?? null}
         unavailable={unavailable}
         reason={reason}
         accent="block"
       />
-      <Tile
-        label="Passed 7d"
+      <Stat
+        label="Passed"
         value={stats?.passed_7d ?? null}
         unavailable={unavailable}
         reason={reason}
         accent="pass"
       />
-      <Tile
+      <Stat
         label="Gates calibrated"
         value={stats?.gates_calibrated ?? null}
         suffix={`of ${stats?.gates_total ?? 4}`}
         unavailable={unavailable}
         reason={reason}
       />
-      <Tile
-        label="Incidents opened 7d"
+      <Stat
+        label="Incidents"
         value={stats?.incidents_7d ?? null}
         unavailable={unavailable}
         reason={reason}
       />
+      <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink-soft">
+        last 7 days
+      </span>
     </section>
   );
 }

@@ -6,18 +6,15 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium transition-colors duration-150 disabled:pointer-events-none disabled:opacity-40 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium transition-colors duration-150 disabled:pointer-events-none disabled:opacity-45 [&_svg]:pointer-events-none [&_svg]:shrink-0",
   {
     variants: {
       variant: {
         // The only filled accent in the product. Reserved for Run airlock.
-        accent:
-          "rounded-[3px] bg-amber text-void hover:bg-[#ffbe57] active:bg-amber-deep shadow-[0_1px_0_0_rgba(255,255,255,0.18)_inset]",
-        outline:
-          "rounded-[3px] border border-line bg-panel text-ink hover:border-[#39404b] hover:bg-panel-2",
-        ghost: "rounded-[3px] text-ink-dim hover:bg-panel-2 hover:text-ink",
-        danger:
-          "rounded-[3px] border border-block-deep/60 bg-block-shade text-block hover:bg-[#4a1c1e]",
+        accent: "rounded-[3px] bg-ember text-card hover:bg-ember-deep active:bg-ember-deep",
+        outline: "rounded-[3px] border border-line bg-card text-ink hover:border-ink-soft hover:bg-card-sunk",
+        ghost: "rounded-[3px] text-ink-mid hover:bg-card-sunk hover:text-ink",
+        danger: "rounded-[3px] border border-block-line bg-block-wash text-block hover:bg-[#f5d9d3]",
       },
       size: {
         sm: "h-7 px-2.5 text-[11px] tracking-[0.1em] uppercase font-mono",

@@ -7,12 +7,13 @@ const badgeVariants = cva(
   {
     variants: {
       tone: {
-        neutral: "border-line bg-panel-2 text-ink-dim",
-        ink: "border-line bg-panel-2 text-ink",
-        amber: "border-amber/35 bg-amber-shade text-amber",
-        block: "border-block-deep/45 bg-block-shade text-block",
-        pass: "border-pass/35 bg-pass-shade text-pass",
-        quiet: "border-transparent bg-transparent text-ink-faint",
+        neutral: "border-line bg-card-sunk text-ink-mid",
+        ink: "border-line bg-card text-ink",
+        ember: "border-ember-line bg-ember-wash text-ember",
+        amber: "border-warn-line bg-warn-wash text-warn",
+        block: "border-block-line bg-block-wash text-block",
+        pass: "border-pass-line bg-pass-wash text-pass",
+        quiet: "border-transparent bg-transparent text-ink-soft",
       },
       size: {
         xs: "px-1.5 py-[3px] text-[9.5px] tracking-[0.14em]",

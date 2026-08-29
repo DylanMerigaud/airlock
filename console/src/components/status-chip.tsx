@@ -1,12 +1,12 @@
 import { cn } from "@/lib/utils";
 import type { ChipStatus } from "@/lib/events";
 
-const TONE: Record<ChipStatus, { dot: string; text: string; ring: string }> = {
-  PENDING: { dot: "bg-ink-faint/50", text: "text-ink-faint", ring: "border-line" },
-  RUNNING: { dot: "bg-amber lamp-live", text: "text-amber", ring: "border-amber/35" },
-  PASS: { dot: "bg-pass", text: "text-pass", ring: "border-pass/35" },
-  BLOCK: { dot: "bg-block-deep", text: "text-block", ring: "border-block-deep/45" },
-  ERROR: { dot: "bg-block-deep", text: "text-block", ring: "border-block-deep/45" },
+const TONE: Record<ChipStatus, { dot: string; text: string; ring: string; fill: string }> = {
+  PENDING: { dot: "bg-ink-soft/45", text: "text-ink-soft", ring: "border-line", fill: "bg-card-sunk" },
+  RUNNING: { dot: "bg-ember lamp-live", text: "text-ember", ring: "border-ember-line", fill: "bg-ember-wash" },
+  PASS: { dot: "bg-pass", text: "text-pass", ring: "border-pass-line", fill: "bg-pass-wash" },
+  BLOCK: { dot: "bg-block", text: "text-block", ring: "border-block-line", fill: "bg-block-wash" },
+  ERROR: { dot: "bg-block", text: "text-block", ring: "border-block-line", fill: "bg-block-wash" },
 };
 
 export function StatusChip({ status, className }: { status: ChipStatus; className?: string }) {
@@ -14,10 +14,11 @@ export function StatusChip({ status, className }: { status: ChipStatus; classNam
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-[2px] border bg-panel-2 px-1.5 py-1",
+        "inline-flex items-center gap-1.5 rounded-[2px] border px-1.5 py-1",
         "font-mono text-[10px] uppercase leading-none tracking-[0.14em]",
         tone.ring,
         tone.text,
+        tone.fill,
         className,
       )}
     >
