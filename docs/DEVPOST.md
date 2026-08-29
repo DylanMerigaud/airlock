@@ -69,16 +69,17 @@ mcp, mcp-grafana, grafana-cloud, loki, c2pa, veo, next.js, typescript
 - [x] An agent built with ADK and deployed on Agent Engine (`agents/pipeline/agent.py`, `docs/RUNS.md` M1 and M3)
 - [x] Grafana Labs track: the agent reads Grafana through MCP before every verdict and writes back an annotation and an incident (`agents/pipeline/agent.py`, `docs/RUNS.md` verifications A, B, C)
 - [x] Public repository under an OSI licence: Apache-2.0 (`LICENSE`), github.com/DylanMerigaud/airlock
-- [ ] Hosted URL a judge can open without a login (console on Cloud Run, M4)
+- [x] Hosted URL a judge can open without a login: https://airlock-console-771466810465.us-central1.run.app (Cloud Run, `docs/RUNS.md` M4)
 - [ ] Demo video of 3 minutes or less (M5)
 - [x] Every synthetic input named (`SYNTHETIC.md`); every real input named with its source and licence (`assets/real/SOURCE.md`)
 
 ## Try it
 
-Open the console URL, pick the Crest commercial (Prelinger Archives, public domain, 30 s) and run
+Open https://airlock-console-771466810465.us-central1.run.app, pick the Crest commercial (Prelinger Archives, public domain, 30 s) and run
 the airlock: expect four BLOCKs, the verdict citing 16 CFR 255.2(a) and the missing C2PA manifest,
 an annotation on the public dashboard, and an incident. Pick the Nimbus test clip (synthetic,
 labelled): expect rights, brand and provenance PASS, claim BLOCK on "Recommended by 9 out of 10
-sommeliers" under 16 CFR 255.3. Disable a gate's telemetry with the mute toggle and rerun: the
-verdict refuses to PASS whatever the gates say. Public dashboard:
+sommeliers" under 16 CFR 255.3. Pick the Nimbus clean clip: expect the PASS, earned by four healthy,
+calibrated gates. Switch a gate's "mute telemetry" on and rerun after 15 minutes: the verdict refuses
+to PASS whatever the gates say, because Grafana no longer sees the control succeed. Public dashboard:
 https://narrowsubmarine1895.grafana.net/public-dashboards/97860661238c4536a743e0d858aef845
