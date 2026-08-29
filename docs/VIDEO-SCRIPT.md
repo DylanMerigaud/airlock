@@ -5,9 +5,12 @@ Duree cible: 180s
 Voix: off humaine (Dylan, recorded separately from the screen, read from this script, re-recorded if one word is off; the iteration drafts use a synthetic voice from Google Cloud Text-to-Speech and say so in their file name)
 Musique: aucune
 
-One take inside the console, the trace as the interface. The rights gate waits 30 to 60 s on the
-Video Intelligence API in every run; the cut compresses that wait and says so on screen ("waiting
-for Video Intelligence, N s compressed"), never hiding it and never cutting anything else. Three runs, one
+One take inside the console, the clip on the stage while the gates read it. The rights gate waits
+30 to 60 s on the Video Intelligence API in every run; the cut keeps one second of that wait, then
+compresses it and says so on screen ("waiting for Video Intelligence, N s compressed"), never hiding
+it and never cutting anything else. No stretch without a voice longer than 6 s: a line lands on
+every gate landing. Each picture line names its cue in parentheses so the narration is placed where
+the picture is (the cue ids are the recorder's, `video/record.mjs`). Three runs, one
 decision shown three ways: the real film blocked on its content, a clean asset blocked because a
 control went dark, the same asset passed once the control is back. The stake, the stack and the
 practitioner quotes go inside the product frame, never on a slide. The rights gate's telemetry is
@@ -17,26 +20,30 @@ stale when the take begins; it is switched back on at 2:10, on camera.
 ## 1. The situation that hurts
 
 [0:00] The console, idle, dark. Over it, the first lines of Article 50 of the EU AI Act (in force 2026-08-02) as a text overlay, fading to the console. | "Since August 2026 the law wants generated content marked. Studios ship dozens of generated assets a week, and nobody can prove which one was checked, or whether the check worked."
-[0:09] A browser tab with a real ASA ruling (Nutri-Paw, 26 August 2026), the cursor scrolling the assessment. | "This is the reviewer's job today: a ruling on one side, the asset on the other, no trace."
-[0:17] Back to the console: three assets in the picker, the gate cards with their calibration lines read from Grafana; the rights card is amber, "last success 17 min ago". | "Airlock: four gates, then a verdict that asks Grafana before it rules. The rights gate is amber: its telemetry has been dark for seventeen minutes. Keep that in mind."
+[0:09] A browser tab with a real ASA ruling (Nutri-Paw, 26 August 2026), the cursor scrolling the assessment for 6 s (cue asa). | "This is the reviewer's job today: a ruling on one side, the asset on the other, no trace."
+[0:15] Back to the console: the Crest clip on the stage, the three assets under it, the gate rows with their calibration lines read from Grafana; the rights row is amber, "last success 17 min ago" (cue console_idle). | "Airlock: four gates, then a verdict that asks Grafana before it rules. The rights gate is amber: its telemetry has been dark for seventeen minutes. Keep that in mind."
 
 ## 2. The system acting
 
-[0:25] Pick the Crest commercial (Prelinger Archives, 1960s, public domain, 30 s excerpt). Click Run airlock. The gate cards turn to RUNNING with the step named: "Video Intelligence: logos, faces, text", "gemini-2.5-pro reading claims", "gemini-2.5-flash against the charter", "C2PA manifest". | "A real commercial with a real trademark on screen. The four gates run in parallel on Vertex AI Agent Engine."
-[0:30] Provenance lands first: BLOCK, no C2PA manifest. | "Provenance is a cryptographic check, not an opinion: this film was shot decades before C2PA existed."
-[0:40] Brand lands: BLOCK, the charter exclusions quoted with timestamps. | "Brand: the charter forbids health claims, comparisons and children, and the wordmark is not even there. Flash read the whole film against the charter in ten seconds."
-[0:52] Claim lands: BLOCK, "more dentists recommend" under 16 CFR 255.3, the American Dental Association seal under 255.4, the ASA reference beside them. | "The claim gate reads every claim with its timestamp and maps it to the rule: an expert endorsement, an organisation endorsement, no substantiation on file."
-[0:55] Rights lands: BLOCK, the Crest logo with its confidence, the faces with no release. | "Rights: the Video Intelligence API found the logo and the faces; the registry clears neither."
-[1:00] The verdict card fills: four Grafana lines, then BLOCK, motive content, needs a human; the escalation row shows the incident id. Click "open in Grafana": the public dashboard with the annotation that just landed. Back to the console. | "Before it rules, the verdict asks Grafana about each gate: healthy, and has it caught a real injected defect this week. Then it writes the verdict back as an annotation and opens the incident for a human."
-[1:20] Pick the Nimbus clean clip, caption "synthetic test asset, Veo 3.1 on Vertex AI, C2PA signed". Run. All four gates land PASS, provenance naming the trusted signer. The verdict: BLOCK, motive control unavailable, "rights: last success older than 900 seconds". | "A clean generated asset, signed with a real manifest. Four gates pass. And the verdict still refuses: Grafana cannot see the rights control succeed, so its PASS does not count. A control nobody can see is not a control."
-[2:08] Switch the rights gate's "mute telemetry" off. Run the same clip again. | "Turn the telemetry back on and run again."
-[2:15] The gates land PASS again; the verdict card: PASS, "all 4 gates PASS, healthy and calibrated", the annotation id. | "Now every gate is healthy and has caught a real injected defect this week. This is the PASS the reviewer no longer signs by hand."
+[0:23] Click Run airlock on the Crest commercial (Prelinger Archives, 1960s, public domain, 30 s excerpt). The clip plays on the stage; the gate rows turn to RUNNING with the step named (cue crest_click). | "A real commercial with a real trademark on screen. The four gates run in parallel on Vertex AI Agent Engine while the clip plays."
+[0:28] Provenance lands first: BLOCK, no C2PA manifest (cue provenance_done). | "Provenance is a cryptographic check, not an opinion: this film was shot decades before C2PA existed."
+[0:36] Brand lands: BLOCK, the charter exclusions quoted with timestamps (cue brand_done). | "Brand: the charter forbids health claims, comparisons and children, and the wordmark is not even there."
+[0:44] Claim lands: BLOCK, "more dentists recommend" under 16 CFR 255.3, the seal under 255.4, the ASA reference beside them; a time chip is clicked and the clip seeks to the claim (cue claim_done). | "The claim gate reads every claim with its timestamp and maps it to the rule: an expert endorsement, an organisation endorsement, no substantiation on file. Click the time, the clip goes there."
+[0:56] Rights lands: BLOCK, the Crest logo with its confidence, the faces with no release (cue rights_done). | "Rights: the Video Intelligence API found the logo and the faces; the registry clears neither."
+[1:02] The verdict card fills: four Grafana lines, then BLOCK, motive content, needs a human; the escalation row shows the incident id. Open in Grafana: the public dashboard with the annotation that just landed (cue verdict, cue grafana_open). | "Before it rules, the verdict asks Grafana about each gate: healthy, and has it caught a real injected defect this week. Then it writes the verdict back as an annotation and opens the incident for a human."
+[1:22] Pick the Nimbus clean clip, caption "synthetic test asset, Veo 3.1 on Vertex AI, C2PA signed". Run; the clip plays (cue clean_muted_click). | "A clean generated asset, signed with a real manifest."
+[1:27] Provenance lands PASS, the trusted signer named (cue provenance_done_2). | "Provenance passes in under a second: the manifest verifies against the studio's own trust list. Brand and claim follow."
+[1:45] Rights lands PASS after its wait (cue rights_done_2). | "Four gates pass."
+[1:50] The verdict: BLOCK, motive control unavailable, "rights: last success older than 900 seconds" (cue verdict_2). | "And the verdict still refuses: Grafana cannot see the rights control succeed, so its PASS does not count. A control nobody can see is not a control."
+[2:05] Switch the rights gate's "mute telemetry" off. Run the same clip again (cue unmute, cue clean_click_2). | "Turn the telemetry back on and run again."
+[2:12] The gates land again; while the rights gate reads the clip, the rights row's calibration line is visible (cue provenance_done_3). | "Same clip, same gates. This time every push reaches Grafana."
+[2:30] The verdict card: PASS, "all 4 gates PASS, healthy and calibrated", the annotation id (cue verdict_3). | "Now every gate is healthy and has caught a real injected defect this week. This is the PASS the reviewer no longer signs by hand."
 
 ## 3. The result, in numbers
 
-[2:40] The public Grafana dashboard: the verdict tiles, calibration catches and misses per gate, seconds since last success, the annotation markers of the three runs. | "Every verdict is an annotation on this dashboard. Every block that needs a human is an incident. Each gate had to catch a real injected defect before it earned the right to block."
+[2:40] The public Grafana dashboard: the verdict tiles, calibration catches and misses per gate, seconds since last success, the annotation markers of the three runs (cue dashboard). | "Every verdict is an annotation on this dashboard. Every block that needs a human is an incident. Each gate had to catch a real injected defect before it earned the right to block."
 [2:50] Ten-second overlay inside the console frame: two practitioner quotes attributed by role (cut if none by 2026-09-05). | (silence under the quotes)
-[2:58] The PASS verdict card, held. | "Nothing ships without a gate that has already caught a real defect. That is Airlock."
+[2:58] The PASS verdict card, held (cue landing). | "Nothing ships without a gate that has already caught a real defect. That is Airlock."
 
 ## Checklist de rendu
 
