@@ -436,3 +436,23 @@ GET /            200 in 1.9 s
 GET /api/health  {"ok":true,"mock":false, gates: rights healthy (390 s since success, 1 catch), claim healthy, brand healthy, provenance healthy}
 GET /api/stats   {"ok":true,"mock":false,"checked_7d":9,"passed_7d":2,"blocked_7d":7,"incidents_7d":6,"gates_calibrated":4,"gates_total":4}
 ```
+
+### First run through the hosted console (2026-08-29 00:14:22 UTC, 56 s)
+
+`curl -sN -X POST https://airlock-console-771466810465.us-central1.run.app/api/run -d '{"asset":"nimbus"}'`, the SSE relay decoded:
+
+```
+   3.3s provenance_gate  PASS      204 ms
+  16.4s brand_gate       PASS    13409 ms
+  17.3s claim_gate       BLOCK   14530 ms
+  46.3s rights_gate      PASS    43652 ms
+  48.7s verdict  grafana rights: healthy, last success 3 s ago; caught 1 injected defect(s) in 7d
+  49.6s verdict  grafana claim: healthy, last success 33 s ago; caught 2 injected defect(s) in 7d
+  50.6s verdict  grafana brand: healthy, last success 35 s ago; caught 1 injected defect(s) in 7d
+  51.6s verdict  grafana provenance: healthy, last success 49 s ago; caught 2 injected defect(s) in 7d
+  52.5s verdict  VERDICT BLOCK (content) needs_human=True annotation=12
+  55.0s escalation opened=True incident=7
+```
+
+Cloud Run (console, ADC of the runtime account) to Agent Engine to the gates to mcp-grafana on
+Cloud Run to Grafana Cloud and back to the browser, with no credential outside Secret Manager.
