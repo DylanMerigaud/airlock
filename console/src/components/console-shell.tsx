@@ -99,6 +99,7 @@ export function ConsoleShell({ dashboardUrl, environment, mock }: ShellProps) {
             incidents_7d: null,
             gates_calibrated: null,
             gates_total: 4,
+            cost_per_check_usd_7d: null,
             error: error instanceof Error ? error.message : "the stats route did not answer",
           }),
         )

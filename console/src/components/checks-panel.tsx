@@ -7,6 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn, ms } from "@/lib/utils";
 import {
+  formatGateUsage,
   GATE_ORDER,
   GATE_STEP,
   MOTIVE_COPY,
@@ -410,6 +411,14 @@ export function ChecksList({
                   <dt className="label-micro text-ink-soft">Ran in</dt>
                   <dd className="tabular mt-1 font-mono text-[11px] text-ink-soft">
                     {ms(card.done.elapsed_ms)}
+                  </dd>
+                </div>
+              )}
+              {card.done?.usage && (
+                <div>
+                  <dt className="label-micro text-ink-soft">Usage</dt>
+                  <dd className="tabular mt-1 font-mono text-[10.5px] text-ink-soft">
+                    {formatGateUsage(card.done.usage)}
                   </dd>
                 </div>
               )}

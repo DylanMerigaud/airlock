@@ -14,6 +14,7 @@ export type StatsPayload = {
   incidents_7d: number | null;
   gates_calibrated: number | null;
   gates_total: number;
+  cost_per_check_usd_7d: number | null;
   error: string | null;
   read_at: string;
 };
@@ -22,6 +23,8 @@ const EXPRS = {
   blocked: 'sum(sum_over_time(airlock_verdict_total{status="BLOCK"}[7d]))',
   passed: 'sum(sum_over_time(airlock_verdict_total{status="PASS"}[7d]))',
   incidents: "sum(sum_over_time(airlock_incident_total[7d]))",
+  costPerCheck:
+    "sum(sum_over_time(airlock_verdict_cost_usd[7d])) / clamp_min(sum(sum_over_time(airlock_verdict_total[7d])), 1)",
 };
 
 const get = cached<StatsPayload>(20_000);
@@ -42,6 +45,7 @@ async function readStats(): Promise<StatsPayload> {
       incidents_7d: 3,
       gates_calibrated: health.gates.filter((g) => (g.calibration_catches_7d ?? 0) > 0).length,
       gates_total: 4,
+      cost_per_check_usd_7d: 0.41,
       error: null,
       read_at,
     };
@@ -52,6 +56,7 @@ async function readStats(): Promise<StatsPayload> {
       { refId: "blocked", expr: EXPRS.blocked },
       { refId: "passed", expr: EXPRS.passed },
       { refId: "incidents", expr: EXPRS.incidents },
+      { refId: "costPerCheck", expr: EXPRS.costPerCheck },
     ]),
     readHealth(),
   ]);
@@ -69,6 +74,7 @@ async function readStats(): Promise<StatsPayload> {
     incidents_7d: answers.incidents?.value ?? null,
     gates_calibrated: health.gates.filter((g) => (g.calibration_catches_7d ?? 0) > 0).length,
     gates_total: 4,
+    cost_per_check_usd_7d: answers.costPerCheck?.value ?? null,
     error: null,
     read_at,
   };
@@ -90,6 +96,7 @@ export async function GET() {
         incidents_7d: null,
         gates_calibrated: null,
         gates_total: 4,
+        cost_per_check_usd_7d: null,
         error: message,
         read_at: new Date().toISOString(),
       } satisfies StatsPayload,

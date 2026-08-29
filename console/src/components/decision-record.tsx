@@ -4,7 +4,7 @@ import * as React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { groupRuleIds, readC2pa } from "@/lib/events";
+import { formatVerdictCostLine, groupRuleIds, readC2pa } from "@/lib/events";
 import type { RunState } from "@/lib/use-run";
 
 function Chevron({ open }: { open: boolean }) {
@@ -117,6 +117,15 @@ export function DecisionRecord({
             )}
           >
             {c2pa.line}
+          </p>
+        </section>
+      )}
+
+      {verdict.cost && (
+        <section className="border-b border-line px-3 py-2">
+          <h3 className="label-micro text-ink-soft">Cost</h3>
+          <p className="mt-1 font-mono text-[11px] leading-[1.5] text-ink-soft">
+            {formatVerdictCostLine(verdict.cost)}
           </p>
         </section>
       )}

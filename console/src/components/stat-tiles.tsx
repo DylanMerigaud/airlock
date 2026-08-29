@@ -1,6 +1,8 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { formatUsd } from "@/lib/utils";
 
 export type StatsView = {
   ok: boolean;
@@ -11,6 +13,7 @@ export type StatsView = {
   incidents_7d: number | null;
   gates_calibrated: number | null;
   gates_total: number;
+  cost_per_check_usd_7d: number | null;
   error: string | null;
 };
 
@@ -18,14 +21,18 @@ function Stat({
   label,
   value,
   suffix,
+  note,
   unavailable,
   reason,
+  render,
 }: {
   label: string;
   value: number | null;
   suffix?: string;
+  note?: string;
   unavailable: boolean;
   reason: string | null;
+  render?: (value: number) => ReactNode;
 }) {
   return (
     <div className="flex items-baseline gap-1.5 whitespace-nowrap">
@@ -41,8 +48,9 @@ function Stat({
         </Tooltip>
       ) : (
         <span className="tabular text-[14px] font-bold leading-none text-ink">
-          {value}
+          {render ? render(value) : value}
           {suffix && <span className="ml-1 text-[11px] font-normal text-ink-soft">{suffix}</span>}
+          {note && <span className="ml-1.5 font-mono text-[10px] font-normal text-ink-soft">{note}</span>}
         </span>
       )}
     </div>
@@ -71,6 +79,14 @@ export function StatTiles({ stats, loading }: { stats: StatsView | null; loading
         reason={reason}
       />
       <Stat label="Incidents" value={stats?.incidents_7d ?? null} unavailable={unavailable} reason={reason} />
+      <Stat
+        label="Cost per check"
+        value={stats?.cost_per_check_usd_7d ?? null}
+        render={formatUsd}
+        note="list price"
+        unavailable={unavailable}
+        reason={reason}
+      />
       <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-ink-soft">
         last 7 days
       </span>

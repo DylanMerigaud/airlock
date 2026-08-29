@@ -27,3 +27,11 @@ export function percent(value: number | null | undefined): string {
   if (value === null || value === undefined || Number.isNaN(value)) return "n/a";
   return `${Math.round(value * 100)} percent`;
 }
+
+/** A dollar figure at list price: $0 flat, two decimals normally, three under a cent. */
+export function formatUsd(value: number | null | undefined): string {
+  if (value === null || value === undefined || Number.isNaN(value)) return "n/a";
+  if (value === 0) return "$0";
+  const decimals = Math.abs(value) < 0.01 ? 3 : 2;
+  return `$${value.toFixed(decimals)}`;
+}

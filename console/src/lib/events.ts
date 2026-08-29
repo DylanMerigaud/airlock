@@ -4,6 +4,8 @@
  * carries no `stage`, is ignored: workflow agents emit state events too.
  */
 
+import { formatUsd } from "@/lib/utils";
+
 export type GateName = "rights" | "claim" | "brand" | "provenance";
 export type Terminal = "PASS" | "BLOCK" | "ERROR";
 export type ChipStatus = "PENDING" | "RUNNING" | Terminal;
@@ -35,6 +37,16 @@ export type GateRunningPayload = {
   telemetry_muted?: boolean;
 };
 
+/** What a single gate spent to produce its answer, at list price. */
+export type GateUsage = {
+  tokens_in?: number;
+  tokens_out?: number;
+  video_minutes?: number;
+  features?: number;
+  cost_usd?: number;
+  basis?: string;
+};
+
 export type GateDonePayload = {
   gate: GateName;
   stage: "done";
@@ -45,6 +57,7 @@ export type GateDonePayload = {
   elapsed_ms?: number;
   source_of_truth?: string;
   telemetry_muted?: boolean;
+  usage?: GateUsage;
 };
 
 export type GrafanaAnswer = { expr: string; value: number | null };
@@ -77,6 +90,16 @@ export type ReportedInstrument = {
   calibration?: string;
 };
 
+/** What the whole run spent, at list price, and how it splits across gates. */
+export type VerdictCost = {
+  cost_usd: number;
+  per_gate?: Partial<Record<GateName, number>>;
+  tokens_in?: number;
+  tokens_out?: number;
+  video_minutes?: number;
+  basis?: string;
+};
+
 export type VerdictPayload = {
   stage: "verdict";
   status: Terminal;
@@ -88,6 +111,7 @@ export type VerdictPayload = {
   asset_id?: string;
   annotation_id?: number | null;
   elapsed_ms?: number;
+  cost?: VerdictCost;
 };
 
 export type EscalationPayload = {
@@ -223,4 +247,42 @@ export const MOTIVE_COPY: Record<string, string> = {
 export function motiveTone(motive: string | undefined): "block" | "degraded" {
   if (motive === "control unavailable" || motive === "uncalibrated control") return "degraded";
   return "block";
+}
+
+function formatMinutes(value: number): string {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
+}
+
+/** One small mono line for a single gate's usage, video-shaped or token-shaped. */
+export function formatGateUsage(usage: GateUsage): string {
+  const parts: string[] = [];
+  if (usage.video_minutes !== undefined && usage.features !== undefined) {
+    parts.push(
+      `${formatMinutes(usage.video_minutes)} min x ${usage.features} feature${usage.features === 1 ? "" : "s"}`,
+    );
+  } else if (usage.tokens_in !== undefined || usage.tokens_out !== undefined) {
+    const segments: string[] = [];
+    if (usage.tokens_in !== undefined) segments.push(`${usage.tokens_in.toLocaleString("en-US")} tokens in`);
+    if (usage.tokens_out !== undefined) segments.push(`${usage.tokens_out.toLocaleString("en-US")} out`);
+    parts.push(segments.join(", "));
+  }
+  if (usage.cost_usd !== undefined) parts.push(formatUsd(usage.cost_usd));
+  return parts.join(", ");
+}
+
+/** The compact "this check cost" line the Record segment shows for a settled run. */
+export function formatVerdictCostLine(cost: VerdictCost): string {
+  const perGate = cost.per_gate ?? {};
+  const gateParts = GATE_ORDER.filter((gate) => perGate[gate] !== undefined).map(
+    (gate) => `${gate} ${formatUsd(perGate[gate] as number)}`,
+  );
+  let head = `This check: ${formatUsd(cost.cost_usd)} at list price`;
+  if (gateParts.length > 0) head += ` (${gateParts.join(", ")})`;
+
+  const tail: string[] = [];
+  if (cost.tokens_in !== undefined) tail.push(`${cost.tokens_in.toLocaleString("en-US")} tokens in`);
+  if (cost.tokens_out !== undefined) tail.push(`${cost.tokens_out.toLocaleString("en-US")} out`);
+  if (cost.video_minutes !== undefined) tail.push(`${formatMinutes(cost.video_minutes)} min of video`);
+
+  return tail.length > 0 ? `${head}, ${tail.join(", ")}` : head;
 }
