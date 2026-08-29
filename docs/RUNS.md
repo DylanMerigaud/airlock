@@ -921,3 +921,31 @@ published message at 1.25 EUR: the function logged the amounts and touched nothi
 
 Cost is also a product metric from here on: the gates push their token counts, video seconds and
 an estimated cost per run, so the console and the dashboard can show what one check costs.
+
+### Draft 3 (2026-08-29 21:20 to 23:03 UTC), on the console v3, synthetic voice
+
+Recorder rewritten for the v3 DOM (preset cards by name, gate landings read off the Checks rows,
+the verdict off the summary line, the mute switch inside the rights row, the Grafana href from
+Record); narration mapped to cues by name from the script's `(cue xxx)` marks; one second of wait
+kept before each labelled cut; a `seek_claim` beat (the clip seeks to the claim's timestamp on
+camera). One take was thrown away when the rights gate was still checking at the 200 s bound (a
+slow Video Intelligence call), the preparation redone, the second take clean.
+
+The take, 253.6 s, 29 cues, none timed out: Crest BLOCK content at 123.5 s (incident 17), clean
+clip muted BLOCK control unavailable at 172.0 s (incident 18), unmuted PASS at 222.3 s. The clip
+played on the stage through the three runs. Compressions: 45 s, 4 s and 22 s of rights-gate waiting,
+each labelled on screen; no hold trimmed.
+
+`video/out/airlock-draft-3-synthetic-voice.mp4`, 176.9 s, 40.5 MB:
+
+```
+PASS  G41 definition  (1920x1080)      PASS  G45 niveau audio  (-16.4 LUFS, peak -4.0)
+PASS  G42 cadence  (30.0 fps)          PASS  G46 silence  (plus long blanc 0.0s)
+PASS  G43 duree  (177s)                PASS  G47 ouverture  (2 plage(s) de noir)
+PASS  G44 audio present  (aac)         RESULTAT: PASS mecanique
+```
+
+Open for the human pass: the first Grafana insert shows about 8 s of the dashboard loading (the
+recorder knows when the panels drew; the overlay should start there); the native video controls
+are on screen the whole film (a console decision: custom controls or hidden chrome during a run);
+the claim-seek words fall after the picture; a 14 s stretch with no voice in the third run.
