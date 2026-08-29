@@ -902,3 +902,22 @@ axe-core in the build: zero violations on every view. Screenshots:
 `docs/img/console-v3-crest-block-2026-08-29.png`, `docs/img/console-v3-clean-pass-2026-08-29.png`.
 The video (M5) is on hold at Dylan's word until the console is where he wants it; the recorder
 will be adapted to this DOM before draft 3.
+
+## Cost and the cap (2026-08-29)
+
+Read from the billing console on 2026-08-29 20:10 UTC (screenshots in the session scratchpad):
+credit "Agentic Cinema Hackathon" 87.79 EUR, 85.50 EUR remaining (97 percent), valid to
+2026-10-19; month-to-date gross 2.40 EUR (Vertex AI 2.27, Cloud Run 0.14; Video Intelligence
+inside its monthly free quota so far), net 0.00. A card is on file and the account is a paid one,
+so the guard is not the credit but the cap below.
+
+Guard (`infra/gcp/billing_cap.sh`): a budget "airlock hackathon credit" of 87 EUR on the GROSS cost
+of the project (credits excluded, so it measures how much of the credit is consumed; rounded down
+from 87.79 so it fires before the last 79 cents), alerts to the billing admins at 50, 75, 90 and
+100 percent, and every update published to the Pub/Sub topic `billing-cap`; a Cloud Function
+(`infra/gcp/billing-cap/main.py`, service account `billing-cap@`, billing admin on the account)
+detaches the project from the billing account when the cost reaches the budget. Dry-tested with a
+published message at 1.25 EUR: the function logged the amounts and touched nothing.
+
+Cost is also a product metric from here on: the gates push their token counts, video seconds and
+an estimated cost per run, so the console and the dashboard can show what one check costs.
