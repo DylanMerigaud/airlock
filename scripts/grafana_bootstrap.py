@@ -90,6 +90,8 @@ def dashboard(ds_uid: str) -> dict:
                   thresholds=[{"color": "red", "value": None}, {"color": "green", "value": 1}]),
             panel(12, "Calibration misses (7d)", f"sum by (gate) (sum_over_time(airlock_calibration_misses_total{{{GATE}}}[7d]))", ds_uid, 12, 0, w=6, h=6, kind="stat",
                   thresholds=[{"color": "green", "value": None}, {"color": "orange", "value": 1}]),
+            panel(14, "Cost per check, list price USD (7d)", "sum(sum_over_time(airlock_verdict_cost_usd[7d])) / clamp_min(sum(sum_over_time(airlock_verdict_total[7d])), 1)", ds_uid, 0, 22, w=6, h=6, kind="stat", unit="currencyUSD", legend="per check"),
+            panel(15, "Cost per gate run, list price USD (per 5 min)", f"sum by (gate) (sum_over_time(airlock_gate_cost_usd{{{GATE}}}[5m]))", ds_uid, 6, 22, w=18, h=6, unit="currencyUSD"),
             panel(13, "Seconds since last success (stale past 900 s)", f"time() - max by (gate) (max_over_time(airlock_gate_last_success_ts{{{GATE}}}[7d]))", ds_uid, 18, 0, w=6, h=6, unit="s", kind="stat",
                   thresholds=[{"color": "green", "value": None}, {"color": "red", "value": 900}]),
             panel(1, "Gate runs (per 5 min)", f"sum by (gate) (sum_over_time(airlock_gate_runs_total{{{GATE}}}[5m]))", ds_uid, 0, 6),
