@@ -168,7 +168,7 @@ export function useRun(): RunHandle {
         let escalation = prev.escalation;
         let verdictStatus = prev.verdictStatus;
         let escalationStatus = prev.escalationStatus;
-        let elapsedMs = prev.elapsedMs;
+        const elapsedMs = prev.elapsedMs;
 
         if (parsed.kind === "gate-running") {
           const gate = parsed.gate;
