@@ -397,3 +397,42 @@ unmuted from Agent Engine:
 
 The only PASS of the day, and it took four calibrated, healthy gates and a clean signed asset to
 get it. Annotations 1 to 10 and incidents 2 to 6 are the day's ledger on the stack.
+
+## M4: the console on Cloud Run
+
+Status: in progress (started 2026-08-28 23:35 UTC).
+
+### Build
+
+`console/`: Next.js 15, TypeScript, Tailwind, shadcn-style components restyled (dark, one amber
+accent, Sora and IBM Plex Mono). One page: top bar (wordmark, asset picker with the two demo
+assets and an upload, Run button, environment badge), the pipeline column (five gate cards with
+source of truth, status chip and calibration badge from `/api/health`, plus the escalation row),
+the event timeline (one row per agent event, raw JSON expandable, "open in Grafana" on the verdict
+row with the annotation id), the verdict card (PASS or BLOCK, motive, reasons, rule chips grouped
+by authority, the C2PA line, the human-review button), stat tiles from `/api/stats`, the spec
+strip. Second tab: the BLOCK queue with re-run. Six states designed: idle, running (step named),
+passed, blocked, gate degraded (amber), instrument error (red). Mock mode replays real fixtures
+(`console/fixtures/`, recorded from the pipeline runs of this file) so the app builds and runs
+without any credential. Verified before deploy: `pnpm build`, `pnpm lint`, `pnpm typecheck` clean,
+SSE relay smoke-tested in mock mode, no server left running.
+
+### Deploy (2026-08-29 00:08 to 00:14 UTC)
+
+First `gcloud run deploy --source console` failed in Cloud Build: `corepack enable` resolved pnpm
+10, whose `minimumReleaseAge` policy rejected three lockfile entries published the same day
+(`@jridgewell/sourcemap-codec@1.6.0`, `fastq@1.20.2`, `string.prototype.matchall@4.1.0`). Fixed by
+pinning `"packageManager": "pnpm@9.15.0"` (the local version) and deploying from a clean
+`git archive` snapshot of the committed console.
+
+Second deploy: service `airlock-console`, revision `airlock-console-00001-sm4`,
+URL https://airlock-console-771466810465.us-central1.run.app (also
+https://airlock-console-3pyftkcubq-uc.a.run.app). Runtime identity: the project's compute service
+account with `aiplatform.user`, `storage.objectAdmin` and `secretmanager.secretAccessor`; the
+Grafana token from Secret Manager. Probed at 00:14 UTC:
+
+```
+GET /            200 in 1.9 s
+GET /api/health  {"ok":true,"mock":false, gates: rights healthy (390 s since success, 1 catch), claim healthy, brand healthy, provenance healthy}
+GET /api/stats   {"ok":true,"mock":false,"checked_7d":9,"passed_7d":2,"blocked_7d":7,"incidents_7d":6,"gates_calibrated":4,"gates_total":4}
+```
