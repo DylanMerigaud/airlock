@@ -1,11 +1,11 @@
 {
-  "at": "2026-08-29T01:14:42.719Z",
+  "at": "2026-08-29T01:39:26.777Z",
   "console": "https://airlock-console-771466810465.us-central1.run.app",
   "muted": [
     "rights"
   ],
   "asset": "Nimbus clean clip",
-  "run_seconds": 33.1,
-  "verdict": "PASS",
-  "motive": null
+  "run_seconds": 36.7,
+  "verdict": "BLOCK",
+  "motive": "control unavailable"
 }

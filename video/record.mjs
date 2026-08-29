@@ -33,6 +33,7 @@ const ASA_URL = "https://www.asa.org.uk/rulings/nutri-paw-ltd.html";
 const GATES = ["rights", "claim", "brand", "provenance"];
 const TERMINAL = ["PASS", "BLOCK", "ERROR"];
 const STEP_TIMEOUT_MS = 200_000;
+const ASA_SCROLL_MS = 8_000;
 
 function arg(name, fallback) {
   const i = process.argv.indexOf(name);
@@ -372,9 +373,13 @@ async function runTake() {
         .scrollIntoViewIfNeeded({ timeout: 10_000 })
         .catch(() => note("ASA: no Assessment heading found, scrolling from the top"));
       cue("asa", { url: ASA_URL, detail: "scrolling the assessment" });
-      for (let i = 0; i < 40; i++) {
-        await page.evaluate(() => window.scrollBy(0, 42));
-        await sleep(200);
+      // The scroll is bounded by the wall clock, not by a step count: the voice line for this
+      // beat is short, and the assembler never cuts here, so the picture has to last exactly as
+      // long as the beat is worth. Small steps, so the page glides instead of jumping.
+      const scrollUntil = Date.now() + ASA_SCROLL_MS;
+      while (Date.now() < scrollUntil) {
+        await page.evaluate(() => window.scrollBy(0, 16));
+        await sleep(90);
       }
       } catch (error) {
         note(`ASA beat failed: ${error.message}`);

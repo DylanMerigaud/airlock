@@ -7,10 +7,13 @@ console take for the windows they were open, burns the Article 50 overlay and th
 the narration at its cue times over a room tone, and writes
 video/out/airlock-draft-<n>-synthetic-voice.mp4.
 
-The take is longer than the video, because a real run takes as long as it takes. The cut plan
-shortens the holds, never a run: the dashboard hold first, then the landing hold, the ASA scroll,
-the opening, and the pauses on a settled verdict. Every cue time is mapped through the cuts, so
-the narration stays on the picture it describes.
+The take is longer than the video, because a real run takes as long as it takes. The only stretch
+the cut plan is allowed to remove is the wait on the rights gate, the Video Intelligence call, and
+every one of those says so on the picture before it happens: "waiting for Video Intelligence, N s
+compressed". If that is still not enough to fit the duration limit, the dashboard hold and then
+the landing hold are shortened and the assembler prints by how much. Every cue time is mapped
+through the cuts, so the narration stays on the picture it describes, and the subtitles are cut
+one per sentence rather than one per spoken line.
 
     uv run python video/assemble.py
     uv run python video/assemble.py --draft 2 --target 180
@@ -41,6 +44,16 @@ MIN_GAP_S = 0.4
 TAIL_PAD_S = 1.2
 ROOM_TONE_DBFS = -38.0  # above silencedetect's -45 dB floor, so a gap never reads as dead air
 
+# A subtitle cue is one sentence, wrapped at about this width and never more than two rows, so a
+# viewer reads a whole thought at once instead of a paragraph parked on the picture for 15 s.
+SUBTITLE_WIDTH = 60
+SUBTITLE_ROWS = 2
+# Every stretch the assembler takes out of a run is announced on the picture just before it
+# happens, in a mono face so it reads as an editing note and not as console copy.
+MONO_FONT = "/System/Library/Fonts/Supplemental/Courier New Bold.ttf"
+COMPRESSION_LABEL_S = 2.5
+COMPRESSION_FONT_SIZE = 28
+
 
 def run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess:
     return subprocess.run(cmd, capture_output=True, text=True, **kwargs)
@@ -53,6 +66,25 @@ def probe(path: Path) -> dict:
 
 def duration_of(path: Path) -> float:
     return float(probe(path)["format"]["duration"])
+
+
+def leading_black(path: Path, max_lead: float = 8.0) -> float:
+    """How many seconds of the head of a clip are black.
+
+    A Grafana page is recorded from the moment it opens, and the recorder then waits for the
+    panels to draw their canvases before it holds, so the first seconds of that file are a blank
+    tab. Laid over the take as they are, they put a black hole in the middle of the video.
+    """
+    out = run(["ffmpeg", "-nostdin", "-i", str(path), "-vf",
+               "blackdetect=d=0.2:pic_th=0.98:pix_th=0.10", "-f", "null", "-"])
+    ranges = sorted((float(a), float(b)) for a, b in
+                    re.findall(r"black_start:([\d.]+) black_end:([\d.]+)", out.stderr))
+    lead = 0.0
+    for start, end in ranges:
+        if start > lead + 0.7 or end > max_lead:
+            break
+        lead = end
+    return lead
 
 
 def wrap(text: str, width: int) -> list[str]:
@@ -69,6 +101,81 @@ def wrap(text: str, width: int) -> list[str]:
     return lines
 
 
+# A sentence ends on a full stop, a question mark or an exclamation mark, and a colon starts a new
+# one only when what follows is capitalised (so "not an opinion: this film" stays one cue).
+SENTENCE_BREAK = re.compile(r"(?<=[.?!])\s+|(?<=:)\s+(?=[A-Z])")
+
+
+def fit_chunks(text: str, width: int = SUBTITLE_WIDTH, rows: int = SUBTITLE_ROWS) -> list[str]:
+    """Cut a sentence into the fewest pieces that each fit `rows` wrapped rows, evenly.
+
+    A piece ends on a comma or a semicolon whenever one sits near the even split, because a cue
+    that breaks between "and nobody" and "can prove" reads worse than an uneven one.
+    """
+    if len(wrap(text, width)) <= rows:
+        return [text]
+    words = text.split()
+    for count in range(2, len(words) + 1):
+        target = len(text) / count
+        chunks, current = [], ""
+        for word in words:
+            candidate = f"{current} {word}".strip()
+            over = len(candidate) > target and len(chunks) < count - 1
+            if current and over:
+                chunks.append(current)
+                current = word
+            else:
+                current = candidate
+        chunks.append(current)
+        chunks = rebalance_on_punctuation(chunks, width, rows)
+        if all(len(wrap(chunk, width)) <= rows for chunk in chunks):
+            return chunks
+    return [text]
+
+
+def rebalance_on_punctuation(chunks: list[str], width: int, rows: int) -> list[str]:
+    """Move the boundary between two pieces back to the last comma of the first one."""
+    out = list(chunks)
+    for i in range(len(out) - 1):
+        left, right = out[i], out[i + 1]
+        if left.endswith((",", ";", ":")):
+            continue
+        cut = max(left.rfind(", "), left.rfind("; "), left.rfind(": "))
+        if cut <= 0:
+            continue
+        head, tail = left[: cut + 1], left[cut + 2 :]
+        moved = f"{tail} {right}".strip()
+        if len(wrap(head, width)) <= rows and len(wrap(moved, width)) <= rows:
+            out[i], out[i + 1] = head, moved
+    return out
+
+
+def subtitle_cues(line: dict) -> list[dict]:
+    """One cue per sentence of a spoken line, sharing that line's wav duration by length.
+
+    The narration audio stays one wav per line; only the reading is split. The cues are
+    contiguous and their lengths sum to exactly the wav duration, so nothing drifts.
+    """
+    pieces: list[str] = []
+    for sentence in SENTENCE_BREAK.split(line["text"].strip()):
+        sentence = sentence.strip()
+        if sentence:
+            pieces += fit_chunks(sentence)
+    if not pieces:
+        return []
+    weights = [max(len(piece), 1) for piece in pieces]
+    total_weight = sum(weights)
+    begin, finish = line["start_final_s"], line["end_final_s"]
+    span = finish - begin
+    cues, carried, start = [], 0.0, begin
+    for index, piece in enumerate(pieces):
+        carried += weights[index]
+        end = finish if index == len(pieces) - 1 else begin + span * carried / total_weight
+        cues.append({"text": piece, "start": start, "end": end})
+        start = end
+    return cues
+
+
 def srt_time(seconds: float) -> str:
     seconds = max(0.0, seconds)
     hours, rest = divmod(seconds, 3600)
@@ -79,17 +186,22 @@ def srt_time(seconds: float) -> str:
 class CutPlan:
     """The ranges dropped from the take, in the take's own video time."""
 
-    def __init__(self, head: float, cuts: list[tuple[float, float, str]]):
+    def __init__(self, head: float, cuts: list[tuple[float, float, str, str]]):
         self.head = head
         self.cuts = sorted(cuts)
 
     @property
     def removed(self) -> float:
-        return self.head + sum(b - a for a, b, _ in self.cuts)
+        return self.head + sum(b - a for a, b, _, _ in self.cuts)
+
+    @property
+    def compressions(self) -> list[tuple[float, float, str]]:
+        """The stretches taken out of a run, the only cuts that carry an on-screen label."""
+        return [(a, b, name) for a, b, name, kind in self.cuts if kind == "run_wait"]
 
     def map(self, t: float) -> float:
         out = t - self.head
-        for a, b, _ in self.cuts:
+        for a, b, _, _ in self.cuts:
             if t >= b:
                 out -= b - a
             elif t > a:
@@ -98,19 +210,21 @@ class CutPlan:
 
     def select_expr(self) -> str:
         ranges = [(0.0, self.head)] if self.head > 0.01 else []
-        ranges += [(a, b) for a, b, _ in self.cuts if b - a > 0.01]
+        ranges += [(a, b) for a, b, _, _ in self.cuts if b - a > 0.01]
         if not ranges:
             return ""
         inside = "+".join(f"between(t,{a:.3f},{b:.3f})" for a, b in ranges)
         return f"select='not({inside})'"
 
 
-def build_windows(at: dict, lines: list[dict], protect_voice: bool = True) -> list[dict]:
-    """The holds that may be shortened, most expendable first.
+def build_windows(at: dict, lines: list[dict], protect_voice: bool = True,
+                  wait_keep: float = 3.0) -> list[dict]:
+    """What may be shortened, most expendable first: the rights waits, then two holds.
 
     A hold is never cut below the voice line spoken over it while `protect_voice` holds, so a beat
-    always stays on screen at least as long as what is said about it. Only when that budget is not
-    enough to bring the take under the duration limit does the caller ask again without it.
+    always stays on screen at least as long as what is said about it. `wait_keep` is how much of a
+    rights wait survives its own cut; the caller lowers it before it gives up that protection,
+    because a second of visible waiting is worth less than a line landing on its own picture.
     """
     voice = {}
     for line in lines:
@@ -119,48 +233,52 @@ def build_windows(at: dict, lines: list[dict], protect_voice: bool = True) -> li
     def carried(a: float, b: float) -> float:
         return sum(d for cue, d in voice.items() if cue in at and a <= at[cue] < b)
 
+    def window(a: float, b: float, keep: float, name: str, kind: str) -> dict | None:
+        held = carried(a, b) if protect_voice else 0.0
+        floor = max(keep, held + 0.5) if held else keep
+        if b - a <= floor:
+            return None
+        return {"name": name, "a": a, "b": b, "keep": floor, "max": (b - a) - floor, "kind": kind}
+
     def span(start: str, end: str, keep: float, name: str) -> dict | None:
         if start not in at or end not in at:
             return None
-        a, b = at[start], at[end]
-        held = carried(a, b) if protect_voice else 0.0
-        floor = max(keep, held + 0.5) if held else keep
-        if b - a <= floor:
-            return None
-        return {"name": name, "a": a, "b": b, "keep": floor, "max": (b - a) - floor}
+        return window(at[start], at[end], keep, name, "hold")
 
-    def run_gap(suffix: str, name: str, keep: float = 5.0) -> dict | None:
-        """The stretch of a run where the picture only waits for the slowest gate."""
-        landings = sorted(
-            at[f"{gate}_done{suffix}"]
-            for gate in ("rights", "claim", "brand", "provenance")
-            if f"{gate}_done{suffix}" in at
-        )
-        if len(landings) < 2:
+    def rights_wait(suffix: str, name: str, keep: float = wait_keep) -> dict | None:
+        """The wait on the rights gate: from the last of the other three to rights itself.
+
+        This is the only stretch of a run the assembler is allowed to remove, and the only one
+        the Video Intelligence call is responsible for. Reading it from the rights landing rather
+        than from "the last chip to settle" keeps the label honest even on a run where some other
+        gate happens to finish last.
+
+        A wait is never given the voice floor a hold gets, and that is not an oversight: the line
+        spoken over the gate that just settled starts at the cut point and the picture it
+        describes, the settled chip, is still there after the cut and stays there. A hold is the
+        other case, its picture ends at the end of the window.
+        """
+        rights = at.get(f"rights_done{suffix}")
+        others = [at[f"{g}_done{suffix}"] for g in ("claim", "brand", "provenance")
+                  if f"{g}_done{suffix}" in at]
+        before = [o for o in others if o < rights] if rights is not None else []
+        if rights is None or not before:
             return None
-        a, b = landings[-2], landings[-1]
-        held = carried(a, b) if protect_voice else 0.0
-        floor = max(keep, held + 0.5) if held else keep
-        if b - a <= floor:
+        a, b = max(before), rights
+        if b - a <= keep:
             return None
-        return {"name": name, "a": a, "b": b, "keep": floor, "max": (b - a) - floor}
+        return {"name": name, "a": a, "b": b, "keep": keep, "max": (b - a) - keep,
+                "kind": "run_wait"}
 
     candidates = [
-        # The dead time of a run comes off first. The script asks for no cut inside a run, and
-        # that holds when the Crest asset is the 15 s excerpt the checklist calls for; on a 30 s
-        # excerpt the rights gate alone runs for 90 s and the holds cannot absorb it.
-        run_gap("", "Crest run, waiting for the last gate"),
-        run_gap("_2", "muted clean run, waiting for the last gate"),
-        run_gap("_3", "clean run, waiting for the last gate"),
+        # Only the waits on the rights gate come out of a run, and each one is announced on the
+        # picture. The holds below are the overflow, in that order, and only when the waits alone
+        # cannot bring the render under the duration limit.
+        rights_wait("", "Crest run, waiting for Video Intelligence"),
+        rights_wait("_2", "muted clean run, waiting for Video Intelligence"),
+        rights_wait("_3", "clean run, waiting for Video Intelligence"),
         span("dashboard", "landing", 5.0, "dashboard hold"),
         span("landing", "end", 8.0, "landing hold"),
-        span("asa", "mute_on", 7.0, "ASA scroll"),
-        span("grafana_open", "clean_muted_click", 4.0, "Grafana hold"),
-        span("stake", "asa", 5.0, "opening hold"),
-        span("console_idle", "crest_click", 5.0, "idle hold"),
-        span("verdict", "grafana_open", 2.0, "pause after the Crest verdict"),
-        span("verdict_2", "unmute", 2.0, "pause after the control unavailable verdict"),
-        span("verdict_3", "dashboard", 2.0, "pause after the PASS verdict"),
     ]
     return [w for w in candidates if w]
 
@@ -173,7 +291,7 @@ def plan_for(trim: float, head: float, windows: list[dict]) -> CutPlan:
             break
         take = min(left, window["max"])
         if take > 0.05:
-            cuts.append((window["a"], window["a"] + take, window["name"]))
+            cuts.append((window["a"], window["a"] + take, window["name"], window["kind"]))
             left -= take
     return CutPlan(head, cuts)
 
@@ -254,17 +372,21 @@ def build_audio(lines: list[dict], out_dir: Path, total: float, tone_db: float) 
     return final
 
 
-def write_srt(lines: list[dict], path: Path) -> None:
+def write_srt(lines: list[dict], path: Path) -> list[dict]:
+    """One subtitle block per sentence, not per spoken line. Returns the cues it wrote."""
+    cues = [cue for line in lines for cue in subtitle_cues(line)]
     blocks = []
-    for i, line in enumerate(lines, start=1):
-        text = "\n".join(wrap(line["text"], 62))
-        blocks.append(f"{i}\n{srt_time(line['start_final_s'])} --> {srt_time(line['end_final_s'])}\n{text}\n")
+    for i, cue in enumerate(cues, start=1):
+        text = "\n".join(wrap(cue["text"], SUBTITLE_WIDTH))
+        blocks.append(f"{i}\n{srt_time(cue['start'])} --> {srt_time(cue['end'])}\n{text}\n")
     path.write_text("\n".join(blocks), encoding="utf-8")
+    return cues
 
 
 def build_video(
     console: Path, overlays: list[dict], plan: CutPlan, total: float, raw_len: float,
     out_dir: Path, srt: Path, audio: Path, target: Path, subtitle_size: int,
+    labels: list[dict],
 ) -> None:
     a50 = out_dir / "article-50.txt"
     a50.write_text("\n".join(wrap(ARTICLE_50, 58)) + "\n", encoding="utf-8")
@@ -277,7 +399,10 @@ def build_video(
     current = "[base]"
     for i, overlay in enumerate(overlays, start=1):
         start, end = overlay["window"]
-        steps.append(f"[{i}:v]fps=30,scale=1920:1080:flags=lanczos,setsar=1,setpts=PTS-STARTPTS+{start:.3f}/TB[ov{i}]")
+        skip = overlay.get("skip", 0.0)
+        head = f"trim=start={skip:.3f},setpts=PTS-STARTPTS," if skip > 0.05 else ""
+        steps.append(f"[{i}:v]{head}fps=30,scale=1920:1080:flags=lanczos,setsar=1,"
+                     f"setpts=PTS-STARTPTS+{start:.3f}/TB[ov{i}]")
         steps.append(f"{current}[ov{i}]overlay=0:0:eof_action=pass:enable='between(t,{start:.3f},{end:.3f})'[b{i}]")
         current = f"[b{i}]"
 
@@ -295,6 +420,16 @@ def build_video(
         f":alpha='if(lt(t,{ARTICLE_50_S - 1.5:.1f}),1,max(0,({ARTICLE_50_S:.1f}-t)/1.5))'"
         f":enable='between(t,0,{ARTICLE_50_S:.1f})'"
     )
+    # Every compressed wait says so on the picture, in the seconds that run up to the cut.
+    for i, label in enumerate(labels, start=1):
+        caption = out_dir / f"compression-{i}.txt"
+        caption.write_text(label["text"], encoding="utf-8")
+        chain.append(
+            f"drawtext=fontfile={MONO_FONT}:textfile={caption}"
+            f":fontsize={COMPRESSION_FONT_SIZE}:fontcolor=white:box=1:boxcolor=black@0.78"
+            ":boxborderw=16:x=(w-text_w)/2:y=42"
+            f":enable='between(t,{label['from']:.3f},{label['to']:.3f})'"
+        )
     chain.append(
         f"subtitles={srt}:force_style='FontName=Arial,FontSize={subtitle_size},"
         "PrimaryColour=&H00FFFFFF,BackColour=&HB4000000,BorderStyle=4,Outline=0,Shadow=0,"
@@ -363,8 +498,14 @@ def main() -> int:
             print(f"overlay {entry['file']} is missing, the console take plays through instead")
             continue
         length = duration_of(path)
+        skip = leading_black(path)
+        if skip > length - 1.0:
+            skip = 0.0
         end = max(0.0, entry["closed_at"] - offset)
-        overlays.append({"path": path, "window": (max(0.0, end - length), end), "cue": entry["cue"]})
+        overlays.append({"path": path, "skip": skip, "cue": entry["cue"],
+                         "window": (max(0.0, end - (length - skip)), end)})
+        if skip > 0.05:
+            print(f"overlay {entry['cue']}: skipping {skip:.1f}s of blank tab at its head")
 
     head = max(0.0, at_video.get("stake", 0.0) - 0.4)
 
@@ -385,23 +526,60 @@ def main() -> int:
                         "total": total, "video_len": video_len, "narration_end": narration_end}
         return best
 
-    best = search(build_windows(at_video, narration["lines"], protect_voice=True))
-    if best["total"] > args.maximum:
-        print("the holds cannot absorb the take on their own, cutting into the spoken beats too")
-        best = search(build_windows(at_video, narration["lines"], protect_voice=False))
+    # Three passes, each giving up less than the next. The waits come off first in every one of
+    # them, because they are the only stretch the script allows the assembler to remove.
+    attempts = [
+        ("the rights waits with 3.0 s of each kept on screen, the two holds protected",
+         dict(protect_voice=True, wait_keep=3.0)),
+        ("the rights waits with 2.0 s of each kept on screen, the two holds protected",
+         dict(protect_voice=True, wait_keep=2.0)),
+        ("the rights waits with 1.5 s of each kept on screen, the two holds protected",
+         dict(protect_voice=True, wait_keep=1.5)),
+        ("the two holds giving up the floor that protected the line spoken over them",
+         dict(protect_voice=False, wait_keep=1.5)),
+    ]
+    best = None
+    for label, kwargs in attempts:
+        best = search(build_windows(at_video, narration["lines"], **kwargs))
+        if best["total"] <= args.maximum:
+            print(f"cut plan: {label}")
+            break
+        print(f"over {args.maximum:.0f}s with {label}, trying the next plan")
 
     plan, placed, total = best["plan"], best["placed"], best["total"]
     print(f"take {raw_len:.1f}s, head trim {head:.1f}s, cut {best['trim']:.1f}s, "
           f"video {best['video_len']:.1f}s, narration ends {best['narration_end']:.1f}s, "
           f"render {total:.1f}s")
-    for a, b, name in plan.cuts:
-        print(f"  cut {b - a:5.1f}s from the {name}")
+
+    compressions = []
+    labels = []
+    for a, b, name in plan.compressions:
+        removed = int(round(b - a))
+        at_cut = plan.map(a)
+        compressions.append({"start_take_s": round(a, 3), "end_take_s": round(b, 3),
+                             "removed_s": removed, "name": name,
+                             "at_render_s": round(at_cut, 3)})
+        labels.append({
+            "text": f"waiting for Video Intelligence, {removed} s compressed",
+            "from": max(0.0, at_cut - COMPRESSION_LABEL_S),
+            "to": at_cut,
+        })
+    held_back = sum(b - a for a, b, _, kind in plan.cuts if kind != "run_wait")
+
+    for a, b, name, kind in plan.cuts:
+        marker = "labelled" if kind == "run_wait" else "hold"
+        print(f"  cut {b - a:5.1f}s from the {name}  ({marker})")
+    if held_back > 0.05:
+        print(f"  the rights waits alone left the picture at "
+              f"{best['video_len'] + held_back:.1f}s, so {held_back:.1f}s more came off the "
+              f"dashboard and landing holds")
     for line in placed:
         print(f"  {line['cue']:<20} {line['start_final_s']:7.2f}s to {line['end_final_s']:7.2f}s"
               f"  (+{line['shift_final_s']:.2f}s)")
 
     srt = out_dir / "narration.srt"
-    write_srt(placed, srt)
+    subtitles = write_srt(placed, srt)
+    print(f"{len(subtitles)} subtitle cues over {len(placed)} spoken lines")
 
     number = args.draft if args.draft is not None else next_draft(out_dir)
     target = out_dir / f"airlock-draft-{number}-synthetic-voice.mp4"
@@ -411,7 +589,7 @@ def main() -> int:
     for attempt in range(1, 4):
         audio = build_audio(placed, out_dir, total, tone)
         build_video(console, overlays, plan, total, raw_len, out_dir, srt, audio, target,
-                    args.subtitle_size)
+                    args.subtitle_size, labels)
         size_mb = target.stat().st_size / 1024 / 1024
         print(f"\nwrote {target} ({size_mb:.1f} MB)")
         if args.no_check or not CHECK.exists():
@@ -434,13 +612,21 @@ def main() -> int:
         "take_s": round(raw_len, 3),
         "offset_s": round(offset, 3),
         "head_trim_s": round(head, 3),
-        "cuts": [{"name": name, "from_s": round(a, 2), "to_s": round(b, 2)}
-                 for a, b, name in plan.cuts],
+        "cuts": [{"name": name, "kind": kind, "from_s": round(a, 2), "to_s": round(b, 2)}
+                 for a, b, name, kind in plan.cuts],
+        "compressions": [{"start_take_s": c["start_take_s"], "end_take_s": c["end_take_s"],
+                          "removed_s": c["removed_s"]} for c in compressions],
+        "compression_labels": [{"text": label["text"], "from_s": round(label["from"], 3),
+                                "to_s": round(label["to"], 3)} for label in labels],
+        "hold_trim_s": round(held_back, 3),
         "overlays": [{"cue": o["cue"], "from_s": round(plan.map(o["window"][0]), 2),
-                      "to_s": round(plan.map(o["window"][1]), 2)} for o in overlays],
+                      "to_s": round(plan.map(o["window"][1]), 2),
+                      "blank_head_skipped_s": round(o["skip"], 2)} for o in overlays],
         "room_tone_dbfs": tone,
         "lines": [{k: line[k] for k in ("cue", "start_final_s", "end_final_s", "shift_final_s", "text")}
                   for line in placed],
+        "subtitles": [{"text": cue["text"], "start_s": round(cue["start"], 3),
+                       "end_s": round(cue["end"], 3)} for cue in subtitles],
         "check": verdict_lines,
     }
     (out_dir / "assembly.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")

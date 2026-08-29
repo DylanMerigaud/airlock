@@ -1,75 +1,125 @@
 1
-00:00:00,400 --> 00:00:18,021
-Since August 2026 the law requires generated content to be
-marked in a machine-readable way. Studios ship dozens of
-generated assets a week. Nobody signs each one by hand fast
-enough, and nobody can prove which one was checked, by which
-rule, or whether the check was working.
+00:00:00,400 --> 00:00:04,051
+Since August 2026 the law wants generated content marked.
 
 2
-00:00:18,421 --> 00:00:25,343
-This is the reviewer's job today: a ruling on one side, the
-asset on the other, and no trace of what was checked.
+00:00:04,051 --> 00:00:07,061
+Studios ship dozens of generated assets a week,
 
 3
-00:00:25,743 --> 00:00:39,651
-Airlock is the airlock between the generator and the
-broadcast: four gates, then a verdict that has to ask Grafana
-before it rules. Look at the rights gate: its telemetry has
-been dark for seventeen minutes. Keep that in mind.
+00:00:07,061 --> 00:00:11,672
+and nobody can prove which one was checked, or whether the
+check worked.
 
 4
-00:00:40,051 --> 00:00:47,245
-A real commercial with a real trademark on screen. The four
-gates run in parallel on Vertex AI Agent Engine.
+00:00:12,072 --> 00:00:18,201
+This is the reviewer's job today: a ruling on one side, the
+asset on the other, no trace.
 
 5
-00:00:47,645 --> 00:00:54,823
-Provenance is a cryptographic check, not an opinion: this film
-was shot decades before C2PA existed.
+00:00:19,709 --> 00:00:24,584
+Airlock: four gates, then a verdict that asks Grafana before
+it rules.
 
 6
-00:00:55,223 --> 00:01:05,063
-The claim gate reads every claim with its timestamp and maps
-it to the rule: an expert endorsement, an organisation
-endorsement, no substantiation on file.
+00:00:24,584 --> 00:00:29,877
+The rights gate is amber: its telemetry has been dark for
+seventeen minutes.
 
 7
-00:01:05,463 --> 00:01:12,032
+00:00:29,877 --> 00:00:31,131
+Keep that in mind.
+
+8
+00:00:31,531 --> 00:00:34,893
+A real commercial with a real trademark on screen.
+
+9
+00:00:34,893 --> 00:00:38,725
+The four gates run in parallel on Vertex AI Agent Engine.
+
+10
+00:00:39,125 --> 00:00:46,303
+Provenance is a cryptographic check, not an opinion: this
+film was shot decades before C2PA existed.
+
+11
+00:01:12,876 --> 00:01:17,732
+The claim gate reads every claim with its timestamp and maps
+it to the rule:
+
+12
+00:01:17,732 --> 00:01:22,716
+an expert endorsement, an organisation endorsement, no
+substantiation on file.
+
+13
+00:01:23,116 --> 00:01:29,685
 Rights: the Video Intelligence API found the logo and the
 faces; the registry clears neither.
 
-8
-00:01:12,432 --> 00:01:24,885
+14
+00:01:30,085 --> 00:01:37,385
 Before it rules, the verdict asks Grafana about each gate:
 healthy, and has it caught a real injected defect this week.
-Then it writes the verdict back as an annotation and opens the
-incident for a human.
 
-9
-00:01:25,573 --> 00:01:40,292
-A clean generated asset, signed with a real manifest. Four
-gates pass. And the verdict still refuses: Grafana cannot see
-the rights control succeed, so its PASS does not count. A
-control nobody can see is not a control.
+15
+00:01:37,385 --> 00:01:42,538
+Then it writes the verdict back as an annotation and opens
+the incident for a human.
 
-10
-00:02:00,799 --> 00:02:03,410
+16
+00:01:42,938 --> 00:01:46,566
+A clean generated asset, signed with a real manifest.
+
+17
+00:01:46,566 --> 00:01:47,662
+Four gates pass.
+
+18
+00:01:47,662 --> 00:01:49,716
+And the verdict still refuses:
+
+19
+00:01:49,716 --> 00:01:54,782
+Grafana cannot see the rights control succeed, so its PASS
+does not count.
+
+20
+00:01:54,782 --> 00:01:57,657
+A control nobody can see is not a control.
+
+21
+00:02:09,219 --> 00:02:11,830
 Turn the telemetry back on and run again.
 
-11
-00:02:31,525 --> 00:02:39,290
+22
+00:02:32,919 --> 00:02:37,408
 Now every gate is healthy and has caught a real injected
-defect this week. This is the PASS the reviewer no longer
-signs by hand.
+defect this week.
 
-12
-00:02:39,690 --> 00:02:50,273
-Every verdict is an annotation on this dashboard. Every block
-that needs a human is an incident. Each gate had to catch a
-real injected defect before it earned the right to block.
+23
+00:02:37,408 --> 00:02:40,684
+This is the PASS the reviewer no longer signs by hand.
 
-13
-00:02:50,673 --> 00:02:55,716
+24
+00:02:41,084 --> 00:02:44,014
+Every verdict is an annotation on this dashboard.
+
+25
+00:02:44,014 --> 00:02:46,764
+Every block that needs a human is an incident.
+
+26
+00:02:46,764 --> 00:02:51,667
+Each gate had to catch a real injected defect before it
+earned the right to block.
+
+27
+00:02:52,067 --> 00:02:56,138
 Nothing ships without a gate that has already caught a real
-defect. That is Airlock.
+defect.
+
+28
+00:02:56,138 --> 00:02:57,110
+That is Airlock.

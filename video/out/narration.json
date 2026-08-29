@@ -6,84 +6,84 @@
   "speaking_rate": 1.0,
   "min_gap_s": 0.4,
   "take": {
-    "recorded_at": "2026-08-29T01:20:09.895Z",
-    "duration_s": 274.863
+    "recorded_at": "2026-08-29T02:19:08.746Z",
+    "duration_s": 256.49
   },
-  "narration_end_s": 265.072,
+  "narration_end_s": 246.242,
   "lines": [
     {
       "cue": "stake",
-      "text": "Since August 2026 the law requires generated content to be marked in a machine-readable way. Studios ship dozens of generated assets a week. Nobody signs each one by hand fast enough, and nobody can prove which one was checked, by which rule, or whether the check was working.",
+      "text": "Since August 2026 the law wants generated content marked. Studios ship dozens of generated assets a week, and nobody can prove which one was checked, or whether the check worked.",
       "timecode_s": 0.0,
-      "cue_t": 1.661,
+      "cue_t": 1.379,
       "start_source": "cue",
-      "start_s": 1.661,
+      "start_s": 1.379,
       "wav": "voice/01-stake.wav",
-      "duration_s": 17.621,
+      "duration_s": 11.272,
       "shift_s": 0.0
     },
     {
       "cue": "asa",
-      "text": "This is the reviewer's job today: a ruling on one side, the asset on the other, and no trace of what was checked.",
-      "timecode_s": 8.0,
-      "cue_t": 11.629,
+      "text": "This is the reviewer's job today: a ruling on one side, the asset on the other, no trace.",
+      "timecode_s": 9.0,
+      "cue_t": 11.739,
       "start_source": "cue",
-      "start_s": 19.682,
+      "start_s": 13.051,
       "wav": "voice/02-asa.wav",
-      "duration_s": 6.922,
-      "shift_s": 8.053
+      "duration_s": 6.129,
+      "shift_s": 1.312
     },
     {
       "cue": "console_idle",
-      "text": "Airlock is the airlock between the generator and the broadcast: four gates, then a verdict that has to ask Grafana before it rules. Look at the rights gate: its telemetry has been dark for seventeen minutes. Keep that in mind.",
+      "text": "Airlock: four gates, then a verdict that asks Grafana before it rules. The rights gate is amber: its telemetry has been dark for seventeen minutes. Keep that in mind.",
       "timecode_s": 17.0,
-      "cue_t": 20.837,
+      "cue_t": 20.688,
       "start_source": "cue",
-      "start_s": 27.004,
+      "start_s": 20.688,
       "wav": "voice/03-console_idle.wav",
-      "duration_s": 13.908,
-      "shift_s": 6.167
+      "duration_s": 11.422,
+      "shift_s": 0.0
     },
     {
       "cue": "crest_click",
       "text": "A real commercial with a real trademark on screen. The four gates run in parallel on Vertex AI Agent Engine.",
       "timecode_s": 25.0,
-      "cue_t": 30.589,
+      "cue_t": 30.445,
       "start_source": "cue",
-      "start_s": 41.312,
+      "start_s": 32.51,
       "wav": "voice/04-crest_click.wav",
       "duration_s": 7.194,
-      "shift_s": 10.723
+      "shift_s": 2.065
     },
     {
       "cue": "provenance_done",
       "text": "Provenance is a cryptographic check, not an opinion: this film was shot decades before C2PA existed.",
       "timecode_s": 30.0,
-      "cue_t": 35.122,
+      "cue_t": 33.724,
       "start_source": "cue",
-      "start_s": 48.906,
+      "start_s": 40.104,
       "wav": "voice/05-provenance_done.wav",
       "duration_s": 7.178,
-      "shift_s": 13.784
+      "shift_s": 6.38
     },
     {
       "cue": "claim_done",
       "text": "The claim gate reads every claim with its timestamp and maps it to the rule: an expert endorsement, an organisation endorsement, no substantiation on file.",
       "timecode_s": 40.0,
-      "cue_t": 52.496,
+      "cue_t": 73.855,
       "start_source": "cue",
-      "start_s": 56.484,
+      "start_s": 73.855,
       "wav": "voice/06-claim_done.wav",
       "duration_s": 9.84,
-      "shift_s": 3.988
+      "shift_s": 0.0
     },
     {
       "cue": "rights_done",
       "text": "Rights: the Video Intelligence API found the logo and the faces; the registry clears neither.",
       "timecode_s": 55.0,
-      "cue_t": 120.227,
+      "cue_t": 95.805,
       "start_source": "cue",
-      "start_s": 120.227,
+      "start_s": 95.805,
       "wav": "voice/07-rights_done.wav",
       "duration_s": 6.569,
       "shift_s": 0.0
@@ -92,9 +92,9 @@
       "cue": "verdict",
       "text": "Before it rules, the verdict asks Grafana about each gate: healthy, and has it caught a real injected defect this week. Then it writes the verdict back as an annotation and opens the incident for a human.",
       "timecode_s": 60.0,
-      "cue_t": 129.288,
+      "cue_t": 104.392,
       "start_source": "cue",
-      "start_s": 129.288,
+      "start_s": 104.392,
       "wav": "voice/08-verdict.wav",
       "duration_s": 12.453,
       "shift_s": 0.0
@@ -103,9 +103,9 @@
       "cue": "clean_muted_click",
       "text": "A clean generated asset, signed with a real manifest. Four gates pass. And the verdict still refuses: Grafana cannot see the rights control succeed, so its PASS does not count. A control nobody can see is not a control.",
       "timecode_s": 80.0,
-      "cue_t": 146.317,
+      "cue_t": 122.17,
       "start_source": "cue",
-      "start_s": 146.317,
+      "start_s": 122.17,
       "wav": "voice/09-clean_muted_click.wav",
       "duration_s": 14.719,
       "shift_s": 0.0
@@ -114,9 +114,9 @@
       "cue": "unmute",
       "text": "Turn the telemetry back on and run again.",
       "timecode_s": 128.0,
-      "cue_t": 200.534,
+      "cue_t": 171.601,
       "start_source": "cue",
-      "start_s": 200.534,
+      "start_s": 171.601,
       "wav": "voice/10-unmute.wav",
       "duration_s": 2.611,
       "shift_s": 0.0
@@ -125,9 +125,9 @@
       "cue": "verdict_3",
       "text": "Now every gate is healthy and has caught a real injected defect this week. This is the PASS the reviewer no longer signs by hand.",
       "timecode_s": 135.0,
-      "cue_t": 240.881,
+      "cue_t": 222.051,
       "start_source": "cue",
-      "start_s": 240.881,
+      "start_s": 222.051,
       "wav": "voice/11-verdict_3.wav",
       "duration_s": 7.765,
       "shift_s": 0.0
@@ -136,23 +136,23 @@
       "cue": "dashboard",
       "text": "Every verdict is an annotation on this dashboard. Every block that needs a human is an incident. Each gate had to catch a real injected defect before it earned the right to block.",
       "timecode_s": 160.0,
-      "cue_t": 246.944,
+      "cue_t": 228.357,
       "start_source": "cue",
-      "start_s": 249.046,
+      "start_s": 230.216,
       "wav": "voice/12-dashboard.wav",
       "duration_s": 10.583,
-      "shift_s": 2.102
+      "shift_s": 1.859
     },
     {
       "cue": "landing",
       "text": "Nothing ships without a gate that has already caught a real defect. That is Airlock.",
       "timecode_s": 178.0,
-      "cue_t": 258.914,
+      "cue_t": 240.495,
       "start_source": "cue",
-      "start_s": 260.029,
+      "start_s": 241.199,
       "wav": "voice/13-landing.wav",
       "duration_s": 5.043,
-      "shift_s": 1.115
+      "shift_s": 0.704
     }
   ]
 }

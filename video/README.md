@@ -44,7 +44,8 @@ uv run python video/assemble.py                          # 3. the render and the
 1. **`video/record.mjs`** (Playwright, chromium, headless) opens a 1920x1080 context with video
    recording on, drives the console through the beats of section 2 of the script, and writes
    `video/out/cues.json`: one `{cue, t}` per moment the script narrates, in seconds since the
-   recording started. It logs each gate the moment its status chip settles, so the four gates can
+   recording started. The ASA ruling is scrolled slowly for 8 s on the wall clock, so that beat
+   lasts exactly as long as it is worth and never has to be cut. It logs each gate the moment its status chip settles, so the four gates can
    land in any order. Every wait has a 200 s timeout and names the cue it gave up on. Grafana is
    visited on a second page of the same context, because the console keeps a finished run in the
    page and navigating the recorded tab away would throw the verdict card out of the take;
@@ -61,7 +62,9 @@ uv run python video/assemble.py                          # 3. the render and the
    to the end of the first plus 0.4 s, and the shift is written down.
 
 3. **`video/assemble.py`** converts the take to 1920x1080 at 30 fps constant H.264, lays the
-   Grafana pages over the windows they were open, burns the Article 50 overlay over the first 8 s
+   Grafana pages over the windows they were open, minus the blank tab at the head of each one
+   (the page is recorded from the moment it opens, so its first seconds are black and the console
+   take plays through them instead), burns the Article 50 overlay over the first 8 s
    and the subtitles from `narration.json`, mixes the narration at its cue times over a quiet room
    tone, normalises to -16 LUFS integrated with the true peak under -1 dBTP, brings the total
    between 170 and 190 s, and writes `video/out/airlock-draft-<n>-synthetic-voice.mp4`. It then
@@ -71,16 +74,20 @@ uv run python video/assemble.py                          # 3. the render and the
    python3 ~/Code/growth-cockpit/career/hackathon-evals/check.py --render <mp4> --limit-s 180
    ```
 
-   The take is always longer than the video, so the assembler cuts. It takes the dead time of a
-   run first (the stretch where the picture only waits for the slowest gate), then the holds, the
-   dashboard hold first, then the landing hold, the ASA scroll, the Grafana hold, the opening, the
-   idle hold and the pauses on a settled verdict. The script asks for no cut inside a run, and that
-   holds as soon as the Crest asset is the 15 s excerpt its own checklist calls for; on the 30 s
-   excerpt the rights gate alone runs for 90 s and the holds cannot absorb it. Every cue time is
-   mapped through the cuts before the narration is placed, so a line still lands on the picture it
-   describes. `check.py --limit-s 180` fails above 180 s, so the render targets 177 s and never
-   goes over 179. Flags: `--target`, `--min`, `--max`, `--draft <n>`, `--subtitle-size`,
-   `--tone-dbfs`, `--no-check`.
+   The take is always longer than the video, so the assembler cuts, and the only stretch it is
+   allowed to take is the wait on the rights gate: from the moment the last of the other three
+   chips settles to the moment rights settles, which is the Video Intelligence call and nothing
+   else. Every stretch taken out of a run says so on the picture, a mono caption at the top
+   centre reading "waiting for Video Intelligence, N s compressed" over the 2.5 s that run up to
+   the cut, and every one of them is written into `assembly.json` under `compressions`. The
+   subtitles are one cue per sentence rather than one per spoken line, each sentence taking its
+   share of that line's wav duration, wrapped at about 60 characters over two rows at most, while
+   the narration audio stays one wav per line. If the waits still leave the render over 179 s, the
+   assembler first keeps less of each of them on screen (3.0 s, then 2.0 s, then 1.5 s), and only
+   then shortens the dashboard hold and the landing hold, printing by how much. Every cue time is mapped through the cuts before the narration is placed, so a line
+   still lands on the picture it describes. `check.py --limit-s 180` fails above 180 s, so the
+   render targets 177 s and never goes over 179. Flags: `--target`, `--min`, `--max`,
+   `--draft <n>`, `--subtitle-size`, `--tone-dbfs`, `--no-check`.
 
 ## What lands in `video/out/`
 
@@ -92,7 +99,8 @@ raw/*.webm         one file per Grafana page the recorder opened
 voice/NN-cue.wav   one synthetic line per beat
 narration.json     each line with its cue, its wav, its duration and where it starts
 narration.srt      the burned subtitles, in the render's own timeline
-assembly.json      the cut plan, the overlay windows, the final line times, the check verdict
+assembly.json      the cut plan and its compressions, the overlay windows, the final line and
+                   subtitle times, the check verdict
 airlock-draft-<n>-synthetic-voice.mp4
 logs/              the recorder, the ffmpeg command and its output
 ```

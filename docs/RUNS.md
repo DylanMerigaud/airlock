@@ -680,3 +680,31 @@ compressed stretches get an on-screen label from draft 2 on); the first voice li
 against an 8 s beat (script shortened); one subtitle cue per script line covered the timeline (per
 sentence from draft 2); the first Grafana visit was captured before its panels drew (recorder waits
 for the canvases now).
+
+### Draft 2 (2026-08-29 02:00 to 02:55 UTC), synthetic voice
+
+Changes: subtitles per sentence (28 cues over 13 lines, two rows at most); every cut inside a run
+labelled on screen for the 2.5 s before it ("waiting for Video Intelligence, N s compressed") and
+listed in `assembly.json`; the ASA page held 8 s; the Grafana overlays' black heads skipped.
+
+The preparation had to be rebuilt: waiting 16 minutes after one muted run puts the three other
+gates past the 900 s threshold as well, and the console then shows every card degraded. The
+sequence is now one unmuted clean run, one muted run 13 minutes later, then a wait until the rights
+gate is past 990 s (so the card reads "17 min ago" while the voice says seventeen minutes).
+
+The take, 256.5 s, 28 cues, none timed out: Crest BLOCK content at 104.4 s, clean clip muted BLOCK
+control unavailable at 166.6 s, unmuted PASS at 222.1 s. Compressions: 20 s, 21 s and 27 s of
+rights-gate waiting; 4.8 s more came off the two holds to reach 178.5 s.
+
+`video/out/airlock-draft-2-synthetic-voice.mp4`, 178.5 s, 19 MB:
+
+```
+PASS  G41 definition  (1920x1080)      PASS  G45 niveau audio  (-16.4 LUFS, peak -4.2)
+PASS  G42 cadence  (30.0 fps)          PASS  G46 silence  (plus long blanc 0.0s)
+PASS  G43 duree  (178s)                PASS  G47 ouverture  (0 plage(s) de noir)
+PASS  G44 audio present  (aac)         RESULTAT: PASS mecanique
+```
+
+Open for the human pass: a 26.6 s stretch with no voice from 46 s to 73 s (the claim gate reading
+the Crest film) which the script now fills with a line on the brand landing; whether 1.5 s of wait
+kept before each labelled cut reads as a cut; the ASA scroll position; the landing hold.
