@@ -16,10 +16,59 @@ function hueFor(source: string): string {
   return GATE_DOT[source as GateName] ?? "bg-ink";
 }
 
+function PlayIcon() {
+  return (
+    <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+      <path d="M4.4 3.1v9.8l8.2-4.9z" fill="currentColor" />
+    </svg>
+  );
+}
+
+function PauseIcon() {
+  return (
+    <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+      <rect x="3.9" y="3.1" width="2.6" height="9.8" fill="currentColor" />
+      <rect x="9.5" y="3.1" width="2.6" height="9.8" fill="currentColor" />
+    </svg>
+  );
+}
+
+function VolumeIcon({ muted }: { muted: boolean }) {
+  return (
+    <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+      <path d="M2 6.1h2.6l3.7-2.9v9.6l-3.7-2.9H2z" fill="currentColor" />
+      {muted ? (
+        <path
+          d="M10.5 5.5 13.8 8.8M13.8 5.5 10.5 8.8"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.3"
+          strokeLinecap="round"
+        />
+      ) : (
+        <path
+          d="M10.7 5.2a3 3 0 0 1 0 4.6"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.3"
+          strokeLinecap="round"
+        />
+      )}
+    </svg>
+  );
+}
+
+const CONTROL_BUTTON =
+  "flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-[2px] text-ink-soft hover:bg-sunk hover:text-ink disabled:pointer-events-none disabled:opacity-40";
+
 /**
  * The clip laid flat, with a marker on every second a gate wrote a finding at,
  * coloured by the gate that wrote it. Click a marker and the player jumps
  * there; the matching finding in the thread lights up at the same time.
+ *
+ * The track itself is the seek control: it sits under the markers as a plain
+ * slider (so a button marker keeps its own click target instead of nesting
+ * one interactive role inside another), clickable anywhere along its width.
  */
 function Scrubber({
   markers,
@@ -27,18 +76,35 @@ function Scrubber({
   position,
   activeSecond,
   hoverSecond,
+  playing,
+  muted,
+  controlsDisabled,
   onSeek,
   onHover,
+  onTogglePlay,
+  onToggleMute,
 }: {
   markers: Marker[];
   duration: number;
   position: number | null;
   activeSecond: number | null;
   hoverSecond: number | null;
+  playing: boolean;
+  muted: boolean;
+  controlsDisabled: boolean;
   onSeek: (seconds: number) => void;
   onHover: (seconds: number | null) => void;
+  onTogglePlay: () => void;
+  onToggleMute: () => void;
 }) {
   const played = position === null ? 0 : Math.min(100, Math.max(0, (position / duration) * 100));
+
+  function seekFromClick(event: React.MouseEvent<HTMLDivElement>) {
+    const rect = event.currentTarget.getBoundingClientRect();
+    if (rect.width === 0) return;
+    const ratio = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
+    onSeek(Number((ratio * duration).toFixed(2)));
+  }
 
   return (
     <div className="px-4 pt-2.5">
@@ -46,20 +112,33 @@ function Scrubber({
       <div className="relative h-[30px]">
         <span
           aria-hidden="true"
-          className="absolute inset-x-0 top-[5px] h-[4px] rounded-[2px] bg-line"
+          className="pointer-events-none absolute inset-x-0 top-[5px] h-[4px] rounded-[2px] bg-line"
         />
         <span
           aria-hidden="true"
-          className="absolute left-0 top-[5px] h-[4px] rounded-[2px] bg-line-strong"
+          className="pointer-events-none absolute left-0 top-[5px] h-[4px] rounded-[2px] bg-accent"
           style={{ width: `${played}%` }}
         />
         {position !== null && (
           <span
             aria-hidden="true"
-            className="absolute top-[2px] h-[10px] w-[2px] -translate-x-1/2 bg-ink"
+            className="pointer-events-none absolute top-[2px] h-[10px] w-[2px] -translate-x-1/2 bg-ink"
             style={{ left: `${played}%` }}
           />
         )}
+
+        <div
+          role="slider"
+          tabIndex={0}
+          aria-label="Clip position"
+          aria-orientation="horizontal"
+          aria-valuemin={0}
+          aria-valuemax={duration}
+          aria-valuenow={position ?? 0}
+          aria-valuetext={`${Math.round(position ?? 0)} of ${Math.round(duration)} seconds`}
+          onClick={seekFromClick}
+          className="absolute inset-0 cursor-pointer"
+        />
 
         {markers.map((marker) => {
           const left = Math.min(100, Math.max(0, (marker.seconds / duration) * 100));
@@ -104,11 +183,33 @@ function Scrubber({
         })}
       </div>
 
-      <div className="mt-1 flex items-center justify-between gap-4">
-        <span className="tabular font-mono text-[10px] text-ink-soft">
-          {position === null ? "0:00" : clock(position)}
-        </span>
-        <ul className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+      <div className="mt-1 flex items-center gap-4">
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            onClick={onTogglePlay}
+            disabled={controlsDisabled}
+            aria-pressed={playing}
+            className={CONTROL_BUTTON}
+          >
+            {playing ? <PauseIcon /> : <PlayIcon />}
+            <span className="sr-only">Play or pause</span>
+          </button>
+          <button
+            type="button"
+            onClick={onToggleMute}
+            disabled={controlsDisabled}
+            aria-pressed={muted}
+            className={CONTROL_BUTTON}
+          >
+            <VolumeIcon muted={muted} />
+            <span className="sr-only">Mute or unmute</span>
+          </button>
+          <span className="tabular ml-1 font-mono text-[10px] text-ink-soft">
+            {position === null ? "0:00" : clock(position)} / {clock(duration)}
+          </span>
+        </div>
+        <ul className="flex flex-1 flex-wrap items-center justify-center gap-x-3 gap-y-1">
           {GATE_ORDER.map((gate) => (
             <li key={gate} className="flex items-center gap-1.5">
               <span className={cn("h-[8px] w-[3px]", GATE_DOT[gate])} aria-hidden="true" />
@@ -123,7 +224,6 @@ function Scrubber({
               : `${markers.length} anchored, click one to play it`}
           </li>
         </ul>
-        <span className="tabular font-mono text-[10px] text-ink-soft">{clock(duration)}</span>
       </div>
     </div>
   );
@@ -159,6 +259,8 @@ export function Stage({
   const [failed, setFailed] = React.useState(false);
   const [position, setPosition] = React.useState<number | null>(null);
   const [measured, setMeasured] = React.useState<number | null>(null);
+  const [playing, setPlaying] = React.useState(false);
+  const [muted, setMuted] = React.useState(true);
 
   const preset = asset.kind === "preset" ? asset.preset : null;
   const source = asset.kind === "preset" ? `/api/asset/${asset.preset.id}` : asset.objectUrl;
@@ -167,12 +269,15 @@ export function Stage({
   const hinted = preset ? durationHint(preset.duration) : null;
   const longest = markers.length > 0 ? markers[markers.length - 1].seconds : 0;
   const duration = measured ?? hinted ?? Math.max(30, Math.ceil(longest * 1.15));
+  const controlsDisabled = !source || failed;
 
   // A new clip is a new measurement: nothing failed, nothing played yet.
   React.useEffect(() => {
     setFailed(false);
     setMeasured(null);
     setPosition(null);
+    setPlaying(false);
+    setMuted(true);
     onReadyChange(false);
   }, [source, onReadyChange]);
 
@@ -192,8 +297,65 @@ export function Stage({
     }
   }, [phase, source, videoRef]);
 
+  const togglePlay = React.useCallback(() => {
+    const video = videoRef.current;
+    if (!video || controlsDisabled) return;
+    if (video.paused) {
+      void video.play().catch(() => {});
+    } else {
+      video.pause();
+    }
+  }, [videoRef, controlsDisabled]);
+
+  const toggleMute = React.useCallback(() => {
+    const video = videoRef.current;
+    if (!video || controlsDisabled) return;
+    video.muted = !video.muted;
+    setMuted(video.muted);
+  }, [videoRef, controlsDisabled]);
+
+  const handleStageKeyDown = React.useCallback(
+    (event: React.KeyboardEvent<HTMLElement>) => {
+      if (controlsDisabled) return;
+      const isButton = (event.target as HTMLElement).tagName === "BUTTON";
+
+      if (event.key === " " || event.code === "Space") {
+        // A focused button already turns Space into its own click.
+        if (isButton) return;
+        event.preventDefault();
+        togglePlay();
+        return;
+      }
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        onSeek(Math.max(0, (position ?? 0) - 1));
+        return;
+      }
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        onSeek(Math.min(duration, (position ?? 0) + 1));
+        return;
+      }
+      if (event.key === "Home") {
+        event.preventDefault();
+        onSeek(0);
+        return;
+      }
+      if (event.key === "End") {
+        event.preventDefault();
+        onSeek(duration);
+      }
+    },
+    [controlsDisabled, togglePlay, onSeek, position, duration],
+  );
+
   return (
-    <figure id="stage" className="flex min-h-0 flex-1 flex-col">
+    <figure
+      id="stage"
+      tabIndex={0}
+      onKeyDown={handleStageKeyDown}
+      className="flex min-h-0 flex-1 flex-col"
+    >
       <div className="stage-box overflow-hidden rounded-[4px] border border-line bg-[#0f0f0f]">
         {source ? (
           <video
@@ -201,7 +363,7 @@ export function Stage({
             key={source}
             src={source}
             poster={preset?.poster}
-            controls
+            muted
             playsInline
             preload="metadata"
             aria-label={`Clip under review: ${title}`}
@@ -213,6 +375,9 @@ export function Stage({
               onReadyChange(true);
             }}
             onTimeUpdate={(event) => setPosition(event.currentTarget.currentTime)}
+            onPlay={() => setPlaying(true)}
+            onPause={() => setPlaying(false)}
+            onVolumeChange={(event) => setMuted(event.currentTarget.muted)}
             onError={() => {
               setFailed(true);
               onReadyChange(false);
@@ -256,8 +421,13 @@ export function Stage({
         position={position}
         activeSecond={activeSecond}
         hoverSecond={hoverSecond}
+        playing={playing}
+        muted={muted}
+        controlsDisabled={controlsDisabled}
         onSeek={onSeek}
         onHover={onHover}
+        onTogglePlay={togglePlay}
+        onToggleMute={toggleMute}
       />
 
       <figcaption className="flex flex-wrap items-baseline justify-between gap-x-5 gap-y-1 border-t border-line px-1 pt-2">
