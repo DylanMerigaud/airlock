@@ -839,3 +839,14 @@ Queue as their own views. Every route, the SSE contract, mock mode and the fixtu
 Verified in mock mode: build, lint, typecheck clean; no horizontal overflow at 390 px; headings,
 labels and names in order. Screenshots: `docs/img/console-v2-crest-block-2026-08-29.png`,
 `docs/img/console-v2-clean-pass-2026-08-29.png`. Deploy and the Lighthouse rerun follow.
+
+### Console v2 deployed (2026-08-29 19:00 UTC)
+
+Revision `airlock-console-00004-5gr`, page in 1.4 s, the clip streams from Cloud Storage through
+`/api/asset/crest` (206, video/mp4). Lighthouse on the hosted URL, desktop, navigation mode:
+accessibility 100, best practices 100, SEO 100 (56 audits passed, none failed).
+
+Dylan's second review (19:05 UTC): the page should fit the viewport and carry the maximum of
+information at first sight, interactions switch views (unless the media is needed), dense but not
+overloaded, no blinking effects, sober; and the palette should come from a known media tool rather
+than be composed. The v3 pass applies it. The video draft 3 was stopped on his word.
