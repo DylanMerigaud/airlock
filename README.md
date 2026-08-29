@@ -6,7 +6,7 @@ can this ship, on what proof, and was the control that said so in a state to say
 
 Try it, no login: https://airlock-console-771466810465.us-central1.run.app (pick an asset, run the airlock, read the trace; the two demo assets and a clean one that PASSes, or upload a 30 s clip).
 
-![The reviewer console after the Crest commercial ran: the clip on the stage with the findings marked on the scrubber, the checks list with one status line per gate, the findings thread with time chips, the decision record with the rules cited and the incident id](docs/img/console-v2-crest-block-2026-08-29.png)
+![The reviewer console after the Crest commercial ran, one screen: the clip on the stage with the findings marked on the scrubber, the verdict and the checks list with one status line per gate on the right, the stats in the footer](docs/img/console-v3-crest-block-2026-08-29.png)
 
 ![The Airlock gates dashboard on Grafana Cloud, 2026-08-28: verdicts, calibration catches and misses, seconds since each gate last succeeded, runs, errors, latency and blocks per gate, with one annotation per verdict](docs/img/grafana-public-dashboard-2026-08-28.png)
 
@@ -94,16 +94,16 @@ last calibration failed (`docs/RUNS.md`, verification C).
 
 ## The console
 
-`console/`: Next.js on Cloud Run, light theme, built the way media reviewers already work. The
-clip is the stage (it plays while the gates read it) with every timestamped finding marked on the
-scrubber, Frame.io style; the findings are a thread beside it, a click on a time seeks the clip;
-the gates are a checklist with one status line each, YouTube Studio style, the calibration line
-read from Grafana under each and a "mute telemetry" switch inside the row to disable a gate and
-watch the verdict refuse; the decision record under the clip carries the rules cited, the C2PA
-line, the annotation and the incident. Two more views: the Trace (raw agent events) and the BLOCK
-queue. Mock mode
+`console/`: Next.js on Cloud Run, one screen, the light palette and type of YouTube Studio, no
+animation. The clip is the stage (it plays while the gates read it) with every timestamped finding
+marked on the scrubber, Frame.io style; beside it the verdict, then a segmented control: Checks (one
+status line per gate, YouTube Studio's Checks step, the calibration line read from Grafana under
+each and a "mute telemetry" switch inside the row to disable a gate and watch the verdict refuse),
+Findings (the thread, a click on a time seeks the clip) and Record (the rules cited, the C2PA line,
+the annotation and the incident). Two more views: the Trace (raw agent events) and the BLOCK queue.
+Lighthouse on the hosted URL: accessibility 100. Mock mode
 (`AIRLOCK_MOCK=1`) replays recorded runs so it builds and runs without a credential
-(`console/README.md`). Lighthouse on the hosted URL: accessibility 95, best practices 100.
+(`console/README.md`).
 
 ## The gates as MCP tools
 
