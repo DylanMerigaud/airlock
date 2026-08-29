@@ -511,6 +511,11 @@ Cut list, what is NOT built and will not be for the submission:
 - the calibration ledger runs on demand (`python -m airlock.calibrate`), not on a schedule
 - the rights registry and the charter are YAML files in the repo
 
+### Lighthouse on the hosted URL (2026-08-29 00:36 UTC, desktop, navigation mode)
+
+Accessibility 95, best practices 100, SEO 100 (54 audits passed, 2 failed in the agentic-browsing
+category, which is not a submission criterion). The bar in the plan was accessibility above 90.
+
 ## M4b: airlock-mcp, the gates as tools
 
 Status: DONE 2026-08-29 (00:35 UTC).
@@ -629,8 +634,3 @@ should hit `/mcp` instead (401 without a bearer still proves the service answers
 URL: `https://airlock-mcp-771466810465.us-central1.run.app` (`/mcp` for tools, `/healthz` locally
 and in `docker run` only, not on this Cloud Run host). Revision `airlock-mcp-00002-89h`. 46 of 46
 tests green, both demo assets answer through the deployed tool exactly as the pipeline does.
-
-### Lighthouse on the hosted URL (2026-08-29 00:36 UTC, desktop, navigation mode)
-
-Accessibility 95, best practices 100, SEO 100 (54 audits passed, 2 failed in the agentic-browsing
-category, which is not a submission criterion). The bar in the plan was accessibility above 90.
