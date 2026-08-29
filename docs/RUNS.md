@@ -949,3 +949,15 @@ Open for the human pass: the first Grafana insert shows about 8 s of the dashboa
 recorder knows when the panels drew; the overlay should start there); the native video controls
 are on screen the whole film (a console decision: custom controls or hidden chrome during a run);
 the claim-seek words fall after the picture; a 14 s stretch with no voice in the third run.
+
+### Cost metric deployed (2026-08-29 23:08 UTC)
+
+Pipeline redeployed on `reasoningEngines/1737023312967499776` with `airlock/cost.py`: every gate
+run carries `usage` (tokens in and out, video minutes, features, cost at list price) and pushes
+`airlock_gate_cost_usd`; the verdict sums the run and pushes `airlock_verdict_cost_usd`. Console
+revision `airlock-console-00006-6q5`: "Cost per check" in the footer (7-day list-price average,
+`null` until a verdict has run through the new agent, never a placeholder), the run's cost line in
+the Record segment, the usage line in each expanded gate row. Dashboard version 4: "Cost per check"
+and "Cost per gate run" panels. First measured gate cost: the claim gate on the clean clip, 2,223
+tokens in and 131 out on gemini-2.5-pro, 0.0041 USD; a 30 s clip through the four Video
+Intelligence features, 1 started minute, 0.50 USD at list price (free quota not netted).
