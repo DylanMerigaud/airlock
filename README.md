@@ -102,6 +102,13 @@ and the rules cited, the stat tiles and the spec strip, and a BLOCK queue tab. M
 (`AIRLOCK_MOCK=1`) replays recorded runs so it builds and runs without a credential
 (`console/README.md`). Lighthouse on the hosted URL: accessibility 95, best practices 100.
 
+## The gates as MCP tools
+
+`airlock_mcp/`: a FastMCP server on Cloud Run (https://airlock-mcp-771466810465.us-central1.run.app/mcp,
+bearer required) exposing `check_rights`, `check_claim`, `check_brand`, `check_provenance`,
+`check_all`, `verdict_rules` and `list_rules`, so another agent can run a gate on a GCS asset and
+read the rules the verdict will apply. Client, connection snippets and deploy: `docs/AIRLOCK-MCP.md`.
+
 ## What is proven, and where
 
 `docs/RUNS.md` carries every milestone with its command, output, annotation id and incident id:
@@ -124,7 +131,7 @@ certificate, the calibration variants. Everything else is real and named at its 
 
 - `airlock/` gates, verdict rules, calibration ledger, telemetry push, the Grafana MCP toolset
 - `agents/pipeline/` the ADK pipeline; `agents/spike/` the M1 spike (one PromQL, one annotation)
-- `console/` the reviewer console (Next.js), `infra/` Google Cloud, Cloud Run and Secret Manager scripts
+- `console/` the reviewer console (Next.js); `airlock_mcp/` the gates as MCP tools; `infra/` Google Cloud, Cloud Run and Secret Manager scripts
 - `rules/` 16 CFR 255 and the ASA rulings; `charter.yaml`, `rights-registry.yaml`, `trust/`
 - `scripts/` Grafana bootstrap, asset build, Agent Engine query; `tests/`; `docs/RUNS.md`
 

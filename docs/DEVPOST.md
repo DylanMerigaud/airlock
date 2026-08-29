@@ -33,7 +33,9 @@ with a header provider; the gates push their counters through Grafana Cloud's In
 endpoint and their events through Loki. A calibration ledger (`python -m airlock.calibrate`) runs
 one real injected defect per gate through the real gate and pushes the catch or the miss, which is
 what gives a gate the right to block. The reviewer console is a Next.js app on Cloud Run that
-streams the Agent Engine run as server-sent events.
+streams the Agent Engine run as server-sent events. The four gates are also published as MCP
+tools (`airlock-mcp`, FastMCP on Cloud Run behind a bearer) so another agent can call a gate on
+a GCS asset and read the rules the verdict applies.
 
 ## Challenges
 
@@ -60,7 +62,7 @@ were healthy and calibrated on a clean signed asset.
 ## Built With
 
 python, google-adk, vertex-ai, agent-engine, gemini, cloud-run, video-intelligence, secret-manager,
-mcp, mcp-grafana, grafana-cloud, loki, c2pa, veo, next.js, typescript
+mcp, fastmcp, mcp-grafana, grafana-cloud, loki, c2pa, veo, next.js, typescript
 
 ## Track requirements
 
