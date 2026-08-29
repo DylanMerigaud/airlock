@@ -5,10 +5,18 @@ gates, and read every finding against the second of the clip it was read at. The
 shows a PASS that Grafana could not back: every check row carries what the instrument itself
 reports, and a gate that has never caught an injected defect is marked ADVISORY.
 
-Three views in the top bar. **Review** is the clip: a large player, a scrubber carrying one
-marker per timestamped finding coloured by the gate that wrote it, the findings threaded beside
-the player oldest first, and the checks as a checklist whose summary line is the verdict.
-**Trace** is the raw event timeline of the run. **Queue** is the session's BLOCK worklist.
+Three views in the top bar. **Review** is one screen: above 1100 px wide it fits the viewport
+with no page scroll. The clip holds the left with its scrubber, one marker per timestamped
+finding coloured by the gate that wrote it, and the asset strip under it. The right column
+carries the verdict and a segmented control, **Checks | Findings | Record**, so the reviewer
+switches what they read while the clip stays on screen; each segment scrolls inside its own
+region. **Trace** is the raw event timeline of the run. **Queue** is the session's BLOCK
+worklist. The five seven-day totals and the spec line sit in one thin bar at the bottom.
+
+The palette is YouTube Studio's light theme applied literally, and the type is Roboto with
+Roboto Mono for ids, rules, timestamps and calibration lines. Nothing on the page loops,
+blinks or sweeps: a running gate shows a static icon and says its step in words, and the only
+motion is a single 160 ms fade when a row arrives.
 
 Next.js 15 App Router, TypeScript, Tailwind 4, pnpm. Apache-2.0.
 

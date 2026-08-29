@@ -3,7 +3,6 @@
 import * as React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Panel, PanelHeader, PanelTitle } from "@/components/ui/card";
 import { cn, offset } from "@/lib/utils";
 import type { RowTone, RunState, TimelineRow } from "@/lib/use-run";
 
@@ -15,7 +14,7 @@ const AUTHOR_TONE: Record<RowTone, "neutral" | "pass" | "block" | "amber"> = {
 };
 
 const LINE_TONE: Record<RowTone, string> = {
-  neutral: "text-ink-mid",
+  neutral: "text-ink",
   pass: "text-ink",
   block: "text-block",
   amber: "text-warn",
@@ -51,9 +50,9 @@ function Row({
   const escalation = row.escalation;
 
   return (
-    <li className="enter-row border-b border-line-soft last:border-b-0">
-      <div className="grid grid-cols-[64px_minmax(0,1fr)] gap-3 px-4 py-3">
-        <span className="tabular pt-[3px] font-mono text-[11px] text-ink-soft">
+    <li className="border-b border-line last:border-b-0">
+      <div className="grid grid-cols-[58px_minmax(0,1fr)] gap-3 px-3 py-2">
+        <span className="tabular pt-[2px] font-mono text-[11px] text-ink-soft">
           <span className="sr-only">at </span>
           {offset(row.ts)}
         </span>
@@ -64,7 +63,7 @@ function Row({
             </Badge>
             {row.muted && (
               <Badge
-                tone="amber"
+                tone="neutral"
                 size="xs"
                 title="This gate ran without pushing anything to Grafana."
               >
@@ -88,15 +87,15 @@ function Row({
             )}
           </div>
 
-          <p className={cn("mt-1.5 text-[13px] leading-[1.5]", LINE_TONE[row.tone])}>{row.line}</p>
+          <p className={cn("mt-1 text-[13px] leading-[1.45]", LINE_TONE[row.tone])}>{row.line}</p>
 
-          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5">
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1.5">
             <button
               type="button"
               onClick={onToggle}
               aria-expanded={open}
               aria-controls={panelId}
-              className="label-micro inline-flex items-center gap-1.5 text-ink-soft transition-colors hover:text-ink"
+              className="inline-flex items-center gap-1.5 text-[12px] text-ink-soft transition-colors hover:text-ink"
             >
               <ChevronGlyph open={open} />
               {open ? "Hide raw event" : "Raw event"}
@@ -107,7 +106,7 @@ function Row({
                 href={dashboardUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="label-micro inline-flex items-center gap-1.5 text-ember underline decoration-ember-line underline-offset-[3px] transition-colors hover:decoration-ember"
+                className="inline-flex items-center gap-1.5 text-[12px] text-accent underline underline-offset-[3px]"
               >
                 Open in Grafana
                 <svg viewBox="0 0 12 12" width="9" height="9" aria-hidden="true">
@@ -123,7 +122,7 @@ function Row({
                 href={escalation.incident_url}
                 target="_blank"
                 rel="noreferrer"
-                className="label-micro inline-flex items-center gap-1.5 text-ember underline decoration-ember-line underline-offset-[3px] transition-colors hover:decoration-ember"
+                className="inline-flex items-center gap-1.5 text-[12px] text-accent underline underline-offset-[3px]"
               >
                 Open the incident
               </a>
@@ -133,7 +132,7 @@ function Row({
           {open && (
             <pre
               id={panelId}
-              className="mt-2.5 max-h-[280px] overflow-auto rounded-[3px] border border-line-soft bg-card-sunk px-3 py-2.5 font-mono text-[11px] leading-[1.6] text-ink-mid"
+              className="fade-in mt-2 max-h-[280px] overflow-auto rounded-[2px] border border-line bg-sunk px-2.5 py-2 font-mono text-[11px] leading-[1.55] text-ink-soft"
             >
               {row.raw}
             </pre>
@@ -163,17 +162,10 @@ export function Timeline({
     });
 
   return (
-    <Panel className="flex min-h-[420px] flex-col">
-      <PanelHeader>
-        <PanelTitle>Event timeline</PanelTitle>
-        <span className="tabular font-mono text-[10.5px] text-ink-soft">
-          {state.rows.length} event{state.rows.length === 1 ? "" : "s"}
-        </span>
-      </PanelHeader>
-
+    <div>
       {state.phase === "lost" && (
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-block-line bg-block-wash px-4 py-3">
-          <p className="text-[12.5px] leading-[1.5] text-block">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-3 py-2">
+          <p className="text-[12.5px] leading-[1.45] text-block">
             {state.failure ?? "The event stream was lost."}
           </p>
           <Button variant="danger" size="sm" onClick={onRetry}>
@@ -183,15 +175,15 @@ export function Timeline({
       )}
 
       {state.rows.length === 0 ? (
-        <div className="flex flex-1 items-center justify-center px-8 py-16 text-center">
-          <p className="max-w-[42ch] text-[13px] leading-[1.6] text-ink-soft">
+        <div className="px-6 py-12 text-center">
+          <p className="mx-auto max-w-[52ch] text-[13px] leading-[1.55] text-ink-soft">
             {state.phase === "running"
               ? "Waiting for the first gate to report."
               : "No events yet. Run the airlock on an asset and every gate reports here, in the order it finished."}
           </p>
         </div>
       ) : (
-        <ol className="flex-1">
+        <ol>
           {state.rows.map((row) => (
             <Row
               key={row.key}
@@ -205,13 +197,13 @@ export function Timeline({
       )}
 
       {state.phase === "running" && state.step && (
-        <div className="flex items-center gap-2.5 border-t border-line-soft bg-card-sunk px-4 py-3">
-          <span className="h-[6px] w-[6px] shrink-0 rotate-45 bg-ember lamp-live" aria-hidden="true" />
-          <p aria-live="polite" className="font-mono text-[11.5px] text-ember">
+        <div className="flex items-center gap-2 border-t border-line bg-sunk px-3 py-2">
+          <span className="h-[7px] w-[7px] shrink-0 rounded-[1px] bg-accent" aria-hidden="true" />
+          <p aria-live="polite" className="font-mono text-[11.5px] text-accent">
             {state.step}
           </p>
         </div>
       )}
-    </Panel>
+    </div>
   );
 }

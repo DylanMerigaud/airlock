@@ -1,60 +1,56 @@
 @import "tailwindcss";
 
 /* ---------------------------------------------------------------------------
-   Airlock reviewer console, second edition: a review desk, printed on paper.
-   Warm off-white ground, near-black ink, one ember accent reserved for the Run
-   control and for whatever is currently active. Red blocks, green passes,
-   amber degrades, and every one of them is measured against the ground for
-   WCAG AA at normal text size.
+   Airlock reviewer console, third edition.
+
+   The palette is not composed: it is YouTube Studio's light theme, the surface
+   these reviewers already open every day, taken literally. Ground #F9F9F9,
+   white surfaces, #E5E5E5 hairlines, #0F0F0F and #606060 text, one accent at
+   #065FD4, and the status trio YouTube uses for its own checks: #CC0000,
+   #1E8E3E, #B06000. Roboto everywhere, Roboto Mono for ids, rules, timestamps
+   and calibration lines.
+
+   Nothing loops, sweeps or breathes. One 160 ms opacity fade marks a change of
+   state and that is the whole motion budget.
 --------------------------------------------------------------------------- */
 
 @theme {
   /* Ground and surfaces */
-  --color-paper: #f6f3ec;
-  --color-paper-deep: #ece7db;
-  --color-card: #fffdf8;
-  --color-card-sunk: #f2eee4;
+  --color-ground: #f9f9f9;
+  --color-surface: #ffffff;
+  --color-sunk: #f1f1f1;
 
-  /* Ink. mid 7.7:1, soft 4.9:1 on paper */
-  --color-ink: #17150f;
-  --color-ink-mid: #4b473e;
-  --color-ink-soft: #67635a;
+  /* Hairlines */
+  --color-line: #e5e5e5;
+  --color-line-strong: #cccccc;
 
-  --color-line: #dcd6c8;
-  --color-line-soft: #e8e3d7;
+  /* Text. ink 18.2:1 and ink-soft 6.0:1 on the ground. */
+  --color-ink: #0f0f0f;
+  --color-ink-soft: #606060;
 
-  /* The accent. 5.2:1 on paper, 5.9:1 the other way for the Run button. */
-  --color-ember: #b23c0b;
-  --color-ember-deep: #8d2f08;
-  --color-ember-wash: #f8e7dc;
-  --color-ember-line: #e3bfa7;
+  /* The one accent: the Run control, the active underline, the focus ring. */
+  --color-accent: #065fd4;
+  --color-accent-wash: #e8f0fe;
 
-  /* Verdict colours, all AA on paper. */
-  --color-block: #ae2318;
-  --color-block-wash: #fae7e3;
-  --color-block-line: #e5b7b1;
+  /* Status. Red 5.9:1 and amber 4.6:1 on white, so both carry small text.
+     Green is 4.2:1, so it carries icons, rules and the verdict word only:
+     any PASS label small enough to need 4.5:1 is set in ink beside a green
+     mark instead. */
+  --color-block: #cc0000;
+  --color-pass: #1e8e3e;
+  --color-warn: #b06000;
 
-  --color-pass: #1d6b47;
-  --color-pass-wash: #e3efe7;
-  --color-pass-line: #b3d2c1;
+  /* One hue per gate, for the scrubber markers and the finding rows.
+     Desaturated to sit on white: 5.3, 6.3, 4.9 and 6.0 against #FFFFFF. */
+  --color-gate-rights: #3b6fa0;
+  --color-gate-claim: #9a3d7a;
+  --color-gate-brand: #2e7d6b;
+  --color-gate-provenance: #7b4fa8;
 
-  --color-warn: #8a5f06;
-  --color-warn-mark: #c98a22;
-  --color-warn-wash: #f8ecd7;
-  --color-warn-line: #e2c894;
+  --font-sans: var(--font-roboto), Roboto, ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-roboto-mono), "Roboto Mono", ui-monospace, SFMono-Regular, monospace;
 
-  /* One hue per gate, for the scrubber markers and the finding badges. Never
-     used for a verdict: those stay red, green and amber. */
-  --color-gate-rights: #1f4e8c;
-  --color-gate-claim: #8a2e6b;
-  --color-gate-brand: #146b62;
-  --color-gate-provenance: #5b4ba8;
-
-  --font-sans: var(--font-sora), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-plex-mono), ui-monospace, SFMono-Regular, monospace;
-  --font-display: var(--font-newsreader), ui-serif, Georgia, serif;
-
-  --radius-panel: 5px;
+  --radius-panel: 4px;
 }
 
 @layer base {
@@ -63,31 +59,27 @@
   }
 
   html {
-    background-color: var(--color-paper);
+    background-color: var(--color-ground);
   }
 
-  /* The ground is ruled paper: one hairline every 112px, barely there. It is
-     painted as the body's own background, never as an overlay, so nothing on
-     the page is ever seen through it. */
   body {
-    background-color: var(--color-paper);
-    background-image: linear-gradient(to right, rgba(23, 21, 15, 0.024) 1px, transparent 1px);
-    background-size: 112px 100%;
+    background-color: var(--color-ground);
     color: var(--color-ink);
     font-family: var(--font-sans);
+    font-size: 13px;
+    line-height: 1.5;
     -webkit-font-smoothing: antialiased;
-    text-rendering: optimizeLegibility;
   }
 
   *:focus-visible {
-    outline: 2px solid var(--color-ember);
+    outline: 2px solid var(--color-accent);
     outline-offset: 2px;
     border-radius: 2px;
   }
 
   ::selection {
-    background: var(--color-ember);
-    color: #fffdf8;
+    background: var(--color-accent-wash);
+    color: var(--color-ink);
   }
 
   ::-webkit-scrollbar {
@@ -95,25 +87,27 @@
     height: 10px;
   }
   ::-webkit-scrollbar-track {
-    background: var(--color-paper-deep);
+    background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: #cfc8b7;
-    border: 3px solid var(--color-paper-deep);
+    background: #dadada;
+    border: 3px solid transparent;
+    background-clip: content-box;
     border-radius: 6px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: #b8b09b;
+    background: #bdbdbd;
+    background-clip: content-box;
   }
 }
 
 @layer utilities {
-  /* Small caps label, the voice of a filing system. */
+  /* The small uppercase key of a filing system: section names, column heads. */
   .label-micro {
     font-family: var(--font-mono);
     font-size: 10px;
     line-height: 1.2;
-    letter-spacing: 0.16em;
+    letter-spacing: 0.09em;
     text-transform: uppercase;
   }
 
@@ -121,68 +115,64 @@
     font-variant-numeric: tabular-nums;
   }
 
-  .display {
-    font-family: var(--font-display);
-    font-weight: 500;
-    letter-spacing: -0.015em;
+  /* The whole motion budget: a row or a panel arriving fades once. */
+  .fade-in {
+    animation: airlock-fade 160ms ease-out both;
   }
 
-  /* A gate row that is working: an ember wash travelling left to right. */
-  .scan-row {
-    position: relative;
-    overflow: hidden;
-  }
-  .scan-row::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background: linear-gradient(
-      to right,
-      transparent,
-      rgba(178, 60, 11, 0.09) 45%,
-      rgba(178, 60, 11, 0.16) 60%,
-      transparent
-    );
-    transform: translateX(-100%);
-    animation: airlock-sweep 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-  }
-
-  @keyframes airlock-sweep {
-    0% {
-      transform: translateX(-100%);
-    }
-    100% {
-      transform: translateX(100%);
-    }
-  }
-
-  .lamp-live {
-    animation: airlock-lamp 1.6s ease-in-out infinite;
-  }
-
-  @keyframes airlock-lamp {
-    0%,
-    100% {
-      box-shadow: 0 0 0 0 rgba(178, 60, 11, 0.5);
-    }
-    50% {
-      box-shadow: 0 0 0 5px rgba(178, 60, 11, 0);
-    }
-  }
-
-  .enter-row {
-    animation: airlock-enter 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  }
-
-  @keyframes airlock-enter {
+  @keyframes airlock-fade {
     from {
       opacity: 0;
-      transform: translateY(6px);
     }
     to {
       opacity: 1;
-      transform: none;
+    }
+  }
+
+  /* One screen. Above 1100px the review desk is exactly the viewport: the top
+     bar, the stage and its column, the footer. Anything longer than its box
+     scrolls inside that box. Below 1100px the page stacks and scrolls the
+     ordinary way. */
+  /* Positioned on purpose: the sr-only spans inside these regions are
+     absolutely positioned, and overflow alone is not a containing block, so
+     without this they escape the scroll box and lengthen the document. */
+  .fit-scroll {
+    position: relative;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  /* The clip's frame. Below 1100px it is a plain 16:9 block. On the one-screen
+     layout it takes whatever height the column has left and the clip sits
+     inside it, contained: the frame is black, so the difference between its box
+     and the 16:9 picture is invisible, and no dead space is left under it. */
+  .stage-box {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+  }
+
+  @media (min-width: 1100px) {
+    html,
+    body {
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .fit-screen {
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .fit-region {
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .stage-box {
+      flex: 1 1 0%;
+      min-height: 0;
+      aspect-ratio: auto;
     }
   }
 }
@@ -192,7 +182,6 @@
   *::before,
   *::after {
     animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
   }
 }

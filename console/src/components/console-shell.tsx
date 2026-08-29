@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Wordmark } from "@/components/wordmark";
 import { AssetStrip } from "@/components/asset-strip";
-import { ChecksPanel } from "@/components/checks-panel";
+import { ChecksList, VerdictSummary } from "@/components/checks-panel";
 import { DecisionRecord } from "@/components/decision-record";
 import { FindingsThread } from "@/components/findings-thread";
 import { Stage, type StageAsset } from "@/components/stage";
@@ -13,7 +13,7 @@ import { SpecStrip } from "@/components/spec-strip";
 import { BlockQueue } from "@/components/block-queue";
 import { Button } from "@/components/ui/button";
 import { Panel, PanelBody, PanelHeader, PanelTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SegmentTrigger, Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useRun } from "@/lib/use-run";
 import { buildFindings, verdictNotes } from "@/lib/findings";
@@ -31,13 +31,11 @@ export type ShellProps = {
 
 function EnvBadge({ environment, mock }: { environment: string; mock: boolean }) {
   return (
-    <span className="inline-flex items-center gap-2 rounded-[3px] border border-line bg-card px-2.5 py-1.5">
-      <span className="h-[6px] w-[6px] rotate-45 bg-pass" aria-hidden="true" />
-      <span className="hidden font-mono text-[10px] uppercase tracking-[0.1em] text-ink-mid sm:inline">
-        {environment}
-      </span>
+    <span className="inline-flex items-center gap-2">
+      <span className="h-[7px] w-[7px] rounded-[1px] bg-pass" aria-hidden="true" />
+      <span className="hidden font-mono text-[11px] text-ink-soft lg:inline">{environment}</span>
       {mock && (
-        <span className="rounded-[2px] border border-warn-line bg-warn-wash px-1.5 py-[2px] font-mono text-[9px] uppercase tracking-[0.14em] text-warn">
+        <span className="rounded-[2px] border border-line bg-sunk px-1.5 py-[2px] font-mono text-[10px] uppercase tracking-[0.08em] text-ink-soft">
           mock
         </span>
       )}
@@ -50,6 +48,8 @@ export function ConsoleShell({ dashboardUrl, environment, mock }: ShellProps) {
   const [target, setTarget] = React.useState<string>("crest");
   const [upload, setUpload] = React.useState<{ name: string; objectUrl: string } | null>(null);
   const [tab, setTab] = React.useState("review");
+  // What the right column is reading. The clip never leaves the screen for it.
+  const [segment, setSegment] = React.useState("checks");
   const [reviewed, setReviewed] = React.useState(false);
   const [queue, setQueue] = React.useState<BlockEntry[]>([]);
   // Per run, and kept between runs until the reviewer switches it back off.
@@ -150,6 +150,7 @@ export function ConsoleShell({ dashboardUrl, environment, mock }: ShellProps) {
     (asset: string) => {
       setReviewed(false);
       setTab("review");
+      setSegment("checks");
       setTarget(asset);
       setStageNote(null);
       setActiveSecond(null);
@@ -214,130 +215,169 @@ export function ConsoleShell({ dashboardUrl, environment, mock }: ShellProps) {
           ? `${findings.length} finding${findings.length === 1 ? "" : "s"} from the four gates. Click a marker or a time to watch one.`
           : "Press Run airlock to read this clip against the four gates.";
 
+  // The caption line reports where the run is, not what it decided: the verdict
+  // has its own colour in the column, and a count of findings is not an alarm.
   const stateTone =
     state.phase === "running"
-      ? ("ember" as const)
+      ? ("accent" as const)
       : state.phase === "lost"
         ? ("block" as const)
-        : state.verdict
-          ? state.verdict.status === "PASS"
-            ? ("pass" as const)
-            : ("block" as const)
-          : ("quiet" as const);
+        : ("quiet" as const);
 
   return (
     <TooltipProvider delayDuration={200}>
-      <Tabs value={tab} onValueChange={setTab}>
-        <div className="relative z-10 min-h-screen">
-          <header className="sticky top-0 z-40 border-b border-line bg-paper/93 backdrop-blur-md">
-            <div className="mx-auto flex w-full max-w-[1440px] flex-wrap items-center gap-x-6 gap-y-2 px-5">
-              <Wordmark />
-              <span className="hidden h-9 w-px bg-line md:block" aria-hidden="true" />
-              <TabsList aria-label="Console views">
-                <TabsTrigger value="review">Review</TabsTrigger>
-                <TabsTrigger value="trace">Trace</TabsTrigger>
-                <TabsTrigger value="queue">
-                  Queue
-                  {queue.length > 0 && (
-                    <span className="ml-2 rounded-[2px] border border-block-line bg-block-wash px-1.5 py-[2px] text-[9px] text-block">
-                      {queue.length}
-                    </span>
-                  )}
-                </TabsTrigger>
-              </TabsList>
-              <div className="ml-auto flex items-center gap-3 py-2">
-                <EnvBadge environment={environment} mock={mock} />
-                <Button
-                  variant="accent"
-                  size="lg"
-                  disabled={busy}
-                  onClick={() => run(target)}
-                  aria-busy={busy}
-                >
-                  {busy && (
-                    <span className="h-[6px] w-[6px] rotate-45 bg-card lamp-live" aria-hidden="true" />
-                  )}
-                  Run airlock
-                </Button>
-              </div>
-            </div>
-          </header>
-
-          <main className="mx-auto w-full max-w-[1440px] px-5 pb-12 pt-5">
-            <TabsContent value="review">
-              <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,58fr)_minmax(0,42fr)]">
-                <div className="min-w-0 lg:sticky lg:top-[84px]">
-                  <Stage
-                    asset={stageAsset}
-                    phase={state.phase}
-                    markers={markers}
-                    note={stageNote}
-                    stateLine={stateLine}
-                    stateTone={stateTone}
-                    videoRef={videoRef}
-                    activeSecond={activeSecond}
-                    hoverSecond={hoverSecond}
-                    onSeek={seek}
-                    onHover={setHoverSecond}
-                    onReadyChange={setClipReady}
-                  />
-                  <AssetStrip target={target} onSelect={select} disabled={busy} />
-                  <DecisionRecord
-                    state={state}
-                    dashboardUrl={dashboardUrl}
-                    reviewed={reviewed}
-                    onMarkReviewed={() => setReviewed(true)}
-                  />
-                </div>
-
-                <div className="min-w-0 space-y-4">
-                  <ChecksPanel
-                    state={state}
-                    health={health}
-                    healthLoading={healthLoading}
-                    mute={muted}
-                    onToggleMute={toggleMute}
-                    muteDisabled={busy}
-                    onRetry={() => retry(muted)}
-                  />
-                  <FindingsThread
-                    findings={findings}
-                    notes={notes}
-                    phase={state.phase}
-                    step={state.step}
-                    activeSecond={activeSecond}
-                    onSeek={seek}
-                    onHover={setHoverSecond}
-                  />
-                </div>
-              </div>
-
-              <div className="mt-8">
-                <StatTiles stats={stats} loading={statsLoading} />
-                <SpecStrip lastRunMs={state.elapsedMs} />
-              </div>
-            </TabsContent>
-
-            <TabsContent value="trace">
-              <h2 className="label-micro mb-3 text-ink-soft">
-                Event trace
-                {state.target && (
-                  <span className="ml-2 normal-case tracking-normal text-ink-mid">
-                    {labelForTarget(state.target)}
+      <Tabs value={tab} onValueChange={setTab} className="fit-screen flex flex-col">
+        <header className="shrink-0 border-b border-line bg-surface">
+          <div className="mx-auto flex min-h-12 w-full max-w-[1920px] flex-wrap items-center gap-x-4 gap-y-1 px-4 py-1.5 min-[1100px]:h-12 min-[1100px]:flex-nowrap min-[1100px]:py-0">
+            <Wordmark />
+            <span className="hidden h-5 w-px bg-line md:block" aria-hidden="true" />
+            <TabsList aria-label="Console views">
+              <TabsTrigger value="review">Review</TabsTrigger>
+              <TabsTrigger value="trace">Trace</TabsTrigger>
+              <TabsTrigger value="queue">
+                Queue
+                {queue.length > 0 && (
+                  <span className="tabular font-mono text-[11px] text-ink-soft">
+                    {queue.length}
                   </span>
                 )}
-              </h2>
-              <Timeline state={state} dashboardUrl={dashboardUrl} onRetry={() => retry(muted)} />
-            </TabsContent>
+              </TabsTrigger>
+            </TabsList>
+            <div className="ml-auto flex items-center gap-4">
+              <EnvBadge environment={environment} mock={mock} />
+              <Button
+                variant="accent"
+                size="lg"
+                disabled={busy}
+                onClick={() => run(target)}
+                aria-busy={busy}
+              >
+                {busy ? "Running the airlock" : "Run airlock"}
+              </Button>
+            </div>
+          </div>
+        </header>
 
-            <TabsContent value="queue" className="space-y-4">
-              <BlockQueue entries={queue} onRerun={run} busy={busy} />
+        <main
+          id="main-content"
+          className="fit-region mx-auto flex w-full max-w-[1920px] flex-1 flex-col px-4 py-2.5"
+        >
+          <TabsContent value="review" className="fit-region flex flex-1 flex-col">
+            <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 min-[1100px]:grid-cols-[minmax(0,1fr)_420px] min-[1100px]:grid-rows-[minmax(0,1fr)]">
+              <div className="flex min-h-0 min-w-0 flex-col gap-2">
+                <Stage
+                  asset={stageAsset}
+                  phase={state.phase}
+                  markers={markers}
+                  note={stageNote}
+                  stateLine={stateLine}
+                  stateTone={stateTone}
+                  videoRef={videoRef}
+                  activeSecond={activeSecond}
+                  hoverSecond={hoverSecond}
+                  onSeek={seek}
+                  onHover={setHoverSecond}
+                  onReadyChange={setClipReady}
+                />
+                <AssetStrip target={target} onSelect={select} disabled={busy} />
+              </div>
+
+              <div className="flex min-h-0 min-w-0 flex-col gap-2">
+                <VerdictSummary state={state} onRetry={() => retry(muted)} />
+
+                <Tabs
+                  value={segment}
+                  onValueChange={setSegment}
+                  className="flex min-h-0 flex-1 flex-col rounded-[4px] border border-line bg-surface"
+                >
+                  <TabsList
+                    aria-label="What to read about this run"
+                    className="shrink-0 border-b border-line px-1"
+                  >
+                    <SegmentTrigger value="checks">Checks</SegmentTrigger>
+                    <SegmentTrigger value="findings">
+                      Findings
+                      <span className="tabular font-mono text-[11px] text-ink-soft">
+                        {findings.length}
+                      </span>
+                    </SegmentTrigger>
+                    <SegmentTrigger value="record">Record</SegmentTrigger>
+                  </TabsList>
+
+                  <TabsContent value="checks" className="fit-scroll flex-1">
+                    <ChecksList
+                      state={state}
+                      health={health}
+                      healthLoading={healthLoading}
+                      mute={muted}
+                      onToggleMute={toggleMute}
+                      muteDisabled={busy}
+                    />
+                  </TabsContent>
+
+                  <TabsContent value="findings" className="fit-scroll flex-1">
+                    <FindingsThread
+                      findings={findings}
+                      notes={notes}
+                      phase={state.phase}
+                      step={state.step}
+                      activeSecond={activeSecond}
+                      onSeek={seek}
+                      onHover={setHoverSecond}
+                    />
+                  </TabsContent>
+
+                  <TabsContent value="record" className="fit-scroll flex-1">
+                    <DecisionRecord
+                      state={state}
+                      dashboardUrl={dashboardUrl}
+                      reviewed={reviewed}
+                      onMarkReviewed={() => setReviewed(true)}
+                    />
+                  </TabsContent>
+                </Tabs>
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="trace" className="fit-region flex flex-1 flex-col">
+            <Panel className="flex min-h-0 flex-1 flex-col">
+              <PanelHeader>
+                <PanelTitle>
+                  Event trace
+                  {state.target && (
+                    <span className="ml-2 normal-case tracking-normal">
+                      {labelForTarget(state.target)}
+                    </span>
+                  )}
+                </PanelTitle>
+                <span className="tabular font-mono text-[10.5px] text-ink-soft">
+                  {state.rows.length} event{state.rows.length === 1 ? "" : "s"}
+                </span>
+              </PanelHeader>
+              <div className="fit-scroll flex-1">
+                <Timeline state={state} dashboardUrl={dashboardUrl} onRetry={() => retry(muted)} />
+              </div>
+            </Panel>
+          </TabsContent>
+
+          <TabsContent value="queue" className="fit-region flex flex-1 flex-col">
+            <div className="fit-scroll flex-1 space-y-3">
+              <Panel>
+                <PanelHeader>
+                  <PanelTitle>Blocked in this session</PanelTitle>
+                  <span className="tabular font-mono text-[10.5px] text-ink-soft">
+                    {queue.length} run{queue.length === 1 ? "" : "s"}
+                  </span>
+                </PanelHeader>
+                <BlockQueue entries={queue} onRerun={run} busy={busy} />
+              </Panel>
               <Panel>
                 <PanelHeader>
                   <PanelTitle>How this queue works</PanelTitle>
                 </PanelHeader>
                 <PanelBody>
-                  <p className="max-w-[80ch] text-[12.5px] leading-[1.6] text-ink-mid">
+                  <p className="max-w-[80ch] text-[13px] leading-[1.55] text-ink-soft">
                     Every run of this browser session that ended BLOCK is kept in local storage, so
                     a reviewer can leave the page and come back to the same worklist. Re-run sends
                     the same asset through the airlock again, which is how a reviewer confirms that
@@ -345,9 +385,16 @@ export function ConsoleShell({ dashboardUrl, environment, mock }: ShellProps) {
                   </p>
                 </PanelBody>
               </Panel>
-            </TabsContent>
-          </main>
-        </div>
+            </div>
+          </TabsContent>
+        </main>
+
+        <footer className="shrink-0 border-t border-line bg-surface px-4 py-1.5">
+          <div className="mx-auto w-full max-w-[1920px]">
+            <StatTiles stats={stats} loading={statsLoading} />
+            <SpecStrip lastRunMs={state.elapsedMs} />
+          </div>
+        </footer>
       </Tabs>
     </TooltipProvider>
   );

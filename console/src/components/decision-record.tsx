@@ -3,7 +3,6 @@
 import * as React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Panel, PanelHeader, PanelTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { groupRuleIds, readC2pa } from "@/lib/events";
 import type { RunState } from "@/lib/use-run";
@@ -39,7 +38,15 @@ export function DecisionRecord({
 }) {
   const [rulesOpen, setRulesOpen] = React.useState(false);
   const verdict = state.verdict;
-  if (!verdict) return null;
+
+  if (!verdict) {
+    return (
+      <p className="px-3 py-4 text-[13px] leading-[1.5] text-ink-soft">
+        Nothing recorded yet. A finished run writes its rules, its C2PA reading, its Grafana
+        annotation and any incident here.
+      </p>
+    );
+  }
 
   const ruleIds = Array.from(
     new Set([
@@ -54,19 +61,19 @@ export function DecisionRecord({
   const escalation = state.escalation;
 
   return (
-    <Panel className="mt-3">
-      <PanelHeader>
-        <PanelTitle>Decision record</PanelTitle>
+    <div>
+      <section className="flex flex-wrap items-baseline justify-between gap-2 border-b border-line px-3 py-2">
+        <h3 className="label-micro text-ink-soft">Written to Grafana during the run</h3>
         <span className="font-mono text-[10.5px] text-ink-soft">
           {verdict.annotation_id !== undefined && verdict.annotation_id !== null
             ? `annotation ${verdict.annotation_id}`
             : "no annotation id"}
           {escalation?.incident_id ? `, incident ${escalation.incident_id}` : ""}
         </span>
-      </PanelHeader>
+      </section>
 
       {ruleIds.length > 0 && (
-        <section className="border-b border-line-soft px-4 py-3">
+        <section className="border-b border-line px-3 py-2">
           <button
             type="button"
             onClick={() => setRulesOpen((value) => !value)}
@@ -78,16 +85,16 @@ export function DecisionRecord({
             <Chevron open={rulesOpen} />
           </button>
           {rulesOpen && (
-            <div id="rules-cited" className="mt-3 space-y-2.5">
+            <div id="rules-cited" className="fade-in mt-2.5 space-y-2">
               {groups.map((group) => (
                 <div key={group.source}>
-                  <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-ink-soft">
+                  <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-ink-soft">
                     {group.source}
                   </p>
                   <ul className="mt-1.5 flex flex-wrap gap-1.5">
                     {group.ids.map((id) => (
                       <li key={id}>
-                        <Badge tone="ink" size="xs" className="normal-case tracking-[0.02em]">
+                        <Badge tone="ink" size="xs" className="normal-case tracking-[0.01em]">
                           {id}
                         </Badge>
                       </li>
@@ -101,12 +108,12 @@ export function DecisionRecord({
       )}
 
       {c2pa && (
-        <section className="border-b border-line-soft px-4 py-3">
+        <section className="border-b border-line px-3 py-2">
           <h3 className="label-micro text-ink-soft">Provenance</h3>
           <p
             className={cn(
-              "mt-1.5 font-mono text-[11px] leading-[1.55]",
-              c2pa.ok ? "text-pass" : "text-block",
+              "mt-1 font-mono text-[11px] leading-[1.5]",
+              c2pa.ok ? "text-ink" : "text-block",
             )}
           >
             {c2pa.line}
@@ -114,29 +121,29 @@ export function DecisionRecord({
         </section>
       )}
 
-      <section className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
-        <span className="font-mono text-[10.5px] leading-[1.5] text-ink-soft">
-          Written to Grafana by the verdict agent during the run.
+      <section className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-3 py-2">
+        <span className="text-[12.5px] leading-[1.45] text-ink-soft">
+          The verdict agent wrote the annotation itself.
         </span>
         <a
           href={dashboardUrl}
           target="_blank"
           rel="noreferrer"
-          className="label-micro text-ember underline decoration-ember-line underline-offset-[3px] transition-colors hover:decoration-ember"
+          className="text-[12.5px] text-accent underline underline-offset-[3px]"
         >
           Open in Grafana
         </a>
       </section>
 
       {verdict.needs_human && (
-        <section className="border-t border-line-soft bg-card-sunk px-4 py-3.5">
+        <section className="px-3 py-2.5">
           {reviewed ? (
             <>
-              <p className="flex items-center gap-2 text-[13px] text-pass">
-                <span className="h-[7px] w-[7px] rotate-45 bg-pass" aria-hidden="true" />
+              <p className="flex items-center gap-2 text-[13px] text-ink">
+                <span className="h-[8px] w-[8px] rounded-[1px] bg-pass" aria-hidden="true" />
                 Reviewed by a human.
               </p>
-              <p className="mt-1.5 text-[11.5px] leading-[1.55] text-ink-soft">
+              <p className="mt-1 text-[12px] leading-[1.45] text-ink-soft">
                 Recorded in this browser only. In production this closes the incident and writes
                 the reviewer back to the annotation.
               </p>
@@ -146,13 +153,13 @@ export function DecisionRecord({
               <Button variant="outline" size="sm" onClick={onMarkReviewed} className="w-full">
                 Mark reviewed by a human
               </Button>
-              <p className="mt-2 text-[11.5px] leading-[1.55] text-ink-soft">
-                In production this closes the incident. Here it only marks the card.
+              <p className="mt-1.5 text-[12px] leading-[1.45] text-ink-soft">
+                In production this closes the incident. Here it only marks the record.
               </p>
             </>
           )}
         </section>
       )}
-    </Panel>
+    </div>
   );
 }

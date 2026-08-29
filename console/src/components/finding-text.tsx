@@ -32,9 +32,9 @@ export function FindingText({
             onClick={() => onSeek(part.seconds)}
             title={`Play the clip from ${part.label}`}
             className={cn(
-              "mx-[1px] inline-flex translate-y-[1px] items-center gap-1 rounded-[2px] border border-ember-line bg-ember-wash",
-              "px-1.5 py-[1px] font-mono text-[11px] leading-[1.35] tracking-[0.02em] text-ember",
-              "transition-colors hover:border-ember hover:bg-ember hover:text-card",
+              "mx-[1px] inline-flex translate-y-[1px] items-center gap-1 rounded-[2px] border border-line-strong bg-surface",
+              "px-1.5 py-[1px] font-mono text-[11px] leading-[1.3] text-accent",
+              "transition-colors hover:bg-accent-wash",
             )}
           >
             <svg viewBox="0 0 10 10" width="7" height="7" aria-hidden="true">

@@ -9,8 +9,8 @@ export type SwitchProps = Omit<React.ComponentProps<"button">, "onChange"> & {
 };
 
 /**
- * A breaker switch, not a pill: square knob, hairline track, ember only when
- * it is armed. The children are the visible label and the accessible name.
+ * A square breaker, not a pill: hairline track, accent only when it is armed.
+ * The children are the visible label and the accessible name.
  */
 export function Switch({
   checked,
@@ -36,24 +36,23 @@ export function Switch({
         onCheckedChange(!checked);
       }}
       className={cn(
-        "group inline-flex items-center gap-2 text-left transition-colors",
-        "font-mono text-[10.5px] uppercase leading-none tracking-[0.12em]",
+        "group inline-flex items-center gap-2 text-left text-[12px] leading-none transition-colors",
         "disabled:pointer-events-none disabled:opacity-45",
-        checked ? "text-ember" : "text-ink-soft hover:text-ink",
+        checked ? "text-accent" : "text-ink-soft hover:text-ink",
         className,
       )}
     >
       <span
         aria-hidden="true"
         className={cn(
-          "flex h-[15px] w-[27px] shrink-0 items-center rounded-[2px] border transition-colors",
-          checked ? "border-ember-line bg-ember-wash" : "border-line bg-card-sunk group-hover:border-ink-soft",
+          "flex h-[14px] w-[26px] shrink-0 items-center rounded-[2px] border transition-colors",
+          checked ? "border-accent bg-accent-wash" : "border-line-strong bg-sunk",
         )}
       >
         <span
           className={cn(
-            "block h-[9px] w-[9px] transition-transform duration-150",
-            checked ? "translate-x-[14px] bg-ember" : "translate-x-[2px] bg-ink-soft",
+            "block h-[8px] w-[8px] transition-transform duration-150",
+            checked ? "translate-x-[15px] bg-accent" : "translate-x-[3px] bg-ink-soft",
           )}
         />
       </span>

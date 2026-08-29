@@ -850,3 +850,43 @@ Dylan's second review (19:05 UTC): the page should fit the viewport and carry th
 information at first sight, interactions switch views (unless the media is needed), dense but not
 overloaded, no blinking effects, sober; and the palette should come from a known media tool rather
 than be composed. The v3 pass applies it. The video draft 3 was stopped on his word.
+
+## M4, third pass: the console v3 (2026-08-29)
+
+Three changes, from that second review.
+
+**One screen.** Above 1100 px the Review view is exactly the viewport: top bar, then the clip with
+its scrubber and the asset strip on the left, the verdict and a `Checks | Findings | Record`
+segmented control on the right, the five stats and the spec line as one thin bar at the bottom.
+Each segment scrolls inside its own region, the page never does. Measured with headless chromium:
+`document.documentElement.scrollHeight` equals `window.innerHeight` at 1440x900 in idle, on the
+settled Crest run, on each of the three segments and on the clean PASS run, and at 1920x1080 in
+idle and on the settled Crest run. Trace and Queue fit too. Below 1100 px it stacks and scrolls,
+with no horizontal overflow at 390, 768 or 1099 px. Two defects were paid for on the way: a grid
+row that grew past its container, and `sr-only` spans, which are absolutely positioned, escaping
+the scroll box because `overflow` alone is not a containing block (`.fit-scroll` is now
+`position: relative`).
+
+**Sober.** Every looping animation is gone: the live lamp, the gate scan sweep, the row entrance
+slide. `grep -rn "animate-\|@keyframes\|animation:" src` returns two lines, both the single
+160 ms opacity fade. A running gate shows a static ring and its step in words. No gradient, no
+glow, no shadow heavier than a hairline; the ruled-paper background is gone.
+
+**Palette from YouTube Studio's light theme, literal.** Ground `#F9F9F9`, surfaces `#FFFFFF`,
+hairlines `#E5E5E5` and `#CCCCCC`, text `#0F0F0F` and `#606060`, accent `#065FD4`, BLOCK
+`#CC0000`, PASS `#1E8E3E`, degraded `#B06000`, muted chip on `#F1F1F1`. Roboto 400/500/700 and
+Roboto Mono through `next/font/google`; Sora, Newsreader and IBM Plex Mono are gone. Gate hues
+desaturated to sit on white: rights `#3B6FA0`, claim `#9A3D7A`, brand `#2E7D6B`, provenance
+`#7B4FA8`, all above 4.9:1 against `#FFFFFF`.
+
+One deliberate departure, measured: `#1E8E3E` is 4.20:1 on white, which clears the 3:1 a
+non-text mark needs and not the 4.5:1 small text needs. Green therefore carries the check icons,
+the rules and the 28 px verdict word (large text, 3:1); every small PASS label is set in ink
+beside a green mark. Amber `#B06000` is 4.65:1 on white and 4.42:1 on the ground, so it is only
+ever set on a white surface. axe-core 4.10.2, wcag2a + wcag2aa + wcag21a + wcag21aa +
+best-practice: zero violations on idle, on the settled run, on all three segments, on Trace and
+on Queue. The skip link now targets `<main id="main-content">` instead of the stage, which only
+exists in the Review view.
+
+Every route, the SSE contract, mock mode, the fixtures, the three presets and the upload are
+untouched. `pnpm build`, `pnpm lint` and `pnpm typecheck` clean.

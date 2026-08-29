@@ -17,10 +17,9 @@ function hueFor(source: string): string {
 }
 
 /**
- * The scrubber a review tool would give you: the clip laid flat, with a marker
- * on every second a gate wrote a finding at, coloured by the gate that wrote
- * it. Click a marker and the player jumps there; the matching finding in the
- * thread lights up at the same time.
+ * The clip laid flat, with a marker on every second a gate wrote a finding at,
+ * coloured by the gate that wrote it. Click a marker and the player jumps
+ * there; the matching finding in the thread lights up at the same time.
  */
 function Scrubber({
   markers,
@@ -42,42 +41,22 @@ function Scrubber({
   const played = position === null ? 0 : Math.min(100, Math.max(0, (position / duration) * 100));
 
   return (
-    <div className="border-t border-line-soft bg-card-sunk px-4 pb-2.5 pt-2.5">
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-        <h2 className="label-micro text-ink-soft">
-          Findings on the clip
-          <span className="ml-2 normal-case tracking-normal">
-            {markers.length === 0
-              ? "none anchored yet"
-              : `${markers.length} anchored to a second`}
-          </span>
-        </h2>
-        <ul className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          {GATE_ORDER.map((gate) => (
-            <li key={gate} className="flex items-center gap-1.5">
-              <span className={cn("h-[7px] w-[3px]", GATE_DOT[gate])} aria-hidden="true" />
-              <span className="font-mono text-[9.5px] uppercase tracking-[0.1em] text-ink-soft">
-                {gate}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      <div className="relative mt-3 h-[34px]">
+    <div className="px-4 pt-2.5">
+      <h2 className="sr-only">Findings on the clip</h2>
+      <div className="relative h-[30px]">
         <span
           aria-hidden="true"
-          className="absolute inset-x-0 top-[6px] h-[6px] rounded-[3px] bg-[#ded8c9]"
+          className="absolute inset-x-0 top-[5px] h-[4px] rounded-[2px] bg-line"
         />
         <span
           aria-hidden="true"
-          className="absolute left-0 top-[6px] h-[6px] rounded-[3px] bg-ink/70"
+          className="absolute left-0 top-[5px] h-[4px] rounded-[2px] bg-line-strong"
           style={{ width: `${played}%` }}
         />
         {position !== null && (
           <span
             aria-hidden="true"
-            className="absolute top-[3px] h-[12px] w-[2px] -translate-x-1/2 rounded-[1px] bg-ink"
+            className="absolute top-[2px] h-[10px] w-[2px] -translate-x-1/2 bg-ink"
             style={{ left: `${played}%` }}
           />
         )}
@@ -94,7 +73,7 @@ function Scrubber({
               onMouseLeave={() => onHover(null)}
               onFocus={() => onHover(marker.seconds)}
               onBlur={() => onHover(null)}
-              className="group absolute top-0 flex h-[34px] w-[24px] -translate-x-1/2 flex-col items-center"
+              className="group absolute top-0 flex h-[30px] w-[26px] -translate-x-1/2 flex-col items-center"
               style={{ left: `${left}%` }}
             >
               <span className="sr-only">
@@ -103,10 +82,8 @@ function Scrubber({
               <span
                 aria-hidden="true"
                 className={cn(
-                  "flex h-[18px] w-[5px] flex-col overflow-hidden rounded-[2px] border transition-all",
-                  lit
-                    ? "scale-y-110 border-ink shadow-[0_0_0_2px_rgba(178,60,11,0.28)]"
-                    : "border-card group-hover:border-ink",
+                  "flex h-[14px] w-[4px] flex-col overflow-hidden rounded-[1px] border",
+                  lit ? "border-ink" : "border-surface group-hover:border-line-strong",
                 )}
               >
                 {marker.sources.map((source) => (
@@ -116,7 +93,7 @@ function Scrubber({
               <span
                 aria-hidden="true"
                 className={cn(
-                  "tabular mt-[2px] font-mono text-[9px] leading-none transition-colors",
+                  "tabular mt-[2px] font-mono text-[9px] leading-none",
                   lit ? "text-ink" : "text-ink-soft",
                 )}
               >
@@ -127,14 +104,26 @@ function Scrubber({
         })}
       </div>
 
-      <div className="flex items-center justify-between font-mono text-[9.5px] text-ink-soft">
-        <span className="tabular">{position === null ? "0:00" : clock(position)}</span>
-        {markers.length === 0 && (
-          <span className="hidden px-3 text-center sm:inline">
-            A finding that names a second in the clip lands on this bar, and plays it.
-          </span>
-        )}
-        <span className="tabular">{clock(duration)}</span>
+      <div className="mt-1 flex items-center justify-between gap-4">
+        <span className="tabular font-mono text-[10px] text-ink-soft">
+          {position === null ? "0:00" : clock(position)}
+        </span>
+        <ul className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+          {GATE_ORDER.map((gate) => (
+            <li key={gate} className="flex items-center gap-1.5">
+              <span className={cn("h-[8px] w-[3px]", GATE_DOT[gate])} aria-hidden="true" />
+              <span className="font-mono text-[9.5px] uppercase tracking-[0.07em] text-ink-soft">
+                {gate}
+              </span>
+            </li>
+          ))}
+          <li className="font-mono text-[9.5px] text-ink-soft">
+            {markers.length === 0
+              ? "no finding anchored to a second yet"
+              : `${markers.length} anchored, click one to play it`}
+          </li>
+        </ul>
+        <span className="tabular font-mono text-[10px] text-ink-soft">{clock(duration)}</span>
       </div>
     </div>
   );
@@ -159,7 +148,7 @@ export function Stage({
   markers: Marker[];
   note: string | null;
   stateLine: string;
-  stateTone: "quiet" | "ember" | "block" | "pass";
+  stateTone: "quiet" | "accent" | "block";
   videoRef: React.RefObject<HTMLVideoElement | null>;
   activeSecond: number | null;
   hoverSecond: number | null;
@@ -204,8 +193,8 @@ export function Stage({
   }, [phase, source, videoRef]);
 
   return (
-    <figure id="stage" className="overflow-hidden rounded-[5px] border border-line bg-card">
-      <div className="relative aspect-video w-full bg-[#171510]">
+    <figure id="stage" className="flex min-h-0 flex-1 flex-col">
+      <div className="stage-box overflow-hidden rounded-[4px] border border-line bg-[#0f0f0f]">
         {source ? (
           <video
             ref={videoRef}
@@ -216,7 +205,7 @@ export function Stage({
             playsInline
             preload="metadata"
             aria-label={`Clip under review: ${title}`}
-            className="h-full w-full object-contain"
+            className="absolute inset-0 h-full w-full object-contain"
             onLoadedMetadata={(event) => {
               const value = event.currentTarget.duration;
               if (Number.isFinite(value) && value > 0) setMeasured(value);
@@ -239,8 +228,8 @@ export function Stage({
             )}
           </video>
         ) : (
-          <div className="flex h-full w-full items-center justify-center px-8 text-center">
-            <p className="max-w-[46ch] font-mono text-[12px] leading-[1.6] text-[#e8e3d7]">
+          <div className="absolute inset-0 flex items-center justify-center px-8 text-center">
+            <p className="max-w-[46ch] font-mono text-[12px] leading-[1.6] text-[#e5e5e5]">
               This upload lives in Cloud Storage and has no local copy to play here. Run it, or
               pick a preloaded clip to watch one.
             </p>
@@ -248,14 +237,14 @@ export function Stage({
         )}
 
         {preset?.origin === "synthetic" && (
-          <p className="pointer-events-none absolute left-3 top-3 rounded-[2px] bg-[#171510]/85 px-2 py-1 font-mono text-[10px] leading-none tracking-[0.06em] text-[#f3e4d4]">
+          <p className="pointer-events-none absolute left-2.5 top-2.5 rounded-[2px] bg-[#0f0f0f]/85 px-2 py-1 font-mono text-[10px] leading-none text-[#f1f1f1]">
             synthetic test asset, Veo 3.1 on Vertex AI, C2PA signed
           </p>
         )}
 
         {phase === "running" && (
-          <p className="pointer-events-none absolute right-3 top-3 flex items-center gap-1.5 rounded-[2px] bg-[#171510]/85 px-2 py-1 font-mono text-[10px] uppercase leading-none tracking-[0.14em] text-[#f4b98a]">
-            <span className="h-[5px] w-[5px] rounded-full bg-ember lamp-live" aria-hidden="true" />
+          <p className="pointer-events-none absolute right-2.5 top-2.5 flex items-center gap-1.5 rounded-[2px] bg-[#0f0f0f]/85 px-2 py-1 font-mono text-[10px] uppercase leading-none tracking-[0.08em] text-[#f1f1f1]">
+            <span className="h-[6px] w-[6px] rounded-[1px] bg-[#8ab4f8]" aria-hidden="true" />
             gates reading
           </p>
         )}
@@ -271,25 +260,23 @@ export function Stage({
         onHover={onHover}
       />
 
-      <figcaption className="flex flex-wrap items-start justify-between gap-x-6 gap-y-2 border-t border-line-soft px-4 py-3">
+      <figcaption className="flex flex-wrap items-baseline justify-between gap-x-5 gap-y-1 border-t border-line px-1 pt-2">
         <div className="min-w-0">
-          <p className="display text-[16px] leading-tight text-ink">{title}</p>
-          <p className="mt-1 font-mono text-[10.5px] leading-[1.5] text-ink-soft">
+          <span className="text-[13px] font-medium leading-tight text-ink">{title}</span>
+          <span className="ml-2 font-mono text-[10.5px] text-ink-soft">
             {preset
               ? `${preset.duration}, ${preset.origin}, ${preset.provenance}`
               : "uploaded clip, MP4"}
-          </p>
+          </span>
         </div>
         <p
           className={cn(
-            "max-w-[48ch] text-[12.5px] leading-[1.5]",
-            stateTone === "ember"
-              ? "text-ember"
+            "max-w-[62ch] text-[12.5px] leading-[1.45]",
+            stateTone === "accent"
+              ? "text-accent"
               : stateTone === "block"
                 ? "text-block"
-                : stateTone === "pass"
-                  ? "text-pass"
-                  : "text-ink-mid",
+                : "text-ink-soft",
           )}
           aria-live="polite"
         >
@@ -301,10 +288,8 @@ export function Stage({
         <p
           role="status"
           className={cn(
-            "border-t px-4 py-2.5 text-[11.5px] leading-[1.5]",
-            note
-              ? "border-warn-line bg-warn-wash text-warn"
-              : "border-line-soft bg-card-sunk text-ink-soft",
+            "fade-in mt-1.5 rounded-[2px] border px-2.5 py-1.5 text-[12px] leading-[1.45]",
+            note ? "border-line bg-surface text-warn" : "border-line bg-surface text-ink-soft",
           )}
         >
           {note ??

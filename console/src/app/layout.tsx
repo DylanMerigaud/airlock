@@ -1,26 +1,21 @@
 import type { Metadata, Viewport } from "next";
-import { Sora, IBM_Plex_Mono, Newsreader } from "next/font/google";
+import { Roboto, Roboto_Mono } from "next/font/google";
 import "./globals.css";
 
-const sora = Sora({
+// One family for the whole console, the one YouTube Studio sets its interface
+// in. Self-hosted by next/font, so nothing is fetched from Google at runtime.
+const roboto = Roboto({
   subsets: ["latin"],
-  variable: "--font-sora",
+  weight: ["400", "500", "700"],
+  variable: "--font-roboto",
   display: "swap",
 });
 
-const plexMono = IBM_Plex_Mono({
+// Ids, rule numbers, timestamps and the calibration lines read out of Grafana.
+const robotoMono = Roboto_Mono({
   subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  variable: "--font-plex-mono",
-  display: "swap",
-});
-
-// The editorial voice: the verdict word, the wordmark and the section headings.
-const newsreader = Newsreader({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  style: ["normal", "italic"],
-  variable: "--font-newsreader",
+  weight: ["400", "500"],
+  variable: "--font-roboto-mono",
   display: "swap",
 });
 
@@ -31,22 +26,19 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#f6f3ec",
+  themeColor: "#f9f9f9",
   colorScheme: "light",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html
-      lang="en"
-      className={`${sora.variable} ${plexMono.variable} ${newsreader.variable}`}
-    >
+    <html lang="en" className={`${roboto.variable} ${robotoMono.variable}`}>
       <body>
         <a
-          href="#stage"
-          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-[3px] focus:border focus:border-ember focus:bg-card focus:px-3 focus:py-2 focus:font-mono focus:text-[12px] focus:text-ember"
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-[3px] focus:border focus:border-accent focus:bg-surface focus:px-3 focus:py-2 focus:font-mono focus:text-[12px] focus:text-accent"
         >
-          Skip to the asset
+          Skip to the content
         </a>
         {children}
       </body>

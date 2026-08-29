@@ -2,22 +2,27 @@ import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
+/**
+ * A chip, the way a status sits beside a title in a media tool: hairline box,
+ * no fill except the muted grey, no colour behind coloured text. Green never
+ * carries small text here, so a pass chip is ink beside a green rule.
+ */
 const badgeVariants = cva(
   "inline-flex items-center gap-1.5 rounded-[2px] border font-mono uppercase leading-none",
   {
     variants: {
       tone: {
-        neutral: "border-line bg-card-sunk text-ink-mid",
-        ink: "border-line bg-card text-ink",
-        ember: "border-ember-line bg-ember-wash text-ember",
-        amber: "border-warn-line bg-warn-wash text-warn",
-        block: "border-block-line bg-block-wash text-block",
-        pass: "border-pass-line bg-pass-wash text-pass",
+        neutral: "border-line bg-sunk text-ink-soft",
+        ink: "border-line bg-surface text-ink",
+        accent: "border-line bg-accent-wash text-accent",
+        amber: "border-line bg-surface text-warn",
+        block: "border-line bg-surface text-block",
+        pass: "border-line bg-surface text-ink",
         quiet: "border-transparent bg-transparent text-ink-soft",
       },
       size: {
-        xs: "px-1.5 py-[3px] text-[9.5px] tracking-[0.14em]",
-        sm: "px-2 py-1 text-[10.5px] tracking-[0.12em]",
+        xs: "px-1.5 py-[3px] text-[10px] tracking-[0.08em]",
+        sm: "px-2 py-1 text-[11px] tracking-[0.07em]",
       },
     },
     defaultVariants: { tone: "neutral", size: "sm" },

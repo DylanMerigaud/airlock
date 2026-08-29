@@ -43,37 +43,24 @@ function PresetCard({
       aria-pressed={selected}
       disabled={disabled}
       className={cn(
-        "flex min-w-0 flex-1 items-center gap-2.5 rounded-[4px] border p-1.5 text-left transition-colors",
+        "flex min-w-0 flex-1 items-center gap-2 rounded-[3px] border p-1 text-left transition-colors",
         "disabled:cursor-not-allowed disabled:opacity-50",
-        selected
-          ? "border-ember bg-ember-wash"
-          : "border-line bg-card hover:border-ink-soft hover:bg-card-sunk",
+        selected ? "border-accent bg-accent-wash" : "border-line bg-surface hover:bg-sunk",
       )}
     >
-      <span className="relative block h-[42px] w-[74px] shrink-0 overflow-hidden rounded-[2px] border border-line bg-[#171510]">
-        <Image
-          src={asset.poster}
-          alt=""
-          fill
-          sizes="74px"
-          className={cn("object-cover", selected ? "opacity-100" : "opacity-85")}
-        />
+      <span className="relative block h-[34px] w-[60px] shrink-0 overflow-hidden rounded-[2px] bg-[#0f0f0f]">
+        <Image src={asset.poster} alt="" fill sizes="60px" className="object-cover" />
         {asset.origin === "synthetic" && (
-          <span className="absolute inset-x-0 bottom-0 bg-[#171510]/85 px-1 py-[1px] text-center font-mono text-[7px] uppercase leading-[1.3] tracking-[0.06em] text-[#f3e4d4]">
+          <span className="absolute inset-x-0 bottom-0 bg-[#0f0f0f]/85 px-1 text-center font-mono text-[7px] uppercase leading-[1.4] text-[#f1f1f1]">
             synthetic
           </span>
         )}
       </span>
-      <span className="flex min-w-0 flex-col gap-1">
-        <span
-          className={cn(
-            "truncate text-[12.5px] font-medium leading-tight",
-            selected ? "text-ink" : "text-ink-mid",
-          )}
-        >
+      <span className="flex min-w-0 flex-col gap-0.5">
+        <span className="truncate text-[12.5px] font-medium leading-tight text-ink">
           {asset.name}
         </span>
-        <span className="truncate font-mono text-[9.5px] uppercase tracking-[0.09em] text-ink-soft">
+        <span className="truncate font-mono text-[9.5px] uppercase tracking-[0.06em] text-ink-soft">
           {asset.duration}, {asset.origin}
         </span>
       </span>
@@ -151,11 +138,11 @@ export function AssetStrip({
   const busy = uploadState !== "idle";
 
   return (
-    <section aria-labelledby="asset-strip-heading" className="mt-3">
-      <h2 id="asset-strip-heading" className="label-micro text-ink-soft">
+    <section aria-labelledby="asset-strip-heading">
+      <h2 id="asset-strip-heading" className="sr-only">
         Clip under review
       </h2>
-      <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-stretch">
+      <div className="flex flex-col gap-1.5 sm:flex-row sm:items-stretch">
         {PRESET_ASSETS.map((asset) => (
           <PresetCard
             key={asset.id}
@@ -168,8 +155,8 @@ export function AssetStrip({
 
         <div
           className={cn(
-            "flex min-w-0 flex-1 items-center gap-2.5 rounded-[4px] border border-dashed p-1.5 transition-colors",
-            uploadSelected ? "border-ember bg-ember-wash" : "border-line bg-card",
+            "flex min-w-0 flex-1 items-center gap-2 rounded-[3px] border border-dashed p-1 transition-colors",
+            uploadSelected ? "border-accent bg-accent-wash" : "border-line-strong bg-surface",
           )}
         >
           <input
@@ -187,16 +174,11 @@ export function AssetStrip({
           <label
             htmlFor="clip-upload"
             className={cn(
-              "flex min-w-0 flex-col gap-1",
+              "flex min-w-0 flex-col gap-0.5 px-1",
               disabled || busy ? "cursor-not-allowed" : "cursor-pointer",
             )}
           >
-            <span
-              className={cn(
-                "text-[12.5px] font-medium leading-tight",
-                disabled || busy ? "text-ink-soft" : "text-ink-mid",
-              )}
-            >
+            <span className="text-[12.5px] font-medium leading-tight text-ink">
               {uploadState === "checking"
                 ? "Reading the clip duration"
                 : uploadState === "uploading"
@@ -205,7 +187,7 @@ export function AssetStrip({
                     ? uploadedName
                     : "Upload a clip"}
             </span>
-            <span className="truncate font-mono text-[9.5px] uppercase tracking-[0.09em] text-ink-soft">
+            <span className="truncate font-mono text-[9.5px] uppercase tracking-[0.06em] text-ink-soft">
               MP4, 30 s and 50 MB at most
             </span>
           </label>
@@ -213,7 +195,7 @@ export function AssetStrip({
       </div>
 
       {uploadError && (
-        <p role="alert" className="mt-2 text-[12px] leading-[1.5] text-block">
+        <p role="alert" className="fade-in mt-1.5 text-[12px] leading-[1.45] text-block">
           {uploadError}
         </p>
       )}

@@ -1,12 +1,13 @@
 import { cn } from "@/lib/utils";
 import type { ChipStatus } from "@/lib/events";
 
-const TONE: Record<ChipStatus, { dot: string; text: string; ring: string; fill: string }> = {
-  PENDING: { dot: "bg-ink-soft/45", text: "text-ink-soft", ring: "border-line", fill: "bg-card-sunk" },
-  RUNNING: { dot: "bg-ember lamp-live", text: "text-ember", ring: "border-ember-line", fill: "bg-ember-wash" },
-  PASS: { dot: "bg-pass", text: "text-pass", ring: "border-pass-line", fill: "bg-pass-wash" },
-  BLOCK: { dot: "bg-block", text: "text-block", ring: "border-block-line", fill: "bg-block-wash" },
-  ERROR: { dot: "bg-block", text: "text-block", ring: "border-block-line", fill: "bg-block-wash" },
+/** A mark and a word. The mark carries the colour, the word carries the text. */
+const TONE: Record<ChipStatus, { mark: string; text: string }> = {
+  PENDING: { mark: "bg-line-strong", text: "text-ink-soft" },
+  RUNNING: { mark: "bg-accent", text: "text-accent" },
+  PASS: { mark: "bg-pass", text: "text-ink" },
+  BLOCK: { mark: "bg-block", text: "text-block" },
+  ERROR: { mark: "bg-block", text: "text-block" },
 };
 
 export function StatusChip({ status, className }: { status: ChipStatus; className?: string }) {
@@ -14,15 +15,13 @@ export function StatusChip({ status, className }: { status: ChipStatus; classNam
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-[2px] border px-1.5 py-1",
-        "font-mono text-[10px] uppercase leading-none tracking-[0.14em]",
-        tone.ring,
+        "inline-flex items-center gap-1.5 rounded-[2px] border border-line px-1.5 py-1",
+        "font-mono text-[10px] uppercase leading-none tracking-[0.08em]",
         tone.text,
-        tone.fill,
         className,
       )}
     >
-      <span className={cn("h-[5px] w-[5px] rounded-full", tone.dot)} aria-hidden="true" />
+      <span className={cn("h-[6px] w-[6px] rounded-[1px]", tone.mark)} aria-hidden="true" />
       {status}
     </span>
   );

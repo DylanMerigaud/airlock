@@ -12,13 +12,13 @@ const SPECS = [
 /** What the console runs on, one line, the way a colophon sits under a page. */
 export function SpecStrip({ lastRunMs }: { lastRunMs: number | null }) {
   return (
-    <section
+    <p
       aria-label="What this console runs on"
-      className="border-t border-line-soft py-3 font-mono text-[10px] leading-[1.7] tracking-[0.02em] text-ink-soft"
+      className="truncate font-mono text-[10px] leading-[1.5] text-ink-soft"
     >
       {SPECS.join("  ·  ")}
       {"  ·  last run "}
       {lastRunMs === null ? "not measured yet" : ms(lastRunMs)}
-    </section>
+    </p>
   );
 }
