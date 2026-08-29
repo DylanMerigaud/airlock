@@ -1,0 +1,24 @@
+# Airlock MCP server: the four gates exposed as MCP tools over streamable HTTP.
+# Source stays laid out exactly as in the repo (airlock/, rules/, charter.yaml, rights-registry.yaml,
+# trust/ as siblings) because the gate modules resolve their config paths relative to their own
+# __file__, three levels up; an installed wheel would break that.
+FROM python:3.12-slim
+
+WORKDIR /app
+
+RUN pip install --no-cache-dir uv
+
+COPY pyproject.toml uv.lock ./
+COPY airlock ./airlock
+COPY airlock_mcp ./airlock_mcp
+COPY rules ./rules
+COPY charter.yaml ./charter.yaml
+COPY rights-registry.yaml ./rights-registry.yaml
+COPY trust ./trust
+
+RUN uv sync --frozen --no-dev
+
+ENV PORT=8080
+EXPOSE 8080
+
+CMD ["uv", "run", "python", "-m", "airlock_mcp.server"]
