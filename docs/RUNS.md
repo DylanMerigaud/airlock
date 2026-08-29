@@ -456,3 +456,21 @@ GET /api/stats   {"ok":true,"mock":false,"checked_7d":9,"passed_7d":2,"blocked_7
 
 Cloud Run (console, ADC of the runtime account) to Agent Engine to the gates to mcp-grafana on
 Cloud Run to Grafana Cloud and back to the browser, with no credential outside Secret Manager.
+
+### Revision 2 and the mute path through the hosted console (2026-08-29 00:25 UTC)
+
+Revision `airlock-console-00002-qnm` adds the third asset (the clean signed clip, the one that
+PASSes), a per-gate "mute telemetry" switch (the judge's "disable a gate" action: the run message
+becomes `{"gcs_uri", "asset_id", "mute": ["rights"]}`) and the PASS state exercised on a recorded
+run (annotation 11). `curl -sN -X POST .../api/run -d '{"asset":"nimbus","mute":["rights"]}'`:
+
+```
+   1.0s rights_gate      running MUTED
+   3.0s provenance_gate  PASS      146 ms
+  15.8s brand_gate       PASS    13065 ms
+  17.1s claim_gate       BLOCK   14072 ms
+  72.6s rights_gate      PASS    71466 ms  (telemetry muted)
+  74.9s verdict  grafana rights: healthy, last success 715 s ago   (the previous run's push; under 900 s)
+  78.8s verdict  VERDICT BLOCK (content) annotation=13
+  81.2s escalation opened=True incident=8
+```
