@@ -24,3 +24,11 @@ The mp4 itself is not committed (see .gitignore); `scripts/fetch_assets.sh` down
 - The excerpt holds the brand on screen, the 21 percent testimonial, the "more dentists recommend"
   line and the American Dental Association seal.
 - sha256: 97ccbcdc8316277909b25591b79a5a307c463089e6558ed1a14ddd2f0114edd4
+
+## CrestToothpa-33-48.mp4 (the video's asset)
+
+- The same film, seconds 33 to 48, cut with `ffmpeg -ss 33 -t 15 -c copy` (stream copy): the
+  "more dentists recommend" line, the Crest box on screen, the American Dental Association seal.
+  Cut because the video's beat for the real asset is 40 s and the Video Intelligence API needs about
+  a minute on the 30 s excerpt (measured 2026-08-29).
+- sha256: ccd690bdc933ed4f67faffdebbb327302be87c0ae576a10b11344697c8ad5f1e
