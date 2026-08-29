@@ -823,3 +823,19 @@ check.py --type video docs/VIDEO-SCRIPT.md    PASS mecanique (G37 WARN: render c
   video checkbox, which resolves the moment M5 does.
 - M7 (practitioner quotes): two DMs are drafted and ready in `docs/PRACTITIONER-ASK.md`; sending
   them is explicitly Dylan's own action through his own doors, not this session's.
+
+## M4, second pass: the console v2 (2026-08-29, after Dylan's review)
+
+Dylan's review of the first console: a light theme, the media first and more prominent, less
+crowding (views or collapsing), and the design vocabulary of the media tools reviewers already use.
+Applied as: warm paper ground with one ember accent and a serif for the verdict word; the clip as
+the stage (58 percent of the width, plays muted while the gates read it) with a scrubber carrying
+one marker per timestamped finding, coloured by gate (Frame.io); the findings as a thread beside
+the stage, a click on a marker or a time chip seeks the clip; the gates as a checklist with the
+verdict summary on top, an icon, one status line and the Grafana calibration line per row, a
+chevron onto the source of truth, the mute switch and the evidence (YouTube Studio's Checks); the
+decision record (rules cited, C2PA, annotation, incident, human review) under the clip; Trace and
+Queue as their own views. Every route, the SSE contract, mock mode and the fixtures unchanged.
+Verified in mock mode: build, lint, typecheck clean; no horizontal overflow at 390 px; headings,
+labels and names in order. Screenshots: `docs/img/console-v2-crest-block-2026-08-29.png`,
+`docs/img/console-v2-clean-pass-2026-08-29.png`. Deploy and the Lighthouse rerun follow.
