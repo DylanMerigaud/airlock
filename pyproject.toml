@@ -22,6 +22,10 @@ dev = [
     "pytest>=8",
     "pytest-asyncio>=0.24",
 ]
+# The demo video pipeline (video/): the draft narration is synthesised, the final voice is Dylan's.
+video = [
+    "google-cloud-texttospeech>=2.16",
+]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

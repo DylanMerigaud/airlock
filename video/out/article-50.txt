@@ -1,0 +1,4 @@
+Article 50, EU AI Act, in force 2 August 2026: providers
+of AI systems generating synthetic content shall ensure
+the outputs are marked in a machine-readable format and
+detectable as artificially generated

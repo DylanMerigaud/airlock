@@ -1,0 +1,188 @@
+{
+  "recorded_at": "2026-08-29T01:20:09.895Z",
+  "console": "https://airlock-console-771466810465.us-central1.run.app",
+  "mock": false,
+  "duration_s": 274.863,
+  "video": "raw/console.webm",
+  "overlays": [
+    {
+      "cue": "grafana_open",
+      "file": "grafana_open.webm",
+      "page_opened_at": 133.296,
+      "closed_at": 144.069,
+      "panel_seen": true
+    },
+    {
+      "cue": "dashboard",
+      "file": "dashboard.webm",
+      "page_opened_at": 244.884,
+      "closed_at": 258.913,
+      "panel_seen": true
+    }
+  ],
+  "notes": [],
+  "cues": [
+    {
+      "cue": "record_start",
+      "t": 0,
+      "detail": "the context video starts here"
+    },
+    {
+      "cue": "stake",
+      "t": 1.661,
+      "detail": "console idle, gate cards up"
+    },
+    {
+      "cue": "asa",
+      "t": 11.629,
+      "url": "https://www.asa.org.uk/rulings/nutri-paw-ltd.html",
+      "detail": "scrolling the assessment"
+    },
+    {
+      "cue": "mute_on",
+      "t": 20.837,
+      "detail": "switched on by the recorder"
+    },
+    {
+      "cue": "console_idle",
+      "t": 20.837,
+      "detail": "gate cards with their calibration lines"
+    },
+    {
+      "cue": "crest_click",
+      "t": 30.589,
+      "detail": "RUN AIRLOCK on the Crest commercial"
+    },
+    {
+      "cue": "provenance_done",
+      "t": 35.122,
+      "status": "BLOCK",
+      "detail": "BLOCK"
+    },
+    {
+      "cue": "claim_done",
+      "t": 52.496,
+      "status": "BLOCK",
+      "detail": "BLOCK"
+    },
+    {
+      "cue": "brand_done",
+      "t": 57.53,
+      "status": "BLOCK",
+      "detail": "BLOCK"
+    },
+    {
+      "cue": "rights_done",
+      "t": 120.227,
+      "status": "BLOCK",
+      "detail": "BLOCK"
+    },
+    {
+      "cue": "verdict",
+      "t": 129.288,
+      "status": "BLOCK",
+      "motive": "content",
+      "detail": "BLOCK (content)"
+    },
+    {
+      "cue": "grafana_open",
+      "t": 136.999,
+      "url": "https://narrowsubmarine1895.grafana.net/public-dashboards/97860661238c4536a743e0d858aef845",
+      "detail": "panel visible"
+    },
+    {
+      "cue": "clean_muted_click",
+      "t": 146.317,
+      "detail": "RUN AIRLOCK on the clean clip, rights telemetry muted"
+    },
+    {
+      "cue": "provenance_done_2",
+      "t": 149.591,
+      "status": "PASS",
+      "detail": "PASS"
+    },
+    {
+      "cue": "brand_done_2",
+      "t": 159.409,
+      "status": "PASS",
+      "detail": "PASS"
+    },
+    {
+      "cue": "claim_done_2",
+      "t": 163.434,
+      "status": "PASS",
+      "detail": "PASS"
+    },
+    {
+      "cue": "rights_done_2",
+      "t": 187.425,
+      "status": "PASS",
+      "detail": "PASS"
+    },
+    {
+      "cue": "verdict_2",
+      "t": 195.508,
+      "status": "BLOCK",
+      "motive": "control unavailable",
+      "detail": "BLOCK (control unavailable)"
+    },
+    {
+      "cue": "unmute",
+      "t": 200.534,
+      "detail": "rights MUTE TELEMETRY switched off"
+    },
+    {
+      "cue": "clean_click_2",
+      "t": 202.559,
+      "detail": "RUN AIRLOCK on the clean clip again"
+    },
+    {
+      "cue": "provenance_done_3",
+      "t": 205.582,
+      "status": "PASS",
+      "detail": "PASS"
+    },
+    {
+      "cue": "brand_done_3",
+      "t": 216.164,
+      "status": "PASS",
+      "detail": "PASS"
+    },
+    {
+      "cue": "claim_done_3",
+      "t": 220.703,
+      "status": "PASS",
+      "detail": "PASS"
+    },
+    {
+      "cue": "rights_done_3",
+      "t": 235.324,
+      "status": "PASS",
+      "detail": "PASS"
+    },
+    {
+      "cue": "verdict_3",
+      "t": 240.881,
+      "status": "PASS",
+      "motive": null,
+      "detail": "PASS"
+    },
+    {
+      "cue": "dashboard",
+      "t": 246.944,
+      "url": "https://narrowsubmarine1895.grafana.net/public-dashboards/97860661238c4536a743e0d858aef845?from=now-1h&to=now",
+      "detail": "panel visible"
+    },
+    {
+      "cue": "landing",
+      "t": 258.914,
+      "detail": "holding on the PASS verdict card"
+    },
+    {
+      "cue": "end",
+      "t": 270.915,
+      "detail": "take finished"
+    }
+  ],
+  "failed": null
+}

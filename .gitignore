@@ -237,3 +237,10 @@ console/.env*
 !console/.env.example
 *.tsbuildinfo
 next-env.d.ts
+
+# video/: the take, the synthetic voice and the rendered drafts. The cue and narration JSON stay,
+# they are the evidence of what the take actually did.
+video/out/raw/
+video/out/voice/
+video/out/*.mp4
+video/out/*.wav

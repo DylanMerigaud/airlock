@@ -1,0 +1,230 @@
+#!/usr/bin/env python3
+"""narrate.py: turn the voice lines of docs/VIDEO-SCRIPT.md into a synthetic narration track.
+
+Every line of the shooting script has the shape
+
+    [m:ss] what is on screen | "what the voice says"
+
+This reads those lines, places each one where the picture actually is (the cue times the recorder
+wrote into video/out/cues.json, the script timecode as the fallback), synthesises it with Google
+Cloud Text to Speech, and writes video/out/narration.json for assemble.py.
+
+The voice here is synthetic and the draft says so in its file name. The final voice is Dylan's,
+recorded separately from the same script.
+
+    uv run --group video python video/narrate.py
+    uv run --group video python video/narrate.py --voice en-US-Neural2-D --out video/out
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+SCRIPT = ROOT / "docs" / "VIDEO-SCRIPT.md"
+
+PREFERRED_VOICE = "en-US-Journey-D"
+FALLBACK_VOICE = "en-US-Neural2-D"
+LANGUAGE = "en-US"
+SAMPLE_RATE = 24_000
+SPEAKING_RATE = 1.0
+MIN_GAP_S = 0.4
+
+# Which cue of the take each beat of the script is spoken over, in the order the beats appear in
+# the script. Section 2 is the part the recorder drives, so its lines follow the run: the beat
+# that talks about a gate starts when that gate's chip settles, not on a fixed clock. Sections 1
+# and 3 keep the script's timecode whenever the take has no cue for them.
+CUE_PLAN = {
+    "1": ["stake", "asa", "console_idle"],
+    "2": [
+        "crest_click",
+        "provenance_done",
+        "claim_done",
+        "rights_done",
+        "verdict",
+        "clean_muted_click",
+        "unmute",
+        "verdict_3",
+    ],
+    "3": ["dashboard", "quotes", "landing"],
+}
+
+BEAT = re.compile(r"^\[(\d+):(\d{2})\]\s*(.*)$")
+
+
+def parse_script(path: Path) -> list[dict]:
+    """Return one entry per beat: section, index, timecode, picture, voice (None when silent)."""
+    beats: list[dict] = []
+    section: str | None = None
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        heading = re.match(r"^##\s+(\d)\.", line)
+        if heading:
+            section = heading.group(1)
+            continue
+        if line.startswith("## "):
+            section = None
+            continue
+        if section is None:
+            continue
+        match = BEAT.match(line)
+        if not match:
+            continue
+        minutes, seconds, rest = match.groups()
+        timecode = int(minutes) * 60 + int(seconds)
+        picture, _, spoken = rest.rpartition(" | ")
+        spoken = spoken.strip()
+        silent = spoken.startswith("(") or not picture
+        voice = None if silent else spoken.strip('"').strip()
+        beats.append(
+            {
+                "section": section,
+                "index": sum(1 for b in beats if b["section"] == section),
+                "timecode_s": float(timecode),
+                "picture": picture.strip(),
+                "voice": voice,
+            }
+        )
+    return beats
+
+
+def wav_duration(path: Path) -> float:
+    out = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(path)],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return float(out.stdout.strip())
+
+
+def pick_voice(client, wanted: str) -> str:
+    from google.cloud import texttospeech
+
+    names = {v.name for v in client.list_voices(request={"language_code": LANGUAGE}).voices}
+    if wanted in names:
+        return wanted
+    if FALLBACK_VOICE in names:
+        print(f"voice {wanted} is not offered on this project, falling back to {FALLBACK_VOICE}")
+        return FALLBACK_VOICE
+    raise SystemExit(f"neither {wanted} nor {FALLBACK_VOICE} is available; got {sorted(names)[:5]}")
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--out", default=str(ROOT / "video" / "out"), help="output directory")
+    ap.add_argument("--voice", default=PREFERRED_VOICE)
+    ap.add_argument("--script", default=str(SCRIPT))
+    args = ap.parse_args()
+
+    out = Path(args.out)
+    voice_dir = out / "voice"
+    voice_dir.mkdir(parents=True, exist_ok=True)
+
+    beats = parse_script(Path(args.script))
+    for section, plan in CUE_PLAN.items():
+        found = [b for b in beats if b["section"] == section]
+        if len(found) != len(plan):
+            raise SystemExit(
+                f"section {section} has {len(found)} beats but the cue plan has {len(plan)}; "
+                "the script and video/narrate.py have drifted apart"
+            )
+
+    cues_path = out / "cues.json"
+    cue_times: dict[str, float] = {}
+    take = {}
+    if cues_path.exists():
+        take = json.loads(cues_path.read_text(encoding="utf-8"))
+        for entry in take.get("cues", []):
+            cue_times.setdefault(entry["cue"], float(entry["t"]))
+    else:
+        print(f"no {cues_path}: every line falls back to the script timecode")
+
+    from google.cloud import texttospeech
+
+    client = texttospeech.TextToSpeechClient()
+    voice_name = pick_voice(client, args.voice)
+    voice = texttospeech.VoiceSelectionParams(language_code=LANGUAGE, name=voice_name)
+    audio = texttospeech.AudioConfig(
+        audio_encoding=texttospeech.AudioEncoding.LINEAR16,
+        sample_rate_hertz=SAMPLE_RATE,
+        speaking_rate=SPEAKING_RATE,
+    )
+
+    lines: list[dict] = []
+    for beat in beats:
+        cue = CUE_PLAN[beat["section"]][beat["index"]]
+        if beat["voice"] is None:
+            print(f"silent beat at {beat['timecode_s']:.0f}s ({cue}), nothing to synthesise")
+            continue
+        source = "cue" if cue in cue_times else "timecode"
+        start = cue_times.get(cue, beat["timecode_s"])
+        lines.append(
+            {
+                "cue": cue,
+                "text": beat["voice"],
+                "timecode_s": beat["timecode_s"],
+                "cue_t": start,
+                "start_source": source,
+                "start_s": start,
+            }
+        )
+
+    lines.sort(key=lambda entry: entry["start_s"])
+    for position, line in enumerate(lines):
+        name = f"{position + 1:02d}-{line['cue']}.wav"
+        path = voice_dir / name
+        response = client.synthesize_speech(
+            request={
+                "input": texttospeech.SynthesisInput(text=line["text"]),
+                "voice": voice,
+                "audio_config": audio,
+            }
+        )
+        path.write_bytes(response.audio_content)
+        line["wav"] = str(path.relative_to(out))
+        line["duration_s"] = round(wav_duration(path), 3)
+        print(f"{name}: {line['duration_s']:6.2f}s  at {line['start_s']:7.2f}s ({line['start_source']})")
+
+    # A line never lands on top of the one before it: it slides to the previous end plus a beat,
+    # and the shift is recorded so the take can be re-cut if a beat is systematically too tight.
+    previous_end = 0.0
+    for line in lines:
+        wanted = line["start_s"]
+        floor = previous_end + MIN_GAP_S if previous_end else 0.0
+        line["shift_s"] = round(max(0.0, floor - wanted), 3)
+        line["start_s"] = round(max(wanted, floor), 3)
+        previous_end = line["start_s"] + line["duration_s"]
+
+    payload = {
+        "voice": voice_name,
+        "synthetic": True,
+        "language": LANGUAGE,
+        "sample_rate_hz": SAMPLE_RATE,
+        "speaking_rate": SPEAKING_RATE,
+        "min_gap_s": MIN_GAP_S,
+        "take": {
+            "recorded_at": take.get("recorded_at"),
+            "duration_s": take.get("duration_s"),
+        },
+        "narration_end_s": round(previous_end, 3),
+        "lines": lines,
+    }
+    (out / "narration.json").write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+    shifted = [line for line in lines if line["shift_s"] > 0]
+    print()
+    print(f"{len(lines)} lines, voice {voice_name}, narration ends at {previous_end:.1f}s")
+    for line in shifted:
+        print(f"  shifted {line['cue']} by {line['shift_s']:.2f}s to avoid an overlap")
+    print(f"wrote {out / 'narration.json'}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
