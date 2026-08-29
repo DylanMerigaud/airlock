@@ -33,3 +33,28 @@ proof of before you stopped checking it?"
 - Name a person or a company
 - Claim a number the practitioner did not say
 - Be sent, chased or paraphrased by anyone but Dylan
+
+## The two DMs, ready to send (2026-08-29)
+
+Your CRM ledgers hold no brand-safety, clearance or agency contact (checked 2026-08-29: they are
+finance-side), so the two names come from your own network. Pick, paste, send from your account.
+
+### French
+
+Salut <prénom>, je participe à un hackathon Google Cloud avec un outil qui vérifie les assets
+générés avant diffusion (droits, claims, charte, provenance C2PA), et j'ai besoin d'une réponse de
+terrain, pas d'une théorie. Une seule question: quand un asset généré part en diffusion, qu'est-ce
+que tu vérifies encore à la main, et de quoi tu voudrais une preuve avant d'arrêter de le vérifier?
+Deux phrases suffisent. Si tu es d'accord, je te cite en paraphrase, attribué seulement par ton rôle
+et le type de boîte (par exemple "responsable brand safety, agence média"), dans une vidéo de trois
+minutes et son write-up. Merci, et dis-moi non sans souci si ce n'est pas le moment.
+
+### English
+
+Hi <first name>, I am in a Google Cloud hackathon with a tool that checks generated assets before
+they ship (rights, claims, brand charter, C2PA provenance), and I need a field answer, not a theory.
+One question: when a generated asset is about to ship, what do you still check by hand, and what
+would you want proof of before you stopped checking it? Two sentences are enough. If you agree, I
+would quote you paraphrased, attributed only by role and type of company (for example "brand safety
+lead, media agency"), in a three-minute demo video and its write-up. Thanks, and a no is fine if the
+timing is wrong.
