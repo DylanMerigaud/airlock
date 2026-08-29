@@ -28,31 +28,19 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = ROOT / "docs" / "VIDEO-SCRIPT.md"
 
-PREFERRED_VOICE = "en-US-Journey-D"
+PREFERRED_VOICE = "en-US-Neural2-D"
 FALLBACK_VOICE = "en-US-Neural2-D"
 LANGUAGE = "en-US"
 SAMPLE_RATE = 24_000
 SPEAKING_RATE = 1.0
 MIN_GAP_S = 0.4
 
-# Which cue of the take each beat of the script is spoken over, in the order the beats appear in
-# the script. Section 2 is the part the recorder drives, so its lines follow the run: the beat
-# that talks about a gate starts when that gate's chip settles, not on a fixed clock. Sections 1
-# and 3 keep the script's timecode whenever the take has no cue for them.
-CUE_PLAN = {
-    "1": ["stake", "asa", "console_idle"],
-    "2": [
-        "crest_click",
-        "provenance_done",
-        "claim_done",
-        "rights_done",
-        "verdict",
-        "clean_muted_click",
-        "unmute",
-        "verdict_3",
-    ],
-    "3": ["dashboard", "quotes", "landing"],
-}
+# Which cue of the take each beat is spoken over is named by the script itself: every picture
+# description carries "(cue xxx)", and a beat that names two cues is placed on the first. A beat
+# that names none keeps the script's timecode, which is what the opening overlay and the quotes
+# need. Nothing here is positional any more, so a beat can be added to the script without
+# renumbering anything in this file.
+CUE_IN_PICTURE = re.compile(r"\(cue\s+([a-z0-9_]+)")
 
 BEAT = re.compile(r"^\[(\d+):(\d{2})\]\s*(.*)$")
 
@@ -81,6 +69,7 @@ def parse_script(path: Path) -> list[dict]:
         spoken = spoken.strip()
         silent = spoken.startswith("(") or not picture
         voice = None if silent else spoken.strip('"').strip()
+        named = CUE_IN_PICTURE.search(picture)
         beats.append(
             {
                 "section": section,
@@ -88,6 +77,7 @@ def parse_script(path: Path) -> list[dict]:
                 "timecode_s": float(timecode),
                 "picture": picture.strip(),
                 "voice": voice,
+                "cue": named.group(1) if named else None,
             }
         )
     return beats
@@ -127,14 +117,6 @@ def main() -> int:
     voice_dir.mkdir(parents=True, exist_ok=True)
 
     beats = parse_script(Path(args.script))
-    for section, plan in CUE_PLAN.items():
-        found = [b for b in beats if b["section"] == section]
-        if len(found) != len(plan):
-            raise SystemExit(
-                f"section {section} has {len(found)} beats but the cue plan has {len(plan)}; "
-                "the script and video/narrate.py have drifted apart"
-            )
-
     cues_path = out / "cues.json"
     cue_times: dict[str, float] = {}
     take = {}
@@ -157,13 +139,19 @@ def main() -> int:
     )
 
     lines: list[dict] = []
+    missing: list[str] = []
     for beat in beats:
-        cue = CUE_PLAN[beat["section"]][beat["index"]]
+        # The script names the cue; a beat that names none, or one the take never reached, keeps
+        # the script's own timecode and says so in narration.json under start_source.
+        named = beat["cue"]
         if beat["voice"] is None:
-            print(f"silent beat at {beat['timecode_s']:.0f}s ({cue}), nothing to synthesise")
+            print(f"silent beat at {beat['timecode_s']:.0f}s ({named or 'no cue'}), nothing to synthesise")
             continue
-        source = "cue" if cue in cue_times else "timecode"
-        start = cue_times.get(cue, beat["timecode_s"])
+        if named and named not in cue_times:
+            missing.append(named)
+        source = "cue" if named in cue_times else "timecode"
+        start = cue_times[named] if source == "cue" else beat["timecode_s"]
+        cue = named or f"t{int(beat['timecode_s'])}"
         lines.append(
             {
                 "cue": cue,
@@ -219,6 +207,8 @@ def main() -> int:
 
     shifted = [line for line in lines if line["shift_s"] > 0]
     print()
+    for name in missing:
+        print(f"  the take has no cue {name}, that line fell back to the script timecode")
     print(f"{len(lines)} lines, voice {voice_name}, narration ends at {previous_end:.1f}s")
     for line in shifted:
         print(f"  shifted {line['cue']} by {line['shift_s']:.2f}s to avoid an overlap")

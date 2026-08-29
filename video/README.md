@@ -7,8 +7,8 @@ the wall time each beat landed at, because a run takes between 30 and 110 s and 
 a fixed clock. The narration is then laid on those cue times, not on the script's timecodes.
 
 **The voice in every file named `airlock-draft-<n>-synthetic-voice.mp4` is synthetic**, generated
-with Google Cloud Text to Speech (project `airlock-agentic-cinema`, voice `en-US-Journey-D` when
-the project offers it, `en-US-Neural2-D` otherwise). The final video's voice is Dylan's, recorded
+with Google Cloud Text to Speech (project `airlock-agentic-cinema`, voice `en-US-Neural2-D`).
+The final video's voice is Dylan's, recorded
 separately from the same script and laid over the same take. The file name says which one you are
 listening to; nothing else in the pipeline changes between the two.
 
@@ -19,16 +19,17 @@ preparation is part of the take:
 
 ```bash
 scripts/demo_prep.sh                 # assets hashed, every gate recalibrated, services answering
-node video/record.mjs --prep         # mute the rights telemetry, run the clean clip once
+node video/record.mjs --prep         # two clean runs through the API, the second with rights muted
 ```
 
-`--prep` switches the rights gate's "mute telemetry" on in the console and runs the clean clip
-through it, so nothing refreshes that control afterwards. Leave the mute alone from then on. The
-take needs the rights telemetry to be at least 16 minutes stale, and `record.mjs` waits for it:
-it polls `/api/health` and only starts once `seconds_since_success` for the rights gate is past
-960, printing how long is left. The recorder switches the mute on again itself at the start of the
-take (the console keeps that switch in the page, so a fresh browser starts with it off) and
-switches it off on camera at the "turn the telemetry back on" beat.
+`--prep` uses no browser: it posts the clean clip to `/api/run` once with nothing muted, so every
+gate gets a fresh success, then again 13 minutes later with `mute: ["rights"]`, so only the rights
+control goes quiet. `record.mjs` then polls `/api/health` and starts the take once
+`seconds_since_success` for the rights gate is past 990, which is the one window where the rights
+row reads "17 min ago" and the other three are still healthy. The recorder switches the mute on
+again itself at the start of the take (the console keeps that switch in the page, so a fresh
+browser starts with it off) and switches it off on camera at the "turn the telemetry back on"
+beat.
 
 After the recording, switch the mute off and run the clean clip once so the stack is healthy for
 anyone who opens the URL.
@@ -44,20 +45,34 @@ uv run python video/assemble.py                          # 3. the render and the
 1. **`video/record.mjs`** (Playwright, chromium, headless) opens a 1920x1080 context with video
    recording on, drives the console through the beats of section 2 of the script, and writes
    `video/out/cues.json`: one `{cue, t}` per moment the script narrates, in seconds since the
-   recording started. The ASA ruling is scrolled slowly for 8 s on the wall clock, so that beat
-   lasts exactly as long as it is worth and never has to be cut. It logs each gate the moment its status chip settles, so the four gates can
-   land in any order. Every wait has a 200 s timeout and names the cue it gave up on. Grafana is
+   recording started. It reads the console v3 DOM and nothing else: an asset is picked by clicking
+   its `button[aria-pressed]` card by name in the strip, a gate has landed when its
+   `button[aria-controls="check-<gate>"]` row stops saying "Checking", the verdict and its motive
+   are parsed out of the `p[aria-live="polite"]` summary of `section[aria-label="Verdict"]`, and
+   the incident id out of the escalation row. The mute switch is reached by expanding the rights
+   row and the Grafana href by switching the `Checks | Findings | Record` segmented control to
+   Record and straight back, so the clip never leaves the screen. On the Crest run the claim beat
+   switches to Findings, clicks the first time chip of the claim finding so the clip seeks there,
+   holds 3 s and goes back to Checks (`cue seek_claim`); the clip autoplays on the stage through
+   every run and the recorder writes a note if it ever reports otherwise. The ASA ruling is
+   scrolled slowly for 6 s on the wall clock, so that beat lasts exactly as long as it is worth
+   and never has to be cut. It logs each gate the moment its status line settles, so the four
+   gates can land in any order. Every wait has a 200 s timeout and names the cue it gave up on,
+   and the take stops there rather than recording a beat that never happened. Grafana is
    visited on a second page of the same context, because the console keeps a finished run in the
    page and navigating the recorded tab away would throw the verdict card out of the take;
    Playwright writes that page to its own file and step 3 lays it over the take.
 
-   Flags: `--url <url>`, `--mock` (the url is a local mock server: no telemetry wait), `--skip-asa`
-   (skip the external ASA ruling page), `--prep`, `--no-wait`, `--min-mute-age <s>`, `--headed`.
+   Flags: `--url <url>`, `--mock` (the url is a local mock server: no telemetry wait, fixed
+   verdicts), `--skip-asa` (skip the external ASA ruling page), `--prep`, `--gap-min <m>`,
+   `--no-wait`, `--min-mute-age <s>`, `--headed`.
 
 2. **`video/narrate.py`** reads the voice line of every beat of `docs/VIDEO-SCRIPT.md` (the part
-   after the `|`), maps the beats of section 2 to the cues of the take in order and the beats of
-   sections 1 and 3 to their cues when the take has one and to the script timecode otherwise, and
-   synthesises each line at 24 kHz LINEAR16, speaking rate 1.0. It writes one wav per line into
+   after the `|`) and places it on the cue that beat's own picture description names in
+   parentheses, `(cue claim_done)`, the first one when it names two; a beat that names no cue, or
+   one the take never reached, keeps the script's timecode and says so under `start_source`. The
+   mapping is therefore by name and never positional, so a beat can be added to the script without
+   renumbering anything here. It synthesises each line at 24 kHz LINEAR16, speaking rate 1.0. It writes one wav per line into
    `video/out/voice/` and `video/out/narration.json`. Two lines never overlap: the second slides
    to the end of the first plus 0.4 s, and the shift is written down.
 
@@ -83,8 +98,11 @@ uv run python video/assemble.py                          # 3. the render and the
    subtitles are one cue per sentence rather than one per spoken line, each sentence taking its
    share of that line's wav duration, wrapped at about 60 characters over two rows at most, while
    the narration audio stays one wav per line. If the waits still leave the render over 179 s, the
-   assembler first keeps less of each of them on screen (3.0 s, then 2.0 s, then 1.5 s), and only
-   then shortens the dashboard hold and the landing hold, printing by how much. Every cue time is mapped through the cuts before the narration is placed, so a line
+   assembler keeps one second of each of them on screen, the number the picture itself promises,
+   and shortens the dashboard hold and the landing hold instead, printing by how much. The claim
+   seek the recorder plays right after the claim gate lands is never inside a compressed stretch:
+   that window starts after the beat, because what gets compressed has to be waiting and nothing
+   else. Every cue time is mapped through the cuts before the narration is placed, so a line
    still lands on the picture it describes. `check.py --limit-s 180` fails above 180 s, so the
    render targets 177 s and never goes over 179. Flags: `--target`, `--min`, `--max`,
    `--draft <n>`, `--subtitle-size`, `--tone-dbfs`, `--no-check`.
@@ -93,7 +111,7 @@ uv run python video/assemble.py                          # 3. the render and the
 
 ```
 cues.json          the take: every cue with its time, the Grafana overlays, the notes
-prep.json          when the rights telemetry was muted and what the preparation run returned
+prep.json          the two preparation runs, when they ran and what they returned
 raw/console.webm   the console take, one file for the whole recording
 raw/*.webm         one file per Grafana page the recorder opened
 voice/NN-cue.wav   one synthetic line per beat

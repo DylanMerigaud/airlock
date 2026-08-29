@@ -1,335 +1,388 @@
 {
-  "draft": 2,
-  "mp4": "/Users/dylanmerigaud/Code/airlock/video/out/airlock-draft-2-synthetic-voice.mp4",
-  "duration_s": 178.518,
-  "take_s": 252.4,
-  "offset_s": 0.097,
-  "head_trim_s": 0.882,
+  "draft": 3,
+  "mp4": "/Users/dylanmerigaud/Code/airlock/video/out/airlock-draft-3-synthetic-voice.mp4",
+  "duration_s": 176.913,
+  "take_s": 250.12,
+  "offset_s": 0.0,
+  "head_trim_s": 2.707,
   "cuts": [
     {
       "name": "Crest run, waiting for Video Intelligence",
       "kind": "run_wait",
-      "from_s": 73.76,
-      "to_s": 94.21
+      "from_s": 68.88,
+      "to_s": 114.19
     },
     {
       "name": "muted clean run, waiting for Video Intelligence",
       "kind": "run_wait",
-      "from_s": 136.45,
-      "to_s": 157.4
+      "from_s": 159.84,
+      "to_s": 163.38
     },
     {
       "name": "clean run, waiting for Video Intelligence",
       "kind": "run_wait",
-      "from_s": 187.65,
-      "to_s": 214.4
-    },
-    {
-      "name": "dashboard hold",
-      "kind": "hold",
-      "from_s": 228.26,
-      "to_s": 229.31
-    },
-    {
-      "name": "landing hold",
-      "kind": "hold",
-      "from_s": 240.4,
-      "to_s": 244.19
+      "from_s": 192.51,
+      "to_s": 214.16
     }
   ],
   "compressions": [
     {
-      "start_take_s": 73.758,
-      "end_take_s": 94.208,
-      "removed_s": 20
+      "start_take_s": 68.88,
+      "end_take_s": 114.187,
+      "removed_s": 45
     },
     {
-      "start_take_s": 136.448,
-      "end_take_s": 157.401,
-      "removed_s": 21
+      "start_take_s": 159.839,
+      "end_take_s": 163.383,
+      "removed_s": 4
     },
     {
-      "start_take_s": 187.65,
-      "end_take_s": 214.4,
-      "removed_s": 27
+      "start_take_s": 192.512,
+      "end_take_s": 214.161,
+      "removed_s": 22
     }
   ],
   "compression_labels": [
     {
-      "text": "waiting for Video Intelligence, 20 s compressed",
-      "from_s": 70.376,
-      "to_s": 72.876
+      "text": "waiting for Video Intelligence, 45 s compressed",
+      "from_s": 63.673,
+      "to_s": 66.173
     },
     {
-      "text": "waiting for Video Intelligence, 21 s compressed",
-      "from_s": 112.616,
-      "to_s": 115.116
+      "text": "waiting for Video Intelligence, 4 s compressed",
+      "from_s": 109.325,
+      "to_s": 111.825
     },
     {
-      "text": "waiting for Video Intelligence, 27 s compressed",
-      "from_s": 142.865,
-      "to_s": 145.365
+      "text": "waiting for Video Intelligence, 22 s compressed",
+      "from_s": 138.454,
+      "to_s": 140.954
     }
   ],
-  "hold_trim_s": 4.847,
+  "hold_trim_s": 0,
   "overlays": [
     {
       "cue": "grafana_open",
-      "from_s": 91.36,
-      "to_s": 98.48,
-      "blank_head_skipped_s": 3.24
+      "from_s": 79.46,
+      "to_s": 95.42,
+      "blank_head_skipped_s": 0.0
     },
     {
       "cue": "dashboard",
-      "from_s": 159.87,
-      "to_s": 170.31,
-      "blank_head_skipped_s": 1.76
+      "from_s": 153.44,
+      "to_s": 164.68,
+      "blank_head_skipped_s": 0.0
     }
   ],
   "room_tone_dbfs": -38.0,
   "lines": [
     {
-      "cue": "stake",
-      "start_final_s": 0.4,
-      "end_final_s": 11.672,
+      "cue": "t0",
+      "start_final_s": 0.0,
+      "end_final_s": 11.272,
       "shift_final_s": 0.0,
       "text": "Since August 2026 the law wants generated content marked. Studios ship dozens of generated assets a week, and nobody can prove which one was checked, or whether the check worked."
     },
     {
       "cue": "asa",
-      "start_final_s": 12.072,
-      "end_final_s": 18.201,
-      "shift_final_s": 1.312,
+      "start_final_s": 11.672,
+      "end_final_s": 17.801,
+      "shift_final_s": 0.467,
       "text": "This is the reviewer's job today: a ruling on one side, the asset on the other, no trace."
     },
     {
       "cue": "console_idle",
-      "start_final_s": 19.709,
-      "end_final_s": 31.131,
+      "start_final_s": 19.229,
+      "end_final_s": 30.651,
       "shift_final_s": 0.0,
       "text": "Airlock: four gates, then a verdict that asks Grafana before it rules. The rights gate is amber: its telemetry has been dark for seventeen minutes. Keep that in mind."
     },
     {
       "cue": "crest_click",
-      "start_final_s": 31.531,
-      "end_final_s": 38.725,
-      "shift_final_s": 2.065,
-      "text": "A real commercial with a real trademark on screen. The four gates run in parallel on Vertex AI Agent Engine."
+      "start_final_s": 31.051,
+      "end_final_s": 39.185,
+      "shift_final_s": 2.781,
+      "text": "A real commercial with a real trademark on screen. The four gates run in parallel on Vertex AI Agent Engine while the clip plays."
     },
     {
       "cue": "provenance_done",
-      "start_final_s": 39.125,
-      "end_final_s": 46.303,
-      "shift_final_s": 6.38,
+      "start_final_s": 39.585,
+      "end_final_s": 46.763,
+      "shift_final_s": 7.774,
       "text": "Provenance is a cryptographic check, not an opinion: this film was shot decades before C2PA existed."
     },
     {
+      "cue": "brand_done",
+      "start_final_s": 47.163,
+      "end_final_s": 53.851,
+      "shift_final_s": 4.236,
+      "text": "Brand: the charter forbids health claims, comparisons and children, and the wordmark is not even there."
+    },
+    {
       "cue": "claim_done",
-      "start_final_s": 72.876,
-      "end_final_s": 82.716,
+      "start_final_s": 62.136,
+      "end_final_s": 74.168,
       "shift_final_s": 0.0,
-      "text": "The claim gate reads every claim with its timestamp and maps it to the rule: an expert endorsement, an organisation endorsement, no substantiation on file."
+      "text": "The claim gate reads every claim with its timestamp and maps it to the rule: an expert endorsement, an organisation endorsement, no substantiation on file. Click the time, the clip goes there."
     },
     {
       "cue": "rights_done",
-      "start_final_s": 83.116,
-      "end_final_s": 89.685,
-      "shift_final_s": 8.74,
+      "start_final_s": 74.568,
+      "end_final_s": 81.137,
+      "shift_final_s": 7.395,
       "text": "Rights: the Video Intelligence API found the logo and the faces; the registry clears neither."
     },
     {
       "cue": "verdict",
-      "start_final_s": 90.085,
-      "end_final_s": 102.538,
-      "shift_final_s": 7.122,
+      "start_final_s": 81.537,
+      "end_final_s": 93.99,
+      "shift_final_s": 6.016,
       "text": "Before it rules, the verdict asks Grafana about each gate: healthy, and has it caught a real injected defect this week. Then it writes the verdict back as an annotation and opens the incident for a human."
     },
     {
       "cue": "clean_muted_click",
-      "start_final_s": 102.938,
-      "end_final_s": 117.657,
-      "shift_final_s": 2.197,
-      "text": "A clean generated asset, signed with a real manifest. Four gates pass. And the verdict still refuses: Grafana cannot see the rights control succeed, so its PASS does not count. A control nobody can see is not a control."
+      "start_final_s": 97.179,
+      "end_final_s": 100.783,
+      "shift_final_s": 0.0,
+      "text": "A clean generated asset, signed with a real manifest."
+    },
+    {
+      "cue": "provenance_done_2",
+      "start_final_s": 101.183,
+      "end_final_s": 109.273,
+      "shift_final_s": 0.975,
+      "text": "Provenance passes in under a second: the manifest verifies against the studio's own trust list. Brand and claim follow."
+    },
+    {
+      "cue": "rights_done_2",
+      "start_final_s": 112.825,
+      "end_final_s": 114.24,
+      "shift_final_s": 0.0,
+      "text": "Four gates pass."
+    },
+    {
+      "cue": "verdict_2",
+      "start_final_s": 120.412,
+      "end_final_s": 130.112,
+      "shift_final_s": 0.0,
+      "text": "And the verdict still refuses: Grafana cannot see the rights control succeed, so its PASS does not count. A control nobody can see is not a control."
     },
     {
       "cue": "unmute",
-      "start_final_s": 129.219,
-      "end_final_s": 131.83,
-      "shift_final_s": 0.0,
+      "start_final_s": 130.512,
+      "end_final_s": 133.123,
+      "shift_final_s": 6.001,
       "text": "Turn the telemetry back on and run again."
     },
     {
+      "cue": "provenance_done_3",
+      "start_final_s": 133.523,
+      "end_final_s": 138.015,
+      "shift_final_s": 4.948,
+      "text": "Same clip, same gates. This time every push reaches Grafana."
+    },
+    {
       "cue": "verdict_3",
-      "start_final_s": 152.919,
-      "end_final_s": 160.684,
+      "start_final_s": 149.134,
+      "end_final_s": 156.899,
       "shift_final_s": 0.0,
       "text": "Now every gate is healthy and has caught a real injected defect this week. This is the PASS the reviewer no longer signs by hand."
     },
     {
       "cue": "dashboard",
-      "start_final_s": 161.084,
-      "end_final_s": 171.667,
-      "shift_final_s": 1.859,
+      "start_final_s": 157.299,
+      "end_final_s": 167.882,
+      "shift_final_s": 3.347,
       "text": "Every verdict is an annotation on this dashboard. Every block that needs a human is an incident. Each gate had to catch a real injected defect before it earned the right to block."
     },
     {
       "cue": "landing",
-      "start_final_s": 172.067,
-      "end_final_s": 177.11,
-      "shift_final_s": 1.759,
+      "start_final_s": 168.282,
+      "end_final_s": 173.325,
+      "shift_final_s": 3.605,
       "text": "Nothing ships without a gate that has already caught a real defect. That is Airlock."
     }
   ],
   "subtitles": [
     {
       "text": "Since August 2026 the law wants generated content marked.",
-      "start_s": 0.4,
-      "end_s": 4.051
+      "start_s": 0.0,
+      "end_s": 3.651
     },
     {
       "text": "Studios ship dozens of generated assets a week,",
-      "start_s": 4.051,
-      "end_s": 7.061
+      "start_s": 3.651,
+      "end_s": 6.661
     },
     {
       "text": "and nobody can prove which one was checked, or whether the check worked.",
-      "start_s": 7.061,
-      "end_s": 11.672
+      "start_s": 6.661,
+      "end_s": 11.272
     },
     {
       "text": "This is the reviewer's job today: a ruling on one side, the asset on the other, no trace.",
-      "start_s": 12.072,
-      "end_s": 18.201
+      "start_s": 11.672,
+      "end_s": 17.801
     },
     {
       "text": "Airlock: four gates, then a verdict that asks Grafana before it rules.",
-      "start_s": 19.709,
-      "end_s": 24.584
+      "start_s": 19.229,
+      "end_s": 24.104
     },
     {
       "text": "The rights gate is amber: its telemetry has been dark for seventeen minutes.",
-      "start_s": 24.584,
-      "end_s": 29.877
+      "start_s": 24.104,
+      "end_s": 29.397
     },
     {
       "text": "Keep that in mind.",
-      "start_s": 29.877,
-      "end_s": 31.131
+      "start_s": 29.397,
+      "end_s": 30.651
     },
     {
       "text": "A real commercial with a real trademark on screen.",
-      "start_s": 31.531,
-      "end_s": 34.893
+      "start_s": 31.051,
+      "end_s": 34.228
     },
     {
-      "text": "The four gates run in parallel on Vertex AI Agent Engine.",
-      "start_s": 34.893,
-      "end_s": 38.725
+      "text": "The four gates run in parallel on Vertex AI Agent Engine while the clip plays.",
+      "start_s": 34.228,
+      "end_s": 39.185
     },
     {
       "text": "Provenance is a cryptographic check, not an opinion: this film was shot decades before C2PA existed.",
-      "start_s": 39.125,
-      "end_s": 46.303
+      "start_s": 39.585,
+      "end_s": 46.763
+    },
+    {
+      "text": "Brand: the charter forbids health claims, comparisons and children, and the wordmark is not even there.",
+      "start_s": 47.163,
+      "end_s": 53.851
     },
     {
       "text": "The claim gate reads every claim with its timestamp and maps it to the rule:",
-      "start_s": 72.876,
-      "end_s": 77.732
+      "start_s": 62.136,
+      "end_s": 66.949
     },
     {
       "text": "an expert endorsement, an organisation endorsement, no substantiation on file.",
-      "start_s": 77.732,
-      "end_s": 82.716
+      "start_s": 66.949,
+      "end_s": 71.888
+    },
+    {
+      "text": "Click the time, the clip goes there.",
+      "start_s": 71.888,
+      "end_s": 74.168
     },
     {
       "text": "Rights: the Video Intelligence API found the logo and the faces; the registry clears neither.",
-      "start_s": 83.116,
-      "end_s": 89.685
+      "start_s": 74.568,
+      "end_s": 81.137
     },
     {
       "text": "Before it rules, the verdict asks Grafana about each gate: healthy, and has it caught a real injected defect this week.",
-      "start_s": 90.085,
-      "end_s": 97.385
+      "start_s": 81.537,
+      "end_s": 88.837
     },
     {
       "text": "Then it writes the verdict back as an annotation and opens the incident for a human.",
-      "start_s": 97.385,
-      "end_s": 102.538
+      "start_s": 88.837,
+      "end_s": 93.99
     },
     {
       "text": "A clean generated asset, signed with a real manifest.",
-      "start_s": 102.938,
-      "end_s": 106.566
+      "start_s": 97.179,
+      "end_s": 100.783
+    },
+    {
+      "text": "Provenance passes in under a second: the manifest verifies against the studio's own trust list.",
+      "start_s": 101.183,
+      "end_s": 107.696
+    },
+    {
+      "text": "Brand and claim follow.",
+      "start_s": 107.696,
+      "end_s": 109.273
     },
     {
       "text": "Four gates pass.",
-      "start_s": 106.566,
-      "end_s": 107.662
+      "start_s": 112.825,
+      "end_s": 114.24
     },
     {
       "text": "And the verdict still refuses:",
-      "start_s": 107.662,
-      "end_s": 109.716
+      "start_s": 120.412,
+      "end_s": 122.405
     },
     {
       "text": "Grafana cannot see the rights control succeed, so its PASS does not count.",
-      "start_s": 109.716,
-      "end_s": 114.782
+      "start_s": 122.405,
+      "end_s": 127.322
     },
     {
       "text": "A control nobody can see is not a control.",
-      "start_s": 114.782,
-      "end_s": 117.657
+      "start_s": 127.322,
+      "end_s": 130.112
     },
     {
       "text": "Turn the telemetry back on and run again.",
-      "start_s": 129.219,
-      "end_s": 131.83
+      "start_s": 130.512,
+      "end_s": 133.123
+    },
+    {
+      "text": "Same clip, same gates.",
+      "start_s": 133.523,
+      "end_s": 135.198
+    },
+    {
+      "text": "This time every push reaches Grafana.",
+      "start_s": 135.198,
+      "end_s": 138.015
     },
     {
       "text": "Now every gate is healthy and has caught a real injected defect this week.",
-      "start_s": 152.919,
-      "end_s": 157.408
+      "start_s": 149.134,
+      "end_s": 153.623
     },
     {
       "text": "This is the PASS the reviewer no longer signs by hand.",
-      "start_s": 157.408,
-      "end_s": 160.684
+      "start_s": 153.623,
+      "end_s": 156.899
     },
     {
       "text": "Every verdict is an annotation on this dashboard.",
-      "start_s": 161.084,
-      "end_s": 164.014
+      "start_s": 157.299,
+      "end_s": 160.229
     },
     {
       "text": "Every block that needs a human is an incident.",
-      "start_s": 164.014,
-      "end_s": 166.764
+      "start_s": 160.229,
+      "end_s": 162.979
     },
     {
       "text": "Each gate had to catch a real injected defect before it earned the right to block.",
-      "start_s": 166.764,
-      "end_s": 171.667
+      "start_s": 162.979,
+      "end_s": 167.882
     },
     {
       "text": "Nothing ships without a gate that has already caught a real defect.",
-      "start_s": 172.067,
-      "end_s": 176.138
+      "start_s": 168.282,
+      "end_s": 172.353
     },
     {
       "text": "That is Airlock.",
-      "start_s": 176.138,
-      "end_s": 177.11
+      "start_s": 172.353,
+      "end_s": 173.325
     }
   ],
   "check": [
     "PASS  G41 definition  (1920x1080)",
     "PASS  G42 cadence  (30.0 fps)",
-    "PASS  G43 duree  (178s)",
+    "PASS  G43 duree  (177s)",
     "PASS  G44 audio present  (aac)",
-    "PASS  G45 niveau audio  (-16.4 LUFS, peak -4.2)",
+    "PASS  G45 niveau audio  (-16.4 LUFS, peak -4.0)",
     "PASS  G46 silence  (plus long blanc 0.0s)",
-    "PASS  G47 ouverture  (0 plage(s) de noir)",
+    "PASS  G47 ouverture  (2 plage(s) de noir)",
     "",
     "RESULTAT: PASS mecanique"
   ]

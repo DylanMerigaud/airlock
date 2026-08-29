@@ -53,6 +53,12 @@ SUBTITLE_ROWS = 2
 MONO_FONT = "/System/Library/Fonts/Supplemental/Courier New Bold.ttf"
 COMPRESSION_LABEL_S = 2.5
 COMPRESSION_FONT_SIZE = 28
+# The recorder plays the claim seek right after the claim gate lands: it switches to the findings
+# thread, clicks the time chip, holds the clip there and comes back (video/record.mjs, cue
+# seek_claim, SEEK_HOLD_MS). That beat sits inside the rights wait, and the wait is the only
+# stretch this assembler may remove, so the window starts after it: what gets compressed has to
+# be waiting and nothing else.
+SEEK_BEAT_S = 4.0
 
 
 def run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess:
@@ -218,13 +224,14 @@ class CutPlan:
 
 
 def build_windows(at: dict, lines: list[dict], protect_voice: bool = True,
-                  wait_keep: float = 3.0) -> list[dict]:
+                  wait_keep: float = 1.0) -> list[dict]:
     """What may be shortened, most expendable first: the rights waits, then two holds.
 
     A hold is never cut below the voice line spoken over it while `protect_voice` holds, so a beat
     always stays on screen at least as long as what is said about it. `wait_keep` is how much of a
-    rights wait survives its own cut; the caller lowers it before it gives up that protection,
-    because a second of visible waiting is worth less than a line landing on its own picture.
+    rights wait survives its own cut, and the script fixes it at one second: the video says on the
+    picture that it keeps a second of the wait and then compresses the rest, so this is a promise
+    to the viewer and not a knob the fitting is allowed to turn.
     """
     voice = {}
     for line in lines:
@@ -265,6 +272,9 @@ def build_windows(at: dict, lines: list[dict], protect_voice: bool = True,
         if rights is None or not before:
             return None
         a, b = max(before), rights
+        seek = at.get("seek_claim")
+        if seek is not None and a <= seek < b:
+            a = min(seek + SEEK_BEAT_S, b)
         if b - a <= keep:
             return None
         return {"name": name, "a": a, "b": b, "keep": keep, "max": (b - a) - keep,
@@ -526,17 +536,15 @@ def main() -> int:
                         "total": total, "video_len": video_len, "narration_end": narration_end}
         return best
 
-    # Three passes, each giving up less than the next. The waits come off first in every one of
-    # them, because they are the only stretch the script allows the assembler to remove.
+    # Two passes, the second giving up less than the first. The waits come off first in both,
+    # because they are the only stretch the script allows the assembler to remove, and one second
+    # of each survives in both: that number is on the picture, so the fitting cannot move it. What
+    # the second pass gives up is the floor that protected the line spoken over a hold.
     attempts = [
-        ("the rights waits with 3.0 s of each kept on screen, the two holds protected",
-         dict(protect_voice=True, wait_keep=3.0)),
-        ("the rights waits with 2.0 s of each kept on screen, the two holds protected",
-         dict(protect_voice=True, wait_keep=2.0)),
-        ("the rights waits with 1.5 s of each kept on screen, the two holds protected",
-         dict(protect_voice=True, wait_keep=1.5)),
+        ("the rights waits with 1.0 s of each kept on screen, the two holds protected",
+         dict(protect_voice=True, wait_keep=1.0)),
         ("the two holds giving up the floor that protected the line spoken over them",
-         dict(protect_voice=False, wait_keep=1.5)),
+         dict(protect_voice=False, wait_keep=1.0)),
     ]
     best = None
     for label, kwargs in attempts:

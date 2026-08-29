@@ -1,22 +1,22 @@
 {
-  "recorded_at": "2026-08-29T02:19:08.746Z",
+  "recorded_at": "2026-08-29T22:50:07.027Z",
   "console": "https://airlock-console-771466810465.us-central1.run.app",
   "mock": false,
-  "duration_s": 256.49,
+  "duration_s": 253.567,
   "video": "raw/console.webm",
   "overlays": [
     {
       "cue": "grafana_open",
       "file": "grafana_open.webm",
-      "page_opened_at": 108.4,
-      "closed_at": 119.907,
+      "page_opened_at": 126.588,
+      "closed_at": 143.431,
       "panel_seen": true
     },
     {
       "cue": "dashboard",
       "file": "dashboard.webm",
-      "page_opened_at": 226.053,
-      "closed_at": 240.494,
+      "page_opened_at": 224.843,
+      "closed_at": 237.883,
       "panel_seen": true
     }
   ],
@@ -29,158 +29,173 @@
     },
     {
       "cue": "stake",
-      "t": 1.379,
-      "detail": "console idle, gate cards up"
+      "t": 3.107,
+      "detail": "console idle, the clip on the stage, six check rows"
     },
     {
       "cue": "asa",
-      "t": 11.739,
+      "t": 13.912,
       "url": "https://www.asa.org.uk/rulings/nutri-paw-ltd.html",
       "detail": "scrolling the assessment"
     },
     {
       "cue": "mute_on",
-      "t": 20.688,
+      "t": 21.918,
       "detail": "switched on by the recorder"
     },
     {
       "cue": "console_idle",
-      "t": 20.688,
-      "detail": "gate cards with their calibration lines"
+      "t": 21.936,
+      "detail": "the Crest clip on the stage, the rights row amber"
     },
     {
       "cue": "crest_click",
-      "t": 30.445,
-      "detail": "RUN AIRLOCK on the Crest commercial"
+      "t": 30.977,
+      "detail": "Run airlock on the Crest commercial"
     },
     {
       "cue": "provenance_done",
-      "t": 33.724,
+      "t": 34.518,
       "status": "BLOCK",
       "detail": "BLOCK"
     },
     {
       "cue": "brand_done",
-      "t": 43.56,
+      "t": 45.634,
       "status": "BLOCK",
       "detail": "BLOCK"
     },
     {
       "cue": "claim_done",
-      "t": 73.855,
+      "t": 64.843,
       "status": "BLOCK",
       "detail": "BLOCK"
     },
     {
+      "cue": "seek_claim",
+      "t": 64.88,
+      "detail": "clip seeked to Play the clip from 6.8s",
+      "clip_time_before": 2.88
+    },
+    {
       "cue": "rights_done",
-      "t": 95.805,
+      "t": 115.187,
       "status": "BLOCK",
       "detail": "BLOCK"
     },
     {
       "cue": "verdict",
-      "t": 104.392,
+      "t": 123.535,
       "status": "BLOCK",
       "motive": "content",
-      "detail": "BLOCK (content)"
+      "needs_human": true,
+      "incident": "17",
+      "summary": "Checks complete: BLOCK, content, needs a human.",
+      "detail": "BLOCK (content) incident 17"
     },
     {
       "cue": "grafana_open",
-      "t": 112.695,
+      "t": 137.637,
       "url": "https://narrowsubmarine1895.grafana.net/public-dashboards/97860661238c4536a743e0d858aef845",
       "detail": "panel visible"
     },
     {
       "cue": "clean_muted_click",
-      "t": 122.17,
-      "detail": "RUN AIRLOCK on the clean clip, rights telemetry muted"
+      "t": 145.193,
+      "detail": "Run airlock on the clean clip, rights telemetry muted"
     },
     {
       "cue": "provenance_done_2",
-      "t": 125.449,
-      "status": "PASS",
-      "detail": "PASS"
-    },
-    {
-      "cue": "claim_done_2",
-      "t": 135.786,
+      "t": 148.222,
       "status": "PASS",
       "detail": "PASS"
     },
     {
       "cue": "brand_done_2",
-      "t": 136.545,
+      "t": 156.556,
+      "status": "PASS",
+      "detail": "PASS"
+    },
+    {
+      "cue": "claim_done_2",
+      "t": 159.839,
       "status": "PASS",
       "detail": "PASS"
     },
     {
       "cue": "rights_done_2",
-      "t": 158.998,
+      "t": 164.383,
       "status": "PASS",
       "detail": "PASS"
     },
     {
       "cue": "verdict_2",
-      "t": 166.575,
+      "t": 171.97,
       "status": "BLOCK",
       "motive": "control unavailable",
-      "detail": "BLOCK (control unavailable)"
+      "needs_human": true,
+      "incident": "18",
+      "summary": "Checks complete: BLOCK, control unavailable, needs a human.",
+      "detail": "BLOCK (control unavailable) incident 18"
     },
     {
       "cue": "unmute",
-      "t": 171.601,
-      "detail": "rights MUTE TELEMETRY switched off"
+      "t": 176.069,
+      "detail": "rights mute telemetry switched off"
     },
     {
       "cue": "clean_click_2",
-      "t": 173.632,
-      "detail": "RUN AIRLOCK on the clean clip again"
+      "t": 177.095,
+      "detail": "Run airlock on the clean clip again"
     },
     {
       "cue": "provenance_done_3",
-      "t": 177.161,
+      "t": 180.133,
       "status": "PASS",
       "detail": "PASS"
     },
     {
       "cue": "brand_done_3",
-      "t": 185.982,
+      "t": 188.219,
       "status": "PASS",
       "detail": "PASS"
     },
     {
       "cue": "claim_done_3",
-      "t": 187.747,
+      "t": 192.512,
       "status": "PASS",
       "detail": "PASS"
     },
     {
       "cue": "rights_done_3",
-      "t": 215.997,
+      "t": 216.528,
       "status": "PASS",
       "detail": "PASS"
     },
     {
       "cue": "verdict_3",
-      "t": 222.051,
+      "t": 222.341,
       "status": "PASS",
       "motive": null,
+      "needs_human": false,
+      "incident": null,
+      "summary": "Checks complete: PASS, four gates healthy and calibrated.",
       "detail": "PASS"
     },
     {
       "cue": "dashboard",
-      "t": 228.357,
+      "t": 227.159,
       "url": "https://narrowsubmarine1895.grafana.net/public-dashboards/97860661238c4536a743e0d858aef845?from=now-1h&to=now",
       "detail": "panel visible"
     },
     {
       "cue": "landing",
-      "t": 240.495,
-      "detail": "holding on the PASS verdict card"
+      "t": 237.884,
+      "detail": "holding on the PASS verdict"
     },
     {
       "cue": "end",
-      "t": 252.497,
+      "t": 249.885,
       "detail": "take finished"
     }
   ],

@@ -1,11 +1,26 @@
 {
-  "at": "2026-08-29T01:39:26.777Z",
+  "at": "2026-08-29T22:44:52.112Z",
   "console": "https://airlock-console-771466810465.us-central1.run.app",
-  "muted": [
-    "rights"
-  ],
-  "asset": "Nimbus clean clip",
-  "run_seconds": 36.7,
-  "verdict": "BLOCK",
-  "motive": "control unavailable"
+  "gap_minutes": 13,
+  "min_mute_age_s": 990,
+  "runs": [
+    {
+      "asset": "clean",
+      "mute": [],
+      "seconds": 54,
+      "verdict": "PASS",
+      "motive": "content",
+      "at": "2026-08-29T22:30:04.233Z"
+    },
+    {
+      "asset": "clean",
+      "mute": [
+        "rights"
+      ],
+      "seconds": 53.8,
+      "verdict": "PASS",
+      "motive": "content",
+      "at": "2026-08-29T22:43:58.274Z"
+    }
+  ]
 }
