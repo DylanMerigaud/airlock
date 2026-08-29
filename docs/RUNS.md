@@ -961,3 +961,12 @@ the Record segment, the usage line in each expanded gate row. Dashboard version 
 and "Cost per gate run" panels. First measured gate cost: the claim gate on the clean clip, 2,223
 tokens in and 131 out on gemini-2.5-pro, 0.0041 USD; a 30 s clip through the four Video
 Intelligence features, 1 started minute, 0.50 USD at list price (free quota not netted).
+
+### Console revision 7 (2026-08-29 23:32 UTC)
+
+`airlock-console-00007-lpk`: the stage carries the console's own controls (play or pause, mute,
+the marker scrubber as a keyboard-operable slider, Space and arrow keys on the stage), no native
+video chrome, so the demo video shows no player bar. Known and left: on a page whose clip cannot
+stream (a console without Cloud Storage credentials), the "cannot play" state is set by an event
+that a hydration race sometimes misses, so the buttons can render enabled; the hosted console
+streams its clips, so the state does not arise there.
