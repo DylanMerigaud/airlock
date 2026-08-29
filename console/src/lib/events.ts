@@ -32,6 +32,7 @@ export type GateRunningPayload = {
   stage: "running";
   asset_id?: string;
   source_of_truth?: string;
+  telemetry_muted?: boolean;
 };
 
 export type GateDonePayload = {
@@ -43,6 +44,7 @@ export type GateDonePayload = {
   rule_ids?: string[];
   elapsed_ms?: number;
   source_of_truth?: string;
+  telemetry_muted?: boolean;
 };
 
 export type GrafanaAnswer = { expr: string; value: number | null };
@@ -53,6 +55,8 @@ export type ProbePayload = {
   answers: Record<string, GrafanaAnswer>;
   health: string;
   calibrated: boolean;
+  /** The sentence the verdict agent read out of Grafana, when it sent one. */
+  calibration?: string;
 };
 
 export type VerdictGate = {
@@ -61,8 +65,16 @@ export type VerdictGate = {
   reason?: string;
   health?: string;
   calibrated?: boolean;
+  calibration?: string;
   calibration_catches_7d?: number | null;
   rule_ids?: string[];
+};
+
+/** What a gate reported about its own instrument, probe first, verdict last. */
+export type ReportedInstrument = {
+  health?: string;
+  calibrated?: boolean;
+  calibration?: string;
 };
 
 export type VerdictPayload = {

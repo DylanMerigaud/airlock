@@ -16,6 +16,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { escalationLine, useRun } from "@/lib/use-run";
 import { loadQueue, saveQueue, type BlockEntry } from "@/lib/block-queue";
 import { labelForTarget } from "@/lib/assets";
+import type { GateName } from "@/lib/events";
 
 export type ShellProps = {
   dashboardUrl: string;
@@ -45,6 +46,8 @@ export function ConsoleShell({ dashboardUrl, environment, mock }: ShellProps) {
   const [tab, setTab] = React.useState("review");
   const [reviewed, setReviewed] = React.useState(false);
   const [queue, setQueue] = React.useState<BlockEntry[]>([]);
+  // Per run, and kept between runs until the reviewer switches it back off.
+  const [muted, setMuted] = React.useState<GateName[]>([]);
 
   const [health, setHealth] = React.useState<HealthView | null>(null);
   const [healthLoading, setHealthLoading] = React.useState(true);
@@ -126,10 +129,14 @@ export function ConsoleShell({ dashboardUrl, environment, mock }: ShellProps) {
       setReviewed(false);
       setTab("review");
       setTarget(asset);
-      start(asset);
+      start(asset, muted);
     },
-    [start],
+    [start, muted],
   );
+
+  const toggleMute = React.useCallback((gate: GateName) => {
+    setMuted((prev) => (prev.includes(gate) ? prev.filter((g) => g !== gate) : [...prev, gate]));
+  }, []);
 
   const escalation = state.escalation
     ? escalationLine(state.escalation)
@@ -197,6 +204,9 @@ export function ConsoleShell({ dashboardUrl, environment, mock }: ShellProps) {
                     escalationLine={escalation}
                     health={health}
                     loading={healthLoading}
+                    mute={muted}
+                    onToggleMute={toggleMute}
+                    muteDisabled={busy}
                   />
                 </section>
 
@@ -209,7 +219,11 @@ export function ConsoleShell({ dashboardUrl, environment, mock }: ShellProps) {
                       </span>
                     )}
                   </h2>
-                  <Timeline state={state} dashboardUrl={dashboardUrl} onRetry={retry} />
+                  <Timeline
+                    state={state}
+                    dashboardUrl={dashboardUrl}
+                    onRetry={() => retry(muted)}
+                  />
                 </section>
 
                 <section aria-label="Verdict" className="min-w-0">

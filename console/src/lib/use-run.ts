@@ -11,6 +11,7 @@ import {
   type GateDonePayload,
   type GateName,
   type ProbePayload,
+  type ReportedInstrument,
   type VerdictPayload,
 } from "@/lib/events";
 
@@ -20,6 +21,10 @@ export type GateCardState = {
   sourceOfTruth: string;
   done: GateDonePayload | null;
   probe: ProbePayload | null;
+  /** The gate ran but pushed nothing to Grafana on this run. */
+  muted: boolean;
+  /** Health and calibration as the verdict agent read them, when it sent them. */
+  reported: ReportedInstrument | null;
 };
 
 export type RowTone = "neutral" | "pass" | "block" | "amber";
@@ -31,6 +36,7 @@ export type TimelineRow = {
   line: string;
   tone: RowTone;
   raw: string;
+  muted?: boolean;
   verdict?: VerdictPayload;
   escalation?: EscalationPayload;
 };
@@ -40,6 +46,8 @@ export type RunPhase = "idle" | "running" | "settled" | "lost";
 export type RunState = {
   phase: RunPhase;
   target: string | null;
+  /** The gates whose telemetry was muted when this run started. */
+  muted: GateName[];
   step: string | null;
   rows: TimelineRow[];
   gates: Record<GateName, GateCardState>;
@@ -52,7 +60,7 @@ export type RunState = {
   startedAt: number | null;
 };
 
-function freshGates(): Record<GateName, GateCardState> {
+function freshGates(muted: GateName[] = []): Record<GateName, GateCardState> {
   return GATE_ORDER.reduce(
     (acc, gate) => {
       acc[gate] = {
@@ -61,6 +69,8 @@ function freshGates(): Record<GateName, GateCardState> {
         sourceOfTruth: GATE_SOURCE_OF_TRUTH[gate],
         done: null,
         probe: null,
+        muted: muted.includes(gate),
+        reported: null,
       };
       return acc;
     },
@@ -71,6 +81,7 @@ function freshGates(): Record<GateName, GateCardState> {
 export const IDLE_STATE: RunState = {
   phase: "idle",
   target: null,
+  muted: [],
   step: null,
   rows: [],
   gates: freshGates(),
@@ -113,8 +124,8 @@ export function escalationLine(payload: EscalationPayload): string {
 
 export type RunHandle = {
   state: RunState;
-  start: (asset: string) => void;
-  retry: () => void;
+  start: (asset: string, mute?: GateName[]) => void;
+  retry: (mute?: GateName[]) => void;
   busy: boolean;
 };
 
@@ -124,19 +135,21 @@ export function useRun(): RunHandle {
   const lastTarget = useRef<string | null>(null);
   const counter = useRef(0);
 
-  const start = useCallback((asset: string) => {
+  const start = useCallback((asset: string, mute: GateName[] = []) => {
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
     lastTarget.current = asset;
     counter.current = 0;
+    const muted = GATE_ORDER.filter((gate) => mute.includes(gate));
     const startedAt = Date.now();
 
     setState({
       ...IDLE_STATE,
-      gates: freshGates(),
+      gates: freshGates(muted),
       phase: "running",
       target: asset,
+      muted,
       startedAt,
       step: "Handing the asset to the airlock pipeline",
     });
@@ -159,10 +172,12 @@ export function useRun(): RunHandle {
 
         if (parsed.kind === "gate-running") {
           const gate = parsed.gate;
+          const muted = gates[gate].muted || parsed.payload.telemetry_muted === true;
           gates[gate] = {
             ...gates[gate],
             status: "RUNNING",
             sourceOfTruth: GATE_SOURCE_OF_TRUTH[gate],
+            muted,
           };
           step = GATE_STEP[gate];
           rows = [
@@ -174,11 +189,13 @@ export function useRun(): RunHandle {
               line: `Started. ${GATE_STEP[gate]}`,
               tone: "neutral",
               raw: pretty(text),
+              muted,
             },
           ];
         } else if (parsed.kind === "gate-done") {
           const gate = parsed.gate;
-          gates[gate] = { ...gates[gate], status: parsed.payload.status, done: parsed.payload };
+          const muted = gates[gate].muted || parsed.payload.telemetry_muted === true;
+          gates[gate] = { ...gates[gate], status: parsed.payload.status, done: parsed.payload, muted };
           const stillRunning = GATE_ORDER.filter((g) => gates[g].status === "RUNNING");
           step = stillRunning.length > 0 ? GATE_STEP[stillRunning[0]] : "Verdict agent asking Grafana about every gate";
           rows = [
@@ -190,11 +207,20 @@ export function useRun(): RunHandle {
               line: parsed.payload.reasons?.[0] ?? `${gate} ${parsed.payload.status}`,
               tone: toneFor(parsed.payload.status),
               raw: pretty(text),
+              muted,
             },
           ];
         } else if (parsed.kind === "probe") {
           const gate = parsed.payload.gate;
-          gates[gate] = { ...gates[gate], probe: parsed.payload };
+          gates[gate] = {
+            ...gates[gate],
+            probe: parsed.payload,
+            reported: {
+              health: parsed.payload.health,
+              calibrated: parsed.payload.calibrated,
+              calibration: parsed.payload.calibration,
+            },
+          };
           verdictStatus = "RUNNING";
           step = `Asking Grafana about ${gate}`;
           rows = [
@@ -206,9 +232,22 @@ export function useRun(): RunHandle {
               line: `${gate}: ${parsed.payload.health}${parsed.payload.calibrated ? "" : ", never calibrated"}`,
               tone: parsed.payload.calibrated && /healthy/i.test(parsed.payload.health) ? "neutral" : "amber",
               raw: pretty(text),
+              muted: gates[gate].muted,
             },
           ];
         } else if (parsed.kind === "verdict") {
+          for (const line of parsed.payload.gates ?? []) {
+            const card = gates[line.gate];
+            if (!card) continue;
+            gates[line.gate] = {
+              ...card,
+              reported: {
+                health: line.health ?? card.reported?.health,
+                calibrated: line.calibrated ?? card.reported?.calibrated,
+                calibration: line.calibration ?? card.reported?.calibration,
+              },
+            };
+          }
           verdict = parsed.payload;
           verdictStatus = parsed.payload.status;
           elapsedMs = parsed.payload.elapsed_ms ?? elapsedMs;
@@ -266,7 +305,7 @@ export function useRun(): RunHandle {
         const response = await fetch("/api/run", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ asset }),
+          body: JSON.stringify(muted.length > 0 ? { asset, mute: muted } : { asset }),
           signal: controller.signal,
         });
 
@@ -365,9 +404,12 @@ export function useRun(): RunHandle {
     })();
   }, []);
 
-  const retry = useCallback(() => {
-    if (lastTarget.current) start(lastTarget.current);
-  }, [start]);
+  const retry = useCallback(
+    (mute: GateName[] = []) => {
+      if (lastTarget.current) start(lastTarget.current, mute);
+    },
+    [start],
+  );
 
   return { state, start, retry, busy: state.phase === "running" };
 }

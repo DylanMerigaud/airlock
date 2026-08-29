@@ -1,4 +1,4 @@
-export type PresetId = "crest" | "nimbus";
+export type PresetId = "crest" | "nimbus" | "clean";
 
 export type PresetAsset = {
   id: PresetId;
@@ -34,6 +34,17 @@ export const PRESET_ASSETS: PresetAsset[] = [
     expectation:
       "Expected: rights pass, claim block on 16 CFR 255.3, brand pass, provenance pass.",
   },
+  {
+    id: "clean",
+    name: "Nimbus clean clip",
+    origin: "synthetic",
+    provenance: "Veo 3.1 on Vertex AI, C2PA signed",
+    duration: "8 s",
+    gcs: "gs://airlock-agentic-cinema-assets/calibration/nimbus-clean-clip.mp4",
+    poster: "/posters/clean.jpg",
+    expectation:
+      "Expected: four PASS and a PASS verdict, every gate healthy and calibrated. The one that should pass.",
+  },
 ];
 
 export function presetById(id: string): PresetAsset | undefined {
@@ -44,6 +55,12 @@ export function resolveAsset(input: string): string | null {
   if (input.startsWith("gs://")) return input;
   const preset = presetById(input);
   return preset ? preset.gcs : null;
+}
+
+/** The name the pipeline uses for an asset: the object name without its suffix. */
+export function assetIdFor(gcsUri: string): string {
+  const tail = gcsUri.split("/").pop() ?? gcsUri;
+  return tail.replace(/\.[^.]+$/, "");
 }
 
 export function labelForTarget(target: string): string {

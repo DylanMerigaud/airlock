@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { PRESET_ASSETS, resolveAsset } from "@/lib/assets";
+import { assetIdFor, PRESET_ASSETS, resolveAsset } from "@/lib/assets";
+import { GATE_ORDER, type GateName } from "@/lib/events";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,6 +44,7 @@ function sleep(msValue: number, signal: AbortSignal): Promise<void> {
 const MOCK_FIXTURES: Record<string, string> = {
   crest: "run-crest-incident.jsonl",
   nimbus: "run-nimbus-block.jsonl",
+  clean: "run-clean-pass.jsonl",
 };
 const DEFAULT_FIXTURE = "run-nimbus-instrument-error.jsonl";
 
@@ -83,8 +85,18 @@ function locationOf(resource: string): string {
   return match ? match[1] : "us-central1";
 }
 
+/**
+ * What the pipeline receives. A bare URI when nothing is muted, so a plain run
+ * stays exactly what it was; a JSON message when the reviewer asked one or more
+ * gates to run without pushing anything to Grafana.
+ */
+function messageFor(gcsUri: string, mute: GateName[]): string {
+  if (mute.length === 0) return gcsUri;
+  return JSON.stringify({ gcs_uri: gcsUri, asset_id: assetIdFor(gcsUri), mute });
+}
+
 /** Live mode: Vertex AI Agent Engine streamQuery, relayed event by event. */
-async function relayAgentEngine(gcsUri: string, relay: Relay, signal: AbortSignal) {
+async function relayAgentEngine(message: string, relay: Relay, signal: AbortSignal) {
   const resource = process.env.AGENT_ENGINE_RESOURCE;
   if (!resource) {
     relay.fail("AGENT_ENGINE_RESOURCE is not set. Start the console with AIRLOCK_MOCK=1 to replay a recorded run.");
@@ -127,7 +139,7 @@ async function relayAgentEngine(gcsUri: string, relay: Relay, signal: AbortSigna
         class_method: "stream_query",
         input: {
           user_id: `console-${Math.random().toString(36).slice(2, 10)}`,
-          message: gcsUri,
+          message,
         },
       }),
       signal: timeout.signal,
@@ -195,17 +207,21 @@ async function relayAgentEngine(gcsUri: string, relay: Relay, signal: AbortSigna
 
 export async function POST(request: Request) {
   let asset: string;
+  let mute: GateName[];
   try {
-    const body = (await request.json()) as { asset?: string };
+    const body = (await request.json()) as { asset?: string; mute?: unknown };
     asset = String(body.asset ?? "");
+    const asked = Array.isArray(body.mute) ? body.mute : [];
+    mute = GATE_ORDER.filter((gate) => asked.includes(gate));
   } catch {
     return NextResponse.json({ error: "Send a JSON body with an asset field." }, { status: 400 });
   }
 
   const gcsUri = resolveAsset(asset);
   if (!gcsUri) {
+    const names = PRESET_ASSETS.map((a) => a.id).join(", ");
     return NextResponse.json(
-      { error: `Unknown asset "${asset}". Use crest, nimbus, or a gs:// URI.` },
+      { error: `Unknown asset "${asset}". Use ${names}, or a gs:// URI.` },
       { status: 400 },
     );
   }
@@ -240,13 +256,13 @@ export async function POST(request: Request) {
         fail: (message) => write(sse("failed", { message, ts: Date.now() - startedAt })),
       };
 
-      write(sse("open", { asset: gcsUri, mock, ts: 0 }));
+      write(sse("open", { asset: gcsUri, mock, mute, ts: 0 }));
 
       try {
         if (mock) {
           await replayFixture(fixtureFor(asset), relay, request.signal);
         } else {
-          await relayAgentEngine(gcsUri, relay, request.signal);
+          await relayAgentEngine(messageFor(gcsUri, mute), relay, request.signal);
         }
       } catch (error) {
         relay.fail(error instanceof Error ? error.message : String(error));

@@ -17,6 +17,7 @@ interface. Each preloaded asset has its own recording:
 | --- | --- | --- |
 | Crest | `fixtures/run-crest-incident.jsonl` | BLOCK on content, four failing gates, an incident opened |
 | Nimbus | `fixtures/run-nimbus-block.jsonl` | Three gates PASS, claim BLOCK on 16 CFR 255.3, no human needed |
+| Nimbus clean | `fixtures/run-clean-pass.jsonl` | Four gates PASS and a PASS verdict, healthy and calibrated, no human needed |
 | An uploaded clip | `fixtures/run-nimbus-instrument-error.jsonl` | A gate that failed while running, so nothing is cleared |
 
 ```
@@ -65,7 +66,7 @@ output, listening on `$PORT`). The script prints the service URL when it is done
 Every one of them runs on the Node runtime. When Grafana cannot be reached the stat tiles read
 `unavailable` in red and say why on hover: no placeholder number is ever shown.
 
-## The two preloaded assets
+## The three preloaded assets
 
 - **Crest Toothpaste Commercial**, Prelinger Archives, public domain, 30 s excerpt, real footage.
   Expected: four blocks (trademark not cleared, unsubstantiated claims, off charter, no C2PA
@@ -73,6 +74,22 @@ Every one of them runs on the Node runtime. When Grafana cannot be reached the s
 - **Nimbus test clip**, synthetic, generated with Veo 3.1 on Vertex AI and C2PA signed, 8 s.
   Expected: rights PASS, claim BLOCK on 16 CFR 255.3, brand PASS, provenance PASS. It is labelled
   as a synthetic test asset wherever it appears.
+- **Nimbus clean clip**, synthetic, same generator and the same C2PA signature, 8 s. The asset
+  that should PASS: four gates PASS and a PASS verdict when every gate is healthy and calibrated.
+  Labelled as a synthetic test asset too.
+
+## Muting a gate's telemetry
+
+Every gate card carries a **Mute telemetry** switch, off by default. It is how the demo shows
+that the console never takes a gate's own word for it: the gate still runs and still answers, but
+it pushes nothing to Grafana, and the verdict agent has to notice through Grafana that the control
+went dark. A muted gate carries a `muted` chip on its card and on its timeline rows.
+
+The switch state belongs to the run: the browser sends `{ "asset": "...", "mute": ["rights"] }` to
+`POST /api/run`, the route hands the pipeline
+`{"gcs_uri": "...", "asset_id": "...", "mute": ["rights"]}` instead of the bare URI, and the gate
+events come back carrying `telemetry_muted`. It stays armed between runs until it is switched back
+off. In mock mode the recorded fixtures carry no such flag, so the chips come from the switches.
 
 ## Notes for anyone reading the code
 

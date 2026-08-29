@@ -62,6 +62,15 @@ function Row({
             <Badge tone={AUTHOR_TONE[row.tone]} size="xs">
               {row.author}
             </Badge>
+            {row.muted && (
+              <Badge
+                tone="amber"
+                size="xs"
+                title="This gate ran without pushing anything to Grafana."
+              >
+                muted
+              </Badge>
+            )}
             {verdict?.annotation_id !== undefined && verdict?.annotation_id !== null && (
               <Badge tone="quiet" size="xs">
                 annotation {verdict.annotation_id}

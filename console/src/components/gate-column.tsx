@@ -2,10 +2,20 @@
 
 import * as React from "react";
 import { StatusChip } from "@/components/status-chip";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn, percent, shortSeconds } from "@/lib/utils";
-import { GATE_ORDER, type ChipStatus, type GateName } from "@/lib/events";
+import {
+  GATE_ORDER,
+  type ChipStatus,
+  type GateName,
+  type ReportedInstrument,
+} from "@/lib/events";
 import type { GateCardState } from "@/lib/use-run";
+
+const MUTE_HELP =
+  "The gate still runs but pushes nothing to Grafana. The verdict has to notice through Grafana that the control went dark.";
 
 export type GateHealthView = {
   gate: GateName;
@@ -29,7 +39,7 @@ type Calibration = {
   detail: string;
 };
 
-export function calibrationFor(
+function localCalibration(
   health: HealthView | null,
   loading: boolean,
   gate: GateName,
@@ -82,6 +92,31 @@ export function calibrationFor(
     text: `caught ${catches} injected defect${catches === 1 ? "" : "s"} in 7d, last success ${shortSeconds(entry.seconds_since_success)} ago`,
     tone: "quiet",
     detail,
+  };
+}
+
+/**
+ * What the verdict agent read out of Grafana during the run wins over anything
+ * the console recomputes on the side: it is the reading the decision was made
+ * on. The recomputed line stays as the fallback and as the tooltip numbers.
+ */
+export function calibrationFor(
+  health: HealthView | null,
+  loading: boolean,
+  gate: GateName,
+  reported?: ReportedInstrument | null,
+): Calibration {
+  const local = localCalibration(health, loading, gate);
+  if (!reported?.calibration) return local;
+
+  const degraded =
+    reported.calibrated === false ||
+    (reported.health !== undefined && !/healthy/i.test(reported.health));
+
+  return {
+    text: reported.health ? `${reported.calibration}, ${reported.health}` : reported.calibration,
+    tone: degraded ? "amber" : "quiet",
+    detail: `Read from Grafana by the verdict agent during this run.\n${local.detail}`,
   };
 }
 
@@ -156,16 +191,23 @@ function GateCard({
   card,
   health,
   loading,
+  mute,
+  onToggleMute,
+  muteDisabled,
 }: {
   index: number;
   total: number;
   card: GateCardState;
   health: HealthView | null;
   loading: boolean;
+  mute: boolean;
+  onToggleMute: (gate: GateName) => void;
+  muteDisabled: boolean;
 }) {
-  const calibration = calibrationFor(health, loading, card.gate);
+  const calibration = calibrationFor(health, loading, card.gate, card.reported);
   const live = card.status === "RUNNING";
   const bad = card.status === "BLOCK" || card.status === "ERROR";
+  const helpId = `mute-help-${card.gate}`;
 
   return (
     <CardShell index={index} total={total} status={card.status}>
@@ -181,7 +223,14 @@ function GateCard({
           <h3 className="font-mono text-[12px] uppercase tracking-[0.16em] text-ink">
             {card.gate}
           </h3>
-          <StatusChip status={card.status} />
+          <div className="flex shrink-0 items-center gap-1.5">
+            {card.muted && (
+              <Badge tone="amber" size="xs" title={MUTE_HELP}>
+                muted
+              </Badge>
+            )}
+            <StatusChip status={card.status} />
+          </div>
         </div>
         <p className="mt-2 text-[12px] leading-[1.45] text-ink-dim">{card.sourceOfTruth}</p>
         <Tooltip>
@@ -205,6 +254,33 @@ function GateCard({
             <span className="whitespace-pre-line">{calibration.detail}</span>
           </TooltipContent>
         </Tooltip>
+
+        <div className="mt-2.5 border-t border-line-soft pt-2.5">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Switch
+                checked={mute}
+                onCheckedChange={() => onToggleMute(card.gate)}
+                disabled={muteDisabled}
+                aria-describedby={helpId}
+              >
+                Mute telemetry
+              </Switch>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              <span className="block max-w-[34ch]">{MUTE_HELP}</span>
+            </TooltipContent>
+          </Tooltip>
+          <p
+            id={helpId}
+            className={cn(
+              "mt-1.5 text-[11px] leading-[1.5] text-ink-faint",
+              !mute && "sr-only",
+            )}
+          >
+            {MUTE_HELP}
+          </p>
+        </div>
       </article>
     </CardShell>
   );
@@ -281,6 +357,9 @@ export function GateColumn({
   escalationLine,
   health,
   loading,
+  mute,
+  onToggleMute,
+  muteDisabled,
 }: {
   gates: Record<GateName, GateCardState>;
   verdictStatus: ChipStatus;
@@ -288,6 +367,9 @@ export function GateColumn({
   escalationLine: string;
   health: HealthView | null;
   loading: boolean;
+  mute: GateName[];
+  onToggleMute: (gate: GateName) => void;
+  muteDisabled: boolean;
 }) {
   const probed = GATE_ORDER.filter((g) => gates[g].probe !== null).length;
   const total = 6;
@@ -301,6 +383,9 @@ export function GateColumn({
           card={gates[gate]}
           health={health}
           loading={loading}
+          mute={mute.includes(gate)}
+          onToggleMute={onToggleMute}
+          muteDisabled={muteDisabled}
         />
       ))}
       <VerdictGateCard index={4} total={total} status={verdictStatus} probed={probed} />
