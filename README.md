@@ -112,6 +112,31 @@ bearer required) exposing `check_rights`, `check_claim`, `check_brand`, `check_p
 `check_all`, `verdict_rules` and `list_rules`, so another agent can run a gate on a GCS asset and
 read the rules the verdict will apply. Client, connection snippets and deploy: `docs/AIRLOCK-MCP.md`.
 
+## Evaluation
+
+`scripts/eval_gates.py` runs the four gates on 16 assets, one at a time: 10 more Prelinger
+commercials (Cheerios, Chevrolet, Ivory, Kodak, Folgers, Labatt's, Gilbert, Macleans, Scotties,
+General Electric; `assets/real/eval/SOURCE.md`) and the 6 synthetic clips. `eval/EVAL.md`,
+2026-08-29:
+
+| gate | n | precision | recall | median latency | max |
+|---|---|---|---|---|---|
+| rights | 13 | 100% | 100% | 47.7 s | 457.9 s |
+| claim | 3 | 100% | 100% | 18.9 s | 39.9 s |
+| brand | 4 | 100% | 100% | 17.0 s | 31.1 s |
+| provenance | 15 | 100% | 100% | 2 ms | 34 ms |
+
+Cost at list price (`pricing.yaml`, Billing Catalog SKUs read 2026-08-29): median 0.52 USD per
+30 s spot, 8.23 USD for the whole run (16 Video Intelligence minutes, 32 Gemini calls); the
+Video Intelligence started minute is most of it, so an 8 s clip costs the same as a 30 s one.
+
+Two limits the evaluation exposed, kept on purpose: Video Intelligence named the wrong company on
+6 of the 10 real spots at high confidence (a 1955 Chevrolet read as "DeLorean Motor Company"); the
+verdict held because the policy blocks any brand the registry does not clear, so the gate's reason
+now says "a logo the registry does not know" and quotes the API's guess as a guess. And the raw
+Veo output is not unsigned: it carries a Google-issued C2PA manifest, which the gate blocks as an
+untrusted signer until the studio puts Google's certificate on its trust list.
+
 ## What is proven, and where
 
 `docs/RUNS.md` carries every milestone with its command, output, annotation id and incident id:

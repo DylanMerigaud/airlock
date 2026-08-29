@@ -35,3 +35,12 @@ def test_explicit_content_blocks_at_threshold():
     r = decide(ann, REG)
     assert r.status == "BLOCK"
     assert "registry:explicit_content" in r.rule_ids
+
+
+def test_unknown_logo_is_named_as_a_guess():
+    ann = {"logos": [{"name": "DeLorean Motor Company", "entity_id": "/m/x", "spans": [{"start": 2.0, "end": 9.0, "confidence": 0.91}]}],
+           "texts": [], "faces": [], "explicit_frames": {}}
+    r = decide(ann, REG)
+    assert r.status == "BLOCK"
+    assert "registry:brands:unknown" in r.rule_ids
+    assert "guess: DeLorean Motor Company" in r.reasons[0]

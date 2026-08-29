@@ -53,7 +53,10 @@ trust list feature.
 
 ## Accomplishments
 
-Ten annotations and five incidents on the Grafana stack in one day, each one a verdict a judge can
+An evaluation on 16 assets (10 more real Prelinger commercials and 6 synthetic clips): 100 percent
+precision and recall on every gate against the stated ground truth, a median of 0.52 USD per 30 s
+spot at list price, 47.7 s median for the rights gate and 2 ms for provenance (`eval/EVAL.md`). And
+annotations and incidents on the Grafana stack from the first day, each one a verdict a judge can
 read back: the real 1960s commercial blocked on four gates, the run with the rights telemetry dark
 for 16 minutes blocked as "control unavailable" although every gate had passed, the run after a
 calibration miss blocked as "uncalibrated control", and the first PASS only once all four gates

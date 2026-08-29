@@ -6,6 +6,9 @@ not on this list is real and named in `assets/real/SOURCE.md`.
 ## assets/synthetic/nimbus-test-clip.mp4 (labelled "synthetic test asset" on screen)
 
 - What: an 8 s, 1920x1080, 24 fps clip of an unbranded white can of sparkling water on an oak table.
+- The raw Veo output (`veo-raw.mp4`) carries a C2PA manifest issued by Google (measured 2026-08-29:
+  the provenance gate blocks it as an untrusted signer, not as unsigned); the ffmpeg overlay
+  re-encode drops it, and the signed clip carries Airlock's own manifest instead.
 - Generated 2026-08-28 with Veo on Vertex AI, model `veo-3.1-generate-001` (GA), one sample,
   `person_generation=dont_allow`, no audio, 126 s of generation, no responsible-AI filtering
   (`scripts/generate_synthetic_clip.py`). Raw output sha256: a6667d0f35851828cc9dad4813394a3df4f99bed7fef4fe97b394616ae6c5f6f

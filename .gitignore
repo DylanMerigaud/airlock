@@ -223,7 +223,7 @@ __marimo__/
 .adk/
 agent_engine_build*/
 agents/*/agent_engine_build*/
-assets/real/*.mp4
+assets/real/**/*.mp4
 assets/uploads/
 
 # synthetic asset build outputs (the signed clip is fetched or rebuilt, never committed)

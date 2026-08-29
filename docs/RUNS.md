@@ -970,3 +970,119 @@ video chrome, so the demo video shows no player bar. Known and left: on a page w
 stream (a console without Cloud Storage credentials), the "cannot play" state is set by an event
 that a hydration race sometimes misses, so the buttons can render enabled; the hosted console
 streams its clips, so the state does not arise there.
+
+## M6a: gate evaluation on 16 assets
+
+Status: DONE 2026-08-29 (23:03 to 23:37 UTC, 2042 s wall for all 16 assets, sequential).
+
+Ten more Prelinger commercials selected through the archive.org advanced search, one per category
+(cereal, cars, soap, cameras, coffee, beer, toys, toothpaste other than Crest, tissues, appliances),
+excerpts cut and uploaded, none of them CrestToothpa: `assets/real/eval/SOURCE.md`. The eval runner,
+`scripts/eval_gates.py`, runs the four gates on these ten plus the six synthetic assets already in
+the repo (`nimbus-test-clip`, `nimbus-clean-clip`, the three calibration defects, `veo-raw`), one
+asset at a time so Video Intelligence never has two jobs running together, with
+`AIRLOCK_RUNTIME=eval` so the telemetry is labelled apart from the console and calibration runs.
+This run waited on the demo video's draft 3 to finish rendering and checking first (a file drop at
+23:03:08 UTC from the other agent recording it), then started at 23:03:27, 19 seconds later, so the
+two never shared Video Intelligence quota.
+
+Commands:
+
+```
+scripts/with_env.sh uv run python scripts/eval_gates.py --list   # the 16 asset ids and their sources
+nohup scripts/with_env.sh uv run python scripts/eval_gates.py > eval/logs/run-20260829T230327Z.log 2>&1 &
+```
+
+Full output: `eval/results.json` (every GateResult, per asset per gate), `eval/EVAL.md` (the table
+below, precision and recall, latency, what claim and brand found on the ten real spots unscored).
+
+### Summary table
+
+| asset | kind | rights | claim | brand | provenance | wall |
+|---|---|---|---|---|---|---|
+| Cheerios1960-0-30 | real | BLOCK 83.1 s | BLOCK 23.2 s | BLOCK 21.8 s | BLOCK 34 ms | 137.7 s |
+| chevrolet-31-61 | real | BLOCK 142.7 s | BLOCK 39.9 s | BLOCK 31.1 s | BLOCK 1 ms | 223.7 s |
+| ivory_soap-25-55 | real | BLOCK 28.6 s | BLOCK 21.6 s | BLOCK 19.6 s | BLOCK 2 ms | 78.6 s |
+| kodak_instamatic-31-60 | real | BLOCK 47.1 s | BLOCK 18.2 s | BLOCK 18.5 s | BLOCK 2 ms | 92.9 s |
+| folgers-26-56 | real | BLOCK 85.4 s | BLOCK 20.1 s | BLOCK 18.9 s | BLOCK 1 ms | 133.4 s |
+| labatts_beer-0-20 | real | BLOCK 48.4 s | BLOCK 33.6 s | BLOCK 16.9 s | BLOCK 2 ms | 107.8 s |
+| gilbert_slot_racers-0-30 | real | BLOCK 457.9 s | BLOCK 17.4 s | BLOCK 20.0 s | BLOCK 2 ms | 504.3 s |
+| MacleansToot-0-29 | real | BLOCK 39.9 s | BLOCK 22.4 s | BLOCK 17.2 s | BLOCK 2 ms | 88.7 s |
+| ScottiesTiss-0-30 | real | BLOCK 60.0 s | BLOCK 23.7 s | BLOCK 15.2 s | BLOCK 1 ms | 109.2 s |
+| GE_blender-0-30 | real | BLOCK 51.8 s | BLOCK 19.5 s | BLOCK 15.7 s | BLOCK 2 ms | 99.5 s |
+| nimbus-test-clip | synthetic | PASS 32.4 s | BLOCK 16.7 s | PASS 12.6 s | PASS 23 ms | 70.6 s |
+| nimbus-clean-clip | synthetic | PASS 34.0 s | PASS 12.1 s | PASS 8.6 s | PASS 7 ms | 63.6 s |
+| nimbus-defect-brand-red | synthetic | PASS 33.8 s | PASS 13.7 s | BLOCK 22.3 s | BLOCK 2 ms | 78.7 s |
+| nimbus-defect-provenance-stripped | synthetic | PASS 37.3 s | BLOCK 16.1 s | PASS 10.8 s | BLOCK 1 ms | 73.0 s |
+| nimbus-defect-provenance-broken | synthetic | PASS 46.1 s | BLOCK 10.0 s | PASS 13.9 s | BLOCK 7 ms | 79.2 s |
+| veo-raw | synthetic | PASS 66.3 s | PASS 11.2 s | BLOCK 14.4 s | BLOCK 12 ms | 100.8 s |
+
+### Precision and recall, where a ground truth exists
+
+BLOCK is the positive class. All four gates scored perfectly against the ground truth stated in
+the task and in `assets/real/eval/SOURCE.md`:
+
+```
+rights      n=13  tp=10 fp=0 tn=3 fn=0   precision 100%  recall 100%
+claim       n=3   tp=1  fp=0 tn=2 fn=0   precision 100%  recall 100%
+brand       n=4   tp=2  fp=0 tn=2 fn=0   precision 100%  recall 100%
+provenance  n=15  tp=13 fp=0 tn=2 fn=0   precision 100%  recall 100%
+```
+
+rights and provenance are scored over every real spot (BLOCK expected) plus whichever synthetic
+assets carry a stated expectation for that gate; claim and brand are scored only where the task
+gave one (the real spots have no charter or substantiation file, so they are reported, not scored,
+in the "what claim and brand found" section of `eval/EVAL.md`).
+
+### Latency per gate, over all 16 assets
+
+```
+rights       median 47.7 s   max 457.9 s (gilbert_slot_racers-0-30)
+claim        median 18.9 s   max 39.9 s (chevrolet-31-61)
+brand        median 17.0 s   max 31.1 s (chevrolet-31-61)
+provenance   median 2 ms     max 34 ms (Cheerios1960-0-30)
+```
+
+Cost, from the usage the gates now report (`airlock/cost.py`, deployed to the cloud pipeline the
+same evening): $8.2262 at list price for the whole run, 16 Video Intelligence minutes (one started
+minute per asset, four features), 32 Gemini calls (one claim call on gemini-2.5-pro and one brand
+call on gemini-2.5-flash per asset). Median $0.5182 and maximum $0.5213 per asset for the ten real
+spots (four Video Intelligence features plus two Gemini calls each); the six synthetic assets cost
+about $0.505 to $0.506 each, slightly less, on shorter clips.
+
+### Surprises
+
+- **The rights gate names the wrong brand on six of the ten real spots, and still blocks for the
+  right reason.** Video Intelligence's logo recognition confidently (0.85 to 0.92) tags mid-century
+  logos it was never trained on as unrelated modern brands: the 1963 Chevrolet spot as "DeLorean
+  Motor Company", the Kodak Instamatic spot as "Ichiran" (a ramen chain), the Labatt's beer spot as
+  "Peugeot", the Gilbert slot-car spot as "Vauxhall Motors", the Scotties tissue spot as "Lucid
+  Motors", the GE blender spot as "Target Corporation". Only Ivory and Folgers were named correctly,
+  and Cheerios came back as "Honey Nut Cheerios". None of these six wrong names sit in
+  `rights-registry.yaml` either, so the gate's policy (`unknown_brand: BLOCK`) fires anyway and the
+  verdict is right by coincidence, not by having read the label correctly. A human clearing rights
+  on the evidence alone would be looking for a licence from the wrong company.
+- **MacleansToot never triggered a brand finding at all.** Logo recognition did not name Macleans,
+  and on-screen text detection only checks for registry brand names, so a brand the registry has
+  never heard of cannot be caught that way either. The gate still blocked, on `registry:faces:no_release`
+  (10 face tracks, the two skiers), a real finding but not the one this asset was chosen to test.
+- **veo-raw is not unsigned.** The task's own ground truth called it "unsigned"; the provenance gate
+  found a valid C2PA manifest issued by Google LLC (Vertex AI stamps Veo's raw output with its own
+  manifest) and blocked on `airlock:provenance:signer-trusted`, not `manifest-required`, because
+  Google is not on Airlock's studio trust list. The BLOCK is correct, the mechanism assumed for it
+  was not.
+- **One Video Intelligence call took 458 seconds** (gilbert_slot_racers-0-30, rights gate) against a
+  median of 47.7 s and every other real spot under 143 s, even though this run never had two jobs
+  in flight at once by its own design. Consistent with the variance already logged in M2 ("598 s
+  when three jobs ran at once"), so quota contention from elsewhere on the project is the leading
+  explanation, but this run has no direct evidence of what else was running at 23:22 to 23:30 UTC.
+- **A reported reason can hide a second catch.** `nimbus-defect-brand-red`'s brand gate reports
+  "exclusion violated: no discount or price" first (the code surfaces only the first reason string),
+  but its `rule_ids` carry both `charter:exclusions` and `charter:palette`: the forbidden red banner
+  was caught too, just not the one named in the printed line.
+- **Every real spot's claim gate found a regulated claim, and every one is a different kind**: a
+  superlative ("an out-of-this-world breakfast", Cheerios), a testimonial ("I'm going to see the
+  1963 Chevrolets", Chevrolet), a health claim ("Ivory's natural soap"), an efficacy claim ("Take
+  four flash pictures without changing bulbs", Kodak), a comparative ("You just need the coffee
+  with better flavor", Folgers). Sixty-year-old copywriting maps onto 16 CFR 255 as cleanly as the
+  demo asset does.

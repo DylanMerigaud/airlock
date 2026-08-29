@@ -107,10 +107,14 @@ def decide(annotations: dict[str, Any], registry: dict[str, Any]) -> GateResult:
         first = logo["spans"][0] if logo["spans"] else {}
         findings.append({"element": "brand", "name": logo["name"], "status": status, "how": "logo", "first_seen_s": first.get("start"), "confidence": first.get("confidence")})
         seen.add(logo["name"].lower())
-        if status != "cleared":
+        if status == "unknown":
+            # The API's logo names were wrong on 6 of 10 real 1950s spots (eval of 2026-08-29): the name is a guess.
+            reasons.append(f"a logo the registry does not know at {first.get('start')}s (Video Intelligence's guess: {logo['name']}, confidence {first.get('confidence')})")
+            rule_ids.append("registry:brands:unknown")
+        elif status != "cleared":
             reasons.append(f"brand {logo['name']} ({status}, logo at {first.get('start')}s, confidence {first.get('confidence')})"
                            + (f": {entry.get('note')}" if entry and entry.get("note") else ""))
-            rule_ids.append("registry:brands:" + ("not_cleared" if status == "not_cleared" else "unknown"))
+            rule_ids.append("registry:brands:not_cleared")
     for hit in brands_in_text(annotations.get("texts", []), registry):
         if hit["name"].lower() in seen:
             continue
