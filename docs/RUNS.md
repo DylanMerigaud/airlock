@@ -653,3 +653,30 @@ drafts use Google Cloud Text-to-Speech and say so in their file name.
 Timing measured 2026-08-29 01:03 UTC on a 15 s Crest excerpt: rights 47 s, claim 25 s. The rights
 gate does not get faster with a shorter input (30 s excerpt: 43 to 72 s), so the 30 s excerpt stays
 and each run is 45 to 75 s. The draft's cue log, not the script's targets, sets the final timing.
+
+### Draft 1 (2026-08-29 01:10 to 01:45 UTC), synthetic voice
+
+`video/` pipeline: `record.mjs` (Playwright drives the live console and logs a cue per narrated
+moment), `narrate.py` (Google Cloud Text-to-Speech, en-US-Neural2-D, one wav per script line placed
+at its cue), `assemble.py` (30 fps constant, Article 50 overlay, Grafana pages laid over the console
+take, loudnorm, burned subtitles, `check.py --render`). Preparation done by the recorder itself:
+rights mute on, one clean run, a 16-minute wait.
+
+The take, 270.9 s, 28 cues, none timed out: Crest BLOCK content at 129.3 s (rights alone 62.7 s
+after the three others), clean clip muted BLOCK control unavailable at 195.5 s, unmuted PASS at
+240.9 s, dashboard, landing on the PASS card. `video/out/cues.json` and `narration.json` are kept.
+
+`video/out/airlock-draft-1-synthetic-voice.mp4`, 176.9 s, 20.6 MB:
+
+```
+PASS  G41 definition  (1920x1080)      PASS  G45 niveau audio  (-16.4 LUFS, peak -4.1)
+PASS  G42 cadence  (30.0 fps)          PASS  G46 silence  (plus long blanc 0.0s)
+PASS  G43 duree  (177s)                PASS  G47 ouverture  (1 plage(s) de noir)
+PASS  G44 audio present  (aac)         RESULTAT: PASS mecanique
+```
+
+To fix in draft 2: the assembler had to cut 86 s of waiting inside the runs to fit 180 s (the
+compressed stretches get an on-screen label from draft 2 on); the first voice line ran 17.6 s
+against an 8 s beat (script shortened); one subtitle cue per script line covered the timeline (per
+sentence from draft 2); the first Grafana visit was captured before its panels drew (recorder waits
+for the canvases now).

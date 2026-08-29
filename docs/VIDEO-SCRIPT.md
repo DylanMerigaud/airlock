@@ -5,7 +5,9 @@ Duree cible: 180s
 Voix: off humaine (Dylan, recorded separately from the screen, read from this script, re-recorded if one word is off; the iteration drafts use a synthetic voice from Google Cloud Text-to-Speech and say so in their file name)
 Musique: aucune
 
-One take inside the console, no cut inside a run, the trace as the interface. Three runs, one
+One take inside the console, the trace as the interface. The rights gate waits 30 to 60 s on the
+Video Intelligence API in every run; the cut compresses that wait and says so on screen ("waiting
+for Video Intelligence, N s compressed"), never hiding it and never cutting anything else. Three runs, one
 decision shown three ways: the real film blocked on its content, a clean asset blocked because a
 control went dark, the same asset passed once the control is back. The stake, the stack and the
 practitioner quotes go inside the product frame, never on a slide. The rights gate's telemetry is
@@ -14,9 +16,9 @@ stale when the take begins; it is switched back on at 2:10, on camera.
 
 ## 1. The situation that hurts
 
-[0:00] The console, idle, dark. Over it, the first lines of Article 50 of the EU AI Act (in force 2026-08-02) as a text overlay, fading to the console. | "Since August 2026 the law requires generated content to be marked in a machine-readable way. Studios ship dozens of generated assets a week. Nobody signs each one by hand fast enough, and nobody can prove which one was checked, by which rule, or whether the check was working."
-[0:08] A browser tab with a real ASA ruling (Nutri-Paw, 26 August 2026), the cursor scrolling the assessment. | "This is the reviewer's job today: a ruling on one side, the asset on the other, and no trace of what was checked."
-[0:17] Back to the console: three assets in the picker, the gate cards with their calibration lines read from Grafana; the rights card is amber, "last success 17 min ago". | "Airlock is the airlock between the generator and the broadcast: four gates, then a verdict that has to ask Grafana before it rules. Look at the rights gate: its telemetry has been dark for seventeen minutes. Keep that in mind."
+[0:00] The console, idle, dark. Over it, the first lines of Article 50 of the EU AI Act (in force 2026-08-02) as a text overlay, fading to the console. | "Since August 2026 the law wants generated content marked. Studios ship dozens of generated assets a week, and nobody can prove which one was checked, or whether the check worked."
+[0:09] A browser tab with a real ASA ruling (Nutri-Paw, 26 August 2026), the cursor scrolling the assessment. | "This is the reviewer's job today: a ruling on one side, the asset on the other, no trace."
+[0:17] Back to the console: three assets in the picker, the gate cards with their calibration lines read from Grafana; the rights card is amber, "last success 17 min ago". | "Airlock: four gates, then a verdict that asks Grafana before it rules. The rights gate is amber: its telemetry has been dark for seventeen minutes. Keep that in mind."
 
 ## 2. The system acting
 
