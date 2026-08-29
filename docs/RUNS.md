@@ -510,3 +510,127 @@ Cut list, what is NOT built and will not be for the submission:
 - one console view plus the BLOCK queue tab; no rights-registry or charter editor
 - the calibration ledger runs on demand (`python -m airlock.calibrate`), not on a schedule
 - the rights registry and the charter are YAML files in the repo
+
+## M4b: airlock-mcp, the gates as tools
+
+Status: DONE 2026-08-29 (00:35 UTC).
+
+### Build
+
+`airlock_mcp/server.py`: `FastMCP("airlock")` over the streamable HTTP transport, mounted in a
+Starlette app behind a plain ASGI bearer middleware (`AIRLOCK_MCP_SERVER_TOKEN`; everything but
+`GET /healthz` needs it). Seven tools: `check_rights`, `check_claim`, `check_brand`,
+`check_provenance` (each runs its gate through `airlock.gates.base.run_gate`, so Grafana counters
+and events flow the same as a pipeline run), `check_all` (the four in a `ThreadPoolExecutor`, plus
+`wall_ms`), `verdict_rules` (the `airlock.verdict` docstring plus the rights gate's PromQL
+questions) and `list_rules` (the FTC section headings and the two ASA references, read off
+`rules/`). `Dockerfile.mcp` at the repo root; `infra/airlock-mcp/deploy.sh`;
+`scripts/airlock_mcp_client.py`; `tests/test_airlock_mcp.py` (5 tests, no model, no cloud).
+`pyproject.toml`: `airlock_mcp` added to `[tool.hatch.build.targets.wheel] packages`, `starlette`
+and `uvicorn` promoted from transitive (already pulled in by `mcp`) to direct dependencies since
+`airlock_mcp/server.py` imports them itself; `uv lock` re-resolved with no version changes.
+
+### A bug caught before the deploy counted as done
+
+First deploy answered every `/mcp` call with `HTTP 421 Invalid Host header`, curl showing the
+literal body `Invalid Host header`. Cause: `FastMCP`'s default `transport_security` is DNS-rebinding
+protection with `allowed_hosts` limited to `127.0.0.1` and `localhost`, meant for a dev server
+reachable from a browser; Cloud Run's own hostname never matches it. Fixed by constructing
+`FastMCP("airlock", transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False))`,
+since the bearer middleware is this server's real access control. Rebuilt, redeployed
+(revision `airlock-mcp-00002-89h`), confirmed against the live URL below.
+
+### Verification 1: the suite
+
+`uv run pytest -q`
+
+```
+46 passed, 2 warnings in 0.88s
+```
+
+(41 before this milestone, 5 added in `tests/test_airlock_mcp.py`: the tool list, `create_app()`
+refusing without a token, `/mcp` answering 401 with no bearer and with the wrong one, `/healthz`
+open and listing the seven tools.)
+
+### Verification 2: local, token from the keychain, telemetry through `with_env.sh`
+
+```
+TOKEN="$(security find-generic-password -s airlock-mcp-server-token -a dylanmerigaud -w)"
+AIRLOCK_MCP_SERVER_TOKEN="$TOKEN" scripts/with_env.sh uv run python -m airlock_mcp.server &
+```
+
+```
+curl http://127.0.0.1:8080/healthz
+  200  {"ok":true,"tools":["check_rights","check_claim","check_brand","check_provenance","check_all","verdict_rules","list_rules"]}
+curl -X POST http://127.0.0.1:8080/mcp (no bearer)
+  401  {"error":"unauthorized"}
+```
+
+`uv run python scripts/airlock_mcp_client.py --local`:
+
+```
+tools: ['check_rights', 'check_claim', 'check_brand', 'check_provenance', 'check_all', 'verdict_rules', 'list_rules']
+check_provenance(gs://airlock-agentic-cinema-assets/calibration/nimbus-clean-clip.mp4) -> PASS in 8240 ms (as expected)
+  reason: C2PA manifest verified and trusted; signed by Airlock (hackathon test); created by airlock-synthetic-asset
+check_provenance(gs://airlock-agentic-cinema-assets/real/CrestToothpa-18-48.mp4) -> BLOCK in 6857 ms (as expected)
+  reason: no C2PA manifest in the asset
+```
+
+Server killed, `pgrep -f airlock_mcp` empty afterward.
+
+### Verification 3: deploy and the deployed URL
+
+`bash infra/airlock-mcp/deploy.sh`: secret `airlock-mcp-server-token` generated (keychain, then
+Secret Manager, 64 hex chars, never printed), Artifact Registry repository `airlock` created in
+`us-central1`, image built with `gcloud builds submit --tag
+us-central1-docker.pkg.dev/airlock-agentic-cinema/airlock/airlock-mcp:latest` from a temporary
+build context (`Dockerfile.mcp` copied in as `Dockerfile`, the tracked file keeps its name),
+deployed as Cloud Run service `airlock-mcp`.
+
+```
+Service [airlock-mcp] revision [airlock-mcp-00002-89h] has been deployed and is serving 100 percent of traffic.
+Service URL: https://airlock-mcp-771466810465.us-central1.run.app
+```
+
+`uv run python scripts/airlock_mcp_client.py` (default URL):
+
+```
+connecting to https://airlock-mcp-771466810465.us-central1.run.app/mcp
+tools: ['check_rights', 'check_claim', 'check_brand', 'check_provenance', 'check_all', 'verdict_rules', 'list_rules']
+check_provenance(gs://airlock-agentic-cinema-assets/calibration/nimbus-clean-clip.mp4) -> PASS in 4068 ms (as expected)
+  reason: C2PA manifest verified and trusted; signed by Airlock (hackathon test); created by airlock-synthetic-asset
+check_provenance(gs://airlock-agentic-cinema-assets/real/CrestToothpa-18-48.mp4) -> BLOCK in 1823 ms (as expected)
+  reason: no C2PA manifest in the asset
+
+real  8.7s wall (the whole script: connect, initialize, two tool calls, one Grafana push each)
+```
+
+Cloud Run logs for that run show the Influx and Loki pushes going through:
+
+```
+POST https://prometheus-prod-67-prod-us-west-0.grafana.net/api/v1/push/influx/write "HTTP/1.1 204 No Content"
+POST https://logs-prod-021.grafana.net/loki/api/v1/push "HTTP/1.1 204 No Content"
+```
+
+### A platform limit found, not a bug fixed
+
+`GET /healthz` on the deployed URL answers a Google-branded `404` that never reaches the
+container (zero log lines for it, confirmed by `gcloud run services logs read`, while every other
+path and method does show up). Cloud Run's frontend reserves `/healthz` for its own internal
+probing and answers it before the request reaches the app; this reproduces a documented,
+externally reported Cloud Run behavior, not a defect in this server. `/healthz` stays at that path
+in the code, exactly as specified, since it is open and correct everywhere else (local `uv run`,
+local `docker run`, the test suite's `TestClient`); a liveness probe against the deployed service
+should hit `/mcp` instead (401 without a bearer still proves the service answers). Documented in
+`docs/AIRLOCK-MCP.md`.
+
+### M4b done (2026-08-29 00:35 UTC)
+
+URL: `https://airlock-mcp-771466810465.us-central1.run.app` (`/mcp` for tools, `/healthz` locally
+and in `docker run` only, not on this Cloud Run host). Revision `airlock-mcp-00002-89h`. 46 of 46
+tests green, both demo assets answer through the deployed tool exactly as the pipeline does.
+
+### Lighthouse on the hosted URL (2026-08-29 00:36 UTC, desktop, navigation mode)
+
+Accessibility 95, best practices 100, SEO 100 (54 audits passed, 2 failed in the agentic-browsing
+category, which is not a submission criterion). The bar in the plan was accessibility above 90.
