@@ -890,3 +890,15 @@ exists in the Review view.
 
 Every route, the SSE contract, mock mode, the fixtures, the three presets and the upload are
 untouched. `pnpm build`, `pnpm lint` and `pnpm typecheck` clean.
+
+### Console v3 deployed (2026-08-29 19:43 UTC)
+
+Revision `airlock-console-00005-rvs`, page in 1.5 s. One screen at 1440x900 and 1920x1080
+(document height equals the viewport in every state, measured by the build agent in headless
+chromium and in Arc), YouTube Studio's light palette and Roboto, no looping animation, the right
+column segmented into Checks, Findings and Record. Lighthouse on the hosted URL, desktop,
+navigation mode: accessibility 100, best practices 100, SEO 100 (56 audits passed, none failed).
+axe-core in the build: zero violations on every view. Screenshots:
+`docs/img/console-v3-crest-block-2026-08-29.png`, `docs/img/console-v3-clean-pass-2026-08-29.png`.
+The video (M5) is on hold at Dylan's word until the console is where he wants it; the recorder
+will be adapted to this DOM before draft 3.
