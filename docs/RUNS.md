@@ -511,6 +511,11 @@ Cut list, what is NOT built and will not be for the submission:
 - the calibration ledger runs on demand (`python -m airlock.calibrate`), not on a schedule
 - the rights registry and the charter are YAML files in the repo
 
+### Revision 3 (2026-08-29 00:41 UTC)
+
+`airlock-console-00003-4sv`: the verdict card and the spec strip show the run's wall time (the
+`done` frame's `elapsed_ms`) instead of the verdict agent's own hop. Page 200 in 1.9 s.
+
 ### Lighthouse on the hosted URL (2026-08-29 00:36 UTC, desktop, navigation mode)
 
 Accessibility 95, best practices 100, SEO 100 (54 audits passed, 2 failed in the agentic-browsing
