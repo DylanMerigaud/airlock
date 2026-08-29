@@ -1,0 +1,20 @@
+# List prices the cost metric uses. Read from the Cloud Billing Catalog API on 2026-08-29
+# (services/C7E2-9256-1C43 Vertex AI, services/8CD0-2A17-0B05 Cloud Video Intelligence API, USD).
+# The metric is "what one check costs at list price"; the monthly free quotas are stated, not netted.
+read_on: "2026-08-29"
+source: "https://cloudbilling.googleapis.com/v1/services/{service}/skus"
+currency: USD
+gemini:
+  gemini-2.5-pro:
+    input_per_token: 0.00000125     # A121-E2B5-1418 text input, D92F-4232-ECE2 video input (same price)
+    output_per_token: 0.00001000    # 5DA2-3F77-1CA5 text output
+  gemini-2.5-flash:
+    input_per_token: 0.00000030     # FDAB-647C-5A22 text input GA, 318F-9337-94EC video input GA
+    output_per_token: 0.00000250    # AF56-1BF9-492A text output GA
+video_intelligence:
+  per_minute:
+    logo: 0.15        # 0C12-6603-1420 Logo Recognition, after 1000 free minutes a month
+    text: 0.15        # D978-9186-8002 Text Detection, after 1000 free minutes a month
+    face: 0.10        # 273D-C4FA-E583 Face Detection, after 1000 free minutes a month
+    explicit: 0.10    # F101-E17F-BA27 Safe Search Detection, after 1000 free minutes a month
+  free_minutes_per_feature_per_month: 1000

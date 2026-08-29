@@ -14,6 +14,7 @@ import traceback
 from dataclasses import asdict, dataclass, field
 from typing import Any, Callable, Literal
 
+from airlock.cost import estimate
 from airlock.telemetry import MEASUREMENT, InfluxPusher, LokiPusher, line
 
 log = logging.getLogger("airlock.gates")
@@ -41,6 +42,7 @@ class GateResult:
     rule_ids: list[str] = field(default_factory=list)
     elapsed_ms: int = 0
     source_of_truth: str = ""
+    usage: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -93,9 +95,18 @@ def run_gate(gate: str, fn: GateFn, asset: Asset, source_of_truth: str, mute: bo
         )
     result.elapsed_ms = int((time.time() - t0) * 1000)
     ok = result.status != "ERROR"
+    try:
+        result.usage = estimate(gate, result.evidence).to_dict()
+    except Exception as exc:  # a cost that cannot be computed is said, never guessed
+        result.usage = {"cost_usd": None, "error": f"{type(exc).__name__}: {exc}"}
     if influx is not None:
         fields: dict[str, int | float] = {"runs_total": 1, "errors_total": 0 if ok else 1, "elapsed_ms": result.elapsed_ms,
                                           "blocks_total": 1 if result.status == "BLOCK" else 0}
+        if result.usage.get("cost_usd") is not None:
+            fields["cost_usd"] = float(result.usage["cost_usd"])
+            fields["tokens_in"] = int(result.usage.get("tokens_in") or 0)
+            fields["tokens_out"] = int(result.usage.get("tokens_out") or 0)
+            fields["video_minutes"] = float(result.usage.get("video_minutes") or 0)
         if ok:
             fields["last_success_ts"] = int(time.time())
         influx.push_lines([line(MEASUREMENT, {"gate": gate}, fields)])

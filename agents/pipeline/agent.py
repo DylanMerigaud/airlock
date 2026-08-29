@@ -102,11 +102,32 @@ class GateAgent(BaseAgent):
                           state_delta={STATE_GATE.format(self.gate): payload, STATE_ASSET: asset.__dict__, STATE_MUTE: _muted_gates(ctx)})
 
 
-def push_verdict_counters(verdict: Verdict, incident_opened: bool) -> None:
+def run_cost(gate_results: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    """The cost of the run at list price: the sum of what each gate reported (pricing.yaml)."""
+    total = 0.0
+    per_gate: dict[str, float] = {}
+    tokens_in = tokens_out = 0
+    minutes = 0.0
+    for gate, r in gate_results.items():
+        u = (r or {}).get("usage") or {}
+        if u.get("cost_usd") is None:
+            continue
+        per_gate[gate] = float(u["cost_usd"])
+        total += float(u["cost_usd"])
+        tokens_in += int(u.get("tokens_in") or 0)
+        tokens_out += int(u.get("tokens_out") or 0)
+        minutes += float(u.get("video_minutes") or 0)
+    return {"cost_usd": round(total, 6), "per_gate": per_gate, "tokens_in": tokens_in, "tokens_out": tokens_out, "video_minutes": minutes,
+            "basis": "list prices of 2026-08-29 (pricing.yaml), free quotas not netted"}
+
+
+def push_verdict_counters(verdict: Verdict, incident_opened: bool, cost_usd: float | None = None) -> None:
     """One sample per verdict so the console's stat tiles and the dashboard count real runs."""
     if not os.environ.get("GRAFANA_INFLUX_URL"):
         return
     fields: dict[str, int | float] = {"total": 1, "needs_human": 1 if verdict.needs_human else 0, "incidents_total": 1 if incident_opened else 0}
+    if cost_usd is not None:
+        fields["cost_usd"] = float(cost_usd)
     InfluxPusher.from_env().push_lines([line("airlock_verdict", {"status": verdict.status, "motive": verdict.motive.replace(" ", "_")}, fields)])
 
 
@@ -167,8 +188,9 @@ class VerdictAgent(BaseAgent):
             except (json.JSONDecodeError, AttributeError):
                 payload["annotation_raw"] = ann[:300]
             payload["elapsed_ms"] = int((time.time() - started) * 1000)
+            payload["cost"] = run_cost(gate_results)
             try:
-                push_verdict_counters(verdict, False)
+                push_verdict_counters(verdict, False, payload["cost"]["cost_usd"])
             except Exception as exc:  # telemetry must not hide a verdict, but its failure is said
                 payload["telemetry_error"] = f"{type(exc).__name__}: {exc}"
             yield _text_event(ctx, self.name, json.dumps({"stage": "verdict", **payload}, default=str), state_delta={STATE_VERDICT: payload})

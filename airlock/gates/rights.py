@@ -72,7 +72,8 @@ def annotate(asset: Asset) -> dict[str, Any]:
     for f in a.explicit_annotation.frames:
         k = vi.Likelihood(f.pornography_likelihood).name
         explicit[k] = explicit.get(k, 0) + 1
-    return {"logos": logos, "texts": texts, "faces": faces, "explicit_frames": explicit, "features": names}
+    duration_s = _secs(a.segment.end_time_offset) if getattr(a, "segment", None) else 0.0
+    return {"logos": logos, "texts": texts, "faces": faces, "explicit_frames": explicit, "features": names, "duration_s": duration_s}
 
 
 def _brand_status(name: str, registry: dict[str, Any]) -> tuple[str, dict[str, Any] | None]:
@@ -133,7 +134,8 @@ def decide(annotations: dict[str, Any], registry: dict[str, Any]) -> GateResult:
         rule_ids.append("registry:explicit_content")
         findings.append({"element": "explicit", "frames": bad})
     evidence = [{"findings": findings, "logos": annotations.get("logos", []), "face_tracks": len(faces),
-                 "text_lines": len(annotations.get("texts", [])), "explicit_frames": annotations.get("explicit_frames", {})}]
+                 "text_lines": len(annotations.get("texts", [])), "explicit_frames": annotations.get("explicit_frames", {}),
+                 "features": annotations.get("features", []), "duration_s": annotations.get("duration_s", 0.0)}]
     if reasons:
         return GateResult(gate="rights", status="BLOCK", reasons=reasons, evidence=evidence, rule_ids=sorted(set(rule_ids)), source_of_truth=SOURCE_OF_TRUTH)
     cleared = [f["name"] for f in findings if f.get("status") == "cleared"]
