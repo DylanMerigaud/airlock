@@ -474,3 +474,39 @@ run (annotation 11). `curl -sN -X POST .../api/run -d '{"asset":"nimbus","mute":
   78.8s verdict  VERDICT BLOCK (content) annotation=13
   81.2s escalation opened=True incident=8
 ```
+
+### Cold-user test (2026-08-29 00:26 to 00:34 UTC)
+
+A fresh browser tab on https://airlock-console-771466810465.us-central1.run.app, no login, driven by
+someone who had not seen the app (a browser agent on its own tab; the closest available to a person
+other than Dylan, and said as such):
+
+- Idle: the three assets, the environment badge "Vertex AI Agent Engine, us-central1" (no MOCK), the
+  calibration line of every gate read live from Grafana.
+- Crest run: 72 s from click to verdict. BLOCK, motive content, needs a human. Reasons in order:
+  the Crest logo not cleared (16.12 s, 0.853), 9 regulated claims (first "my side had 21% fewer
+  cavities with Crest.", 16 CFR 255.2(a)), the Nimbus wordmark missing, no C2PA manifest. Rule chips
+  grouped by authority. Annotation 14, incident 9. While running: the step named on each card
+  ("Video Intelligence: logos, faces, text", "gemini-2.5-pro reading claims"), no bare spinner.
+- "Open in Grafana": the public dashboard, live tiles (6 BLOCK content, 2 PASS, 2 control
+  unavailable, 1 instrument error, 1 uncalibrated at that moment).
+- Clean clip run: 35 s. PASS, "all 4 gates PASS, healthy and calibrated", C2PA trusted signer named.
+  Annotation 15, no incident.
+- Stat tiles: 13 checked, 10 blocked, 3 passed, 4 of 4 gates calibrated, 9 incidents (7 days).
+- BLOCK queue: the Crest run, with re-run.
+- Visible errors: none (page text and `[role=alert]` probed at every state).
+
+Screenshots: `docs/img/console-crest-block-2026-08-29.png`, `docs/img/console-clean-pass-2026-08-29.png`.
+
+### M4 done (2026-08-29, ahead of the 2026-09-03 demo date)
+
+The demo runs end to end on the URL: two assets, two correct and different verdicts, the Grafana
+link, the incident. Accessibility audit: see the Lighthouse block below.
+
+Cut list, what is NOT built and will not be for the submission:
+- no multi-tenant, no authentication: one console, one stack, one registry, one charter
+- no async queue: a run is one SSE stream, the browser stays on the page
+- one video format (mp4), 30 s and 50 MB at most per upload
+- one console view plus the BLOCK queue tab; no rights-registry or charter editor
+- the calibration ledger runs on demand (`python -m airlock.calibrate`), not on a schedule
+- the rights registry and the charter are YAML files in the repo
