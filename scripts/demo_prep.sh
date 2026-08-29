@@ -18,7 +18,7 @@ scripts/with_env.sh uv run python -m airlock.calibrate 2>&1 | grep -vE "UserWarn
 echo "== 3. hosted services"
 printf 'console page: %s\n' "$(curl -s -o /dev/null -w '%{http_code}' "$CONSOLE/")"
 curl -s "$CONSOLE/api/health" | python3 -c 'import json,sys; d=json.load(sys.stdin); print("console health:", "ok" if d.get("ok") else d.get("error"), [(g["gate"], g["state"]) for g in d.get("gates", [])])'
-curl -s "$CONSOLE/api/stats" | python3 -c 'import json,sys; d=json.load(sys.stdin); print("console stats:", {k: d.get(k) for k in ("checked_7d","blocked_7d","passed_7d","gates_calibrated","incidents_7d")})'
+curl -s "$CONSOLE/api/stats" | python3 -c 'import json,sys; d=json.load(sys.stdin); print("console stats:", {k: d.get(k) for k in ("checked_7d","blocked_7d","passed_7d","gates_calibrated","incidents_7d","cost_per_check_usd_7d")})'
 printf 'mcp-grafana bearer check: %s (401 expected without a bearer)\n' "$(curl -s -o /dev/null -w '%{http_code}' -H 'Accept: application/json, text/event-stream' -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"prep","version":"0"}}}' https://airlock-mcp-grafana-771466810465.us-central1.run.app/mcp)"
 printf 'airlock-mcp bearer check: %s (401 expected without a bearer)\n' "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$MCP")"
 

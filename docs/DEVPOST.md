@@ -16,7 +16,8 @@ the last calibration run caught its defect. A gate Grafana cannot see succeed fo
 "control unavailable"; a gate that never caught a real defect is advisory and cannot contribute to
 a PASS. The verdict is written back to the Grafana dashboard as an annotation, and when only a
 human can lift the BLOCK, an incident is opened in Grafana IRM. On the demo assets it takes 48 s
-from upload to verdict for an 8 s clip and 119 s for a 30 s commercial.
+from upload to verdict for an 8 s clip and 119 s for a 30 s commercial, and every check reports
+what it cost at list price (tokens, video minutes, dollars), pushed to Grafana beside the verdict.
 
 ## How I built it
 
