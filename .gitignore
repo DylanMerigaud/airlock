@@ -244,3 +244,4 @@ video/out/raw/
 video/out/voice/
 video/out/*.mp4
 video/out/*.wav
+video/out/logs/
