@@ -6,7 +6,8 @@
     "../../charter.yaml",
     "../../rights-registry.yaml",
     "../../trust",
-    "../../rules"
+    "../../rules",
+    "../../pricing.yaml"
   ],
   "env_vars": {
     "AIRLOCK_MCP_URL": "https://airlock-mcp-grafana-771466810465.us-central1.run.app/mcp",

@@ -7,11 +7,13 @@ console take for the windows they were open, burns the Article 50 overlay and th
 the narration at its cue times over a room tone, and writes
 video/out/airlock-draft-<n>-synthetic-voice.mp4.
 
-The take is longer than the video, because a real run takes as long as it takes. The only stretch
-the cut plan is allowed to remove is the wait on the rights gate, the Video Intelligence call, and
-every one of those says so on the picture before it happens: "waiting for Video Intelligence, N s
-compressed". If that is still not enough to fit the duration limit, the dashboard hold and then
-the landing hold are shortened and the assembler prints by how much. Every cue time is mapped
+The take is longer than the video, because a real run takes as long as it takes. The only thing
+the cut plan is allowed to remove is waiting, and every stretch of it says so on the picture before
+it happens: "waiting for Video Intelligence, N s compressed" for the call the rights gate is
+blocked on, "waiting for Grafana to draw, N s compressed" for the seconds a Grafana insert spends
+building itself behind a settled verdict card. If that is still not enough to fit the duration
+limit, the dashboard hold and then the landing hold are shortened and the assembler prints by how
+much. Every cue time is mapped
 through the cuts, so the narration stays on the picture it describes, and the subtitles are cut
 one per sentence rather than one per spoken line.
 
@@ -48,16 +50,24 @@ ROOM_TONE_DBFS = -38.0  # above silencedetect's -45 dB floor, so a gap never rea
 # viewer reads a whole thought at once instead of a paragraph parked on the picture for 15 s.
 SUBTITLE_WIDTH = 60
 SUBTITLE_ROWS = 2
-# Every stretch the assembler takes out of a run is announced on the picture just before it
-# happens, in a mono face so it reads as an editing note and not as console copy.
+# Every stretch of waiting the assembler takes out is announced on the picture just before it
+# happens, in a mono face so it reads as an editing note and not as console copy. Only waiting is
+# ever cut this way, and the caption names what was being waited for: the Video Intelligence call
+# the rights gate is blocked on, or the Grafana insert drawing its panels while the console take
+# holds on the verdict card underneath.
+WAIT_LABEL = {
+    "run_wait": "waiting for Video Intelligence, {n} s compressed",
+    "grafana_wait": "waiting for Grafana to draw, {n} s compressed",
+}
 MONO_FONT = "/System/Library/Fonts/Supplemental/Courier New Bold.ttf"
 COMPRESSION_LABEL_S = 2.5
 COMPRESSION_FONT_SIZE = 28
 # The recorder plays the claim seek right after the claim gate lands: it switches to the findings
-# thread, clicks the time chip, holds the clip there and comes back (video/record.mjs, cue
-# seek_claim, SEEK_HOLD_MS). That beat sits inside the rights wait, and the wait is the only
-# stretch this assembler may remove, so the window starts after it: what gets compressed has to
-# be waiting and nothing else.
+# thread, clicks the time chip, holds the clip there and comes back (video/record.mjs, cues
+# seek_claim and seek_done, SEEK_HOLD_MS). That beat sits inside the rights wait, and only waiting
+# may be removed, so the window starts after it: what gets compressed has to be waiting and
+# nothing else. seek_done says when the beat ended; this is the fallback for
+# a take recorded before that cue existed.
 SEEK_BEAT_S = 4.0
 
 
@@ -77,9 +87,10 @@ def duration_of(path: Path) -> float:
 def leading_black(path: Path, max_lead: float = 8.0) -> float:
     """How many seconds of the head of a clip are black.
 
-    A Grafana page is recorded from the moment it opens, and the recorder then waits for the
-    panels to draw their canvases before it holds, so the first seconds of that file are a blank
-    tab. Laid over the take as they are, they put a black hole in the middle of the video.
+    This is the fallback for the head of a Grafana insert. The measurement that decides it is the
+    recorder's own `<name>_ready` cue, written into the overlay entry as `ready_at`: the instant
+    the panels had drawn. Blackdetect only catches the blank tab, not the loading dashboard that
+    follows it, so on its own it let ten seconds of a Grafana page building itself into draft 3.
     """
     out = run(["ffmpeg", "-nostdin", "-i", str(path), "-vf",
                "blackdetect=d=0.2:pic_th=0.98:pix_th=0.10", "-f", "null", "-"])
@@ -201,9 +212,9 @@ class CutPlan:
         return self.head + sum(b - a for a, b, _, _ in self.cuts)
 
     @property
-    def compressions(self) -> list[tuple[float, float, str]]:
-        """The stretches taken out of a run, the only cuts that carry an on-screen label."""
-        return [(a, b, name) for a, b, name, kind in self.cuts if kind == "run_wait"]
+    def compressions(self) -> list[tuple[float, float, str, str]]:
+        """The stretches of waiting taken out, the only cuts that carry an on-screen label."""
+        return [(a, b, name, kind) for a, b, name, kind in self.cuts if kind in WAIT_LABEL]
 
     def map(self, t: float) -> float:
         out = t - self.head
@@ -223,9 +234,9 @@ class CutPlan:
         return f"select='not({inside})'"
 
 
-def build_windows(at: dict, lines: list[dict], protect_voice: bool = True,
-                  wait_keep: float = 1.0) -> list[dict]:
-    """What may be shortened, most expendable first: the rights waits, then two holds.
+def build_windows(at: dict, lines: list[dict], inserts: list[dict] | None = None,
+                  protect_voice: bool = True, wait_keep: float = 1.0) -> list[dict]:
+    """What may be shortened, most expendable first: the waits, then two holds.
 
     A hold is never cut below the voice line spoken over it while `protect_voice` holds, so a beat
     always stays on screen at least as long as what is said about it. `wait_keep` is how much of a
@@ -274,19 +285,37 @@ def build_windows(at: dict, lines: list[dict], protect_voice: bool = True,
         a, b = max(before), rights
         seek = at.get("seek_claim")
         if seek is not None and a <= seek < b:
-            a = min(seek + SEEK_BEAT_S, b)
+            # The recorder logs seek_done when it is back on the Checks segment; before that cue
+            # existed the beat was given a fixed SEEK_BEAT_S, which is still the fallback.
+            a = min(at.get("seek_done", seek + SEEK_BEAT_S), b)
         if b - a <= keep:
             return None
         return {"name": name, "a": a, "b": b, "keep": keep, "max": (b - a) - keep,
                 "kind": "run_wait"}
 
+    def grafana_wait(insert: dict, keep: float = wait_keep) -> dict | None:
+        """The wait for a Grafana insert to draw, from the page opening to `<name>_ready`.
+
+        The insert itself starts at `ready_at`, so these seconds are not Grafana on screen: they
+        are the console take holding on a card that has already settled while a second tab loads
+        behind it. That is waiting, the same as the rights gate's, so it is cut the same way and
+        announced the same way, and a second of it stays on the picture like every other wait.
+        """
+        a, b = insert.get("open_s"), insert.get("ready_s")
+        if a is None or b is None or b - a <= keep:
+            return None
+        return {"name": insert["name"], "a": a, "b": b, "keep": keep, "max": (b - a) - keep,
+                "kind": "grafana_wait"}
+
     candidates = [
-        # Only the waits on the rights gate come out of a run, and each one is announced on the
-        # picture. The holds below are the overflow, in that order, and only when the waits alone
-        # cannot bring the render under the duration limit.
+        # Only waiting is ever taken out, and each stretch is announced on the picture: first the
+        # rights gate's calls to Video Intelligence, then the Grafana inserts drawing. The holds
+        # below are the overflow, in that order, and only when the waits alone cannot bring the
+        # render under the duration limit.
         rights_wait("", "Crest run, waiting for Video Intelligence"),
         rights_wait("_2", "muted clean run, waiting for Video Intelligence"),
         rights_wait("_3", "clean run, waiting for Video Intelligence"),
+        *(grafana_wait(insert) for insert in (inserts or [])),
         span("dashboard", "landing", 5.0, "dashboard hold"),
         span("landing", "end", 8.0, "landing hold"),
     ]
@@ -294,15 +323,22 @@ def build_windows(at: dict, lines: list[dict], protect_voice: bool = True,
 
 
 def plan_for(trim: float, head: float, windows: list[dict]) -> CutPlan:
-    """Spend the requested trim on the windows in order, each from its start."""
+    """Spend the requested trim on the windows in order, each from its start.
+
+    Nothing under a second is ever taken: the caption announcing a cut names the number of whole
+    seconds it removes, so half a second of leftover trim spent on a window would put "0 s
+    compressed" on the picture. The leftover is left in the render instead, which costs it under
+    a second of length and keeps every caption true.
+    """
     cuts, left = [], trim
     for window in windows:
-        if left <= 0.05:
+        if left < 1.0:
             break
         take = min(left, window["max"])
-        if take > 0.05:
-            cuts.append((window["a"], window["a"] + take, window["name"], window["kind"]))
-            left -= take
+        if take < 1.0:
+            continue
+        cuts.append((window["a"], window["a"] + take, window["name"], window["kind"]))
+        left -= take
     return CutPlan(head, cuts)
 
 
@@ -508,14 +544,26 @@ def main() -> int:
             print(f"overlay {entry['file']} is missing, the console take plays through instead")
             continue
         length = duration_of(path)
-        skip = leading_black(path)
+        # The insert starts where the recorder saw the panels draw, so no loading dashboard and no
+        # blank tab ever reaches the render; the console take, with the verdict on it, plays
+        # underneath until then. The black head is the fallback for a page whose panels never drew.
+        skip, source = leading_black(path), "blank tab"
+        ready, closed = entry.get("ready_at"), entry["closed_at"]
+        if ready is not None and closed - ready > 0.5:
+            wanted = length - (closed - ready)
+            if wanted > skip + 0.05:
+                skip, source = wanted, f"{entry.get('ready_cue', 'the ready cue')} (panels drawn)"
         if skip > length - 1.0:
-            skip = 0.0
-        end = max(0.0, entry["closed_at"] - offset)
-        overlays.append({"path": path, "skip": skip, "cue": entry["cue"],
-                         "window": (max(0.0, end - (length - skip)), end)})
+            skip, source = 0.0, "nothing skipped"
+        end = max(0.0, closed - offset)
+        overlays.append({"path": path, "skip": skip, "source": source, "cue": entry["cue"],
+                         "window": (max(0.0, end - (length - skip)), end),
+                         "open_s": max(0.0, entry["page_opened_at"] - offset),
+                         "ready_s": None if ready is None else max(0.0, ready - offset),
+                         "name": f"{entry['cue']} insert, waiting for Grafana"})
         if skip > 0.05:
-            print(f"overlay {entry['cue']}: skipping {skip:.1f}s of blank tab at its head")
+            print(f"overlay {entry['cue']}: {length:.1f}s recorded, skipping {skip:.1f}s of its "
+                  f"head on {source}, {length - skip:.1f}s on screen")
 
     head = max(0.0, at_video.get("stake", 0.0) - 0.4)
 
@@ -541,14 +589,14 @@ def main() -> int:
     # of each survives in both: that number is on the picture, so the fitting cannot move it. What
     # the second pass gives up is the floor that protected the line spoken over a hold.
     attempts = [
-        ("the rights waits with 1.0 s of each kept on screen, the two holds protected",
+        ("the waits with 1.0 s of each kept on screen, the two holds protected",
          dict(protect_voice=True, wait_keep=1.0)),
         ("the two holds giving up the floor that protected the line spoken over them",
          dict(protect_voice=False, wait_keep=1.0)),
     ]
     best = None
     for label, kwargs in attempts:
-        best = search(build_windows(at_video, narration["lines"], **kwargs))
+        best = search(build_windows(at_video, narration["lines"], overlays, **kwargs))
         if best["total"] <= args.maximum:
             print(f"cut plan: {label}")
             break
@@ -561,24 +609,25 @@ def main() -> int:
 
     compressions = []
     labels = []
-    for a, b, name in plan.compressions:
+    for a, b, name, kind in plan.compressions:
         removed = int(round(b - a))
         at_cut = plan.map(a)
+        text = WAIT_LABEL[kind].format(n=removed)
         compressions.append({"start_take_s": round(a, 3), "end_take_s": round(b, 3),
-                             "removed_s": removed, "name": name,
+                             "removed_s": removed, "name": name, "kind": kind, "label": text,
                              "at_render_s": round(at_cut, 3)})
         labels.append({
-            "text": f"waiting for Video Intelligence, {removed} s compressed",
+            "text": text,
             "from": max(0.0, at_cut - COMPRESSION_LABEL_S),
             "to": at_cut,
         })
-    held_back = sum(b - a for a, b, _, kind in plan.cuts if kind != "run_wait")
+    held_back = sum(b - a for a, b, _, kind in plan.cuts if kind not in WAIT_LABEL)
 
     for a, b, name, kind in plan.cuts:
-        marker = "labelled" if kind == "run_wait" else "hold"
+        marker = "labelled" if kind in WAIT_LABEL else "hold"
         print(f"  cut {b - a:5.1f}s from the {name}  ({marker})")
     if held_back > 0.05:
-        print(f"  the rights waits alone left the picture at "
+        print(f"  the waits alone left the picture at "
               f"{best['video_len'] + held_back:.1f}s, so {held_back:.1f}s more came off the "
               f"dashboard and landing holds")
     for line in placed:
@@ -623,13 +672,15 @@ def main() -> int:
         "cuts": [{"name": name, "kind": kind, "from_s": round(a, 2), "to_s": round(b, 2)}
                  for a, b, name, kind in plan.cuts],
         "compressions": [{"start_take_s": c["start_take_s"], "end_take_s": c["end_take_s"],
-                          "removed_s": c["removed_s"]} for c in compressions],
+                          "removed_s": c["removed_s"], "kind": c["kind"], "label": c["label"]}
+                         for c in compressions],
         "compression_labels": [{"text": label["text"], "from_s": round(label["from"], 3),
                                 "to_s": round(label["to"], 3)} for label in labels],
         "hold_trim_s": round(held_back, 3),
         "overlays": [{"cue": o["cue"], "from_s": round(plan.map(o["window"][0]), 2),
                       "to_s": round(plan.map(o["window"][1]), 2),
-                      "blank_head_skipped_s": round(o["skip"], 2)} for o in overlays],
+                      "head_skipped_s": round(o["skip"], 2),
+                      "head_skipped_on": o["source"]} for o in overlays],
         "room_tone_dbfs": tone,
         "lines": [{k: line[k] for k in ("cue", "start_final_s", "end_final_s", "shift_final_s", "text")}
                   for line in placed],

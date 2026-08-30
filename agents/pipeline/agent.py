@@ -117,6 +117,10 @@ def run_cost(gate_results: dict[str, dict[str, Any]]) -> dict[str, Any]:
         tokens_in += int(u.get("tokens_in") or 0)
         tokens_out += int(u.get("tokens_out") or 0)
         minutes += float(u.get("video_minutes") or 0)
+    if not per_gate:  # no gate could price itself: say so, never show a free check
+        errors = {g: (r or {}).get("usage", {}).get("error") for g, r in gate_results.items() if (r or {}).get("usage", {}).get("error")}
+        return {"cost_usd": None, "per_gate": {}, "tokens_in": 0, "tokens_out": 0, "video_minutes": 0.0,
+                "basis": "not measured" + (f": {json.dumps(errors)[:300]}" if errors else "")}
     return {"cost_usd": round(total, 6), "per_gate": per_gate, "tokens_in": tokens_in, "tokens_out": tokens_out, "video_minutes": minutes,
             "basis": "list prices of 2026-08-29 (pricing.yaml), free quotas not netted"}
 
@@ -190,7 +194,7 @@ class VerdictAgent(BaseAgent):
             payload["elapsed_ms"] = int((time.time() - started) * 1000)
             payload["cost"] = run_cost(gate_results)
             try:
-                push_verdict_counters(verdict, False, payload["cost"]["cost_usd"])
+                push_verdict_counters(verdict, False, payload["cost"].get("cost_usd"))
             except Exception as exc:  # telemetry must not hide a verdict, but its failure is said
                 payload["telemetry_error"] = f"{type(exc).__name__}: {exc}"
             yield _text_event(ctx, self.name, json.dumps({"stage": "verdict", **payload}, default=str), state_delta={STATE_VERDICT: payload})

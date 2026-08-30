@@ -388,6 +388,9 @@ async function seekClaim(page) {
   cue("seek_claim", { detail, clip_time_before: before.clipTime });
   await sleep(SEEK_HOLD_MS);
   await segment(page, "Checks");
+  // The assembler may only compress waiting, and the seek is not waiting, so it needs to know
+  // when the beat is actually over rather than assuming a duration for it.
+  cue("seek_done", { detail: "back on the Checks segment, the rights gate is still running" });
 }
 
 /** The Grafana link lives in the Record segment; the camera goes there and comes straight back. */
@@ -404,9 +407,15 @@ async function grafanaHref(page) {
  * The console keeps the finished run in React state only, so navigating the recorded tab to
  * Grafana would throw the verdict away and the take could never come back to it. Grafana is
  * therefore visited on a second page of the same context, which Playwright records to its own
- * file; assemble.py lays that file over the console take for the window it was open.
+ * file; assemble.py lays that file over the console take.
+ *
+ * Playwright records that page from the moment it is created, so its first seconds are a blank
+ * tab and then a dashboard drawing itself. None of that belongs in the video: the recorder logs
+ * `<name>_ready` the moment the panels have drawn and writes the same instant into the overlay
+ * entry as `ready_at`, and assemble.py starts the insert there. The console take, with the
+ * verdict on it, keeps playing underneath until then.
  */
-async function visitGrafana(context, url, waitForText, holdMs, cueId) {
+async function visitGrafana(context, url, waitForText, holdMs, cueId, readyCueId) {
   const openedAt = now();
   const page = await context.newPage();
   let ok = true;
@@ -424,12 +433,21 @@ async function visitGrafana(context, url, waitForText, holdMs, cueId) {
             document.querySelectorAll("canvas").length >= 8,
           waitForText,
         ),
-      { timeoutMs: 90_000, cue: cueId },
+      { timeoutMs: 90_000, cue: readyCueId },
     );
   } catch (error) {
     ok = false;
-    note(`${cueId}: ${error.message}; holding on whatever Grafana rendered`);
+    note(`${readyCueId}: ${error.message}; holding on whatever Grafana rendered`);
   }
+  // Two cues at the same instant, and they are not the same thing: the ready one is where the
+  // insert starts on the picture, the named one is the anchor the script's voice line sits on.
+  const readyAt = ok ? now() : null;
+  cue(readyCueId, {
+    url,
+    detail: ok
+      ? `panels drawn ${(now() - openedAt).toFixed(1)} s after the page opened, the insert starts here`
+      : "the panels never drew, the insert falls back to skipping its black head",
+  });
   cue(cueId, { url, detail: ok ? "panel visible" : "panel title not seen" });
   await sleep(holdMs);
   const video = page.video();
@@ -439,6 +457,8 @@ async function visitGrafana(context, url, waitForText, holdMs, cueId) {
     cue: cueId,
     file,
     page_opened_at: openedAt,
+    ready_cue: readyCueId,
+    ready_at: readyAt,
     closed_at: now(),
     panel_seen: ok,
   });
@@ -653,7 +673,9 @@ async function runTake() {
     // 5. Grafana, on a second page so the console keeps the verdict on screen.
     const href = await grafanaHref(page);
     log(`open in Grafana: ${href}`);
-    grafanaVideos.push(await visitGrafana(context, href, "Verdicts (7d)", 5_000, "grafana_open"));
+    grafanaVideos.push(
+      await visitGrafana(context, href, "Verdicts (7d)", 5_000, "grafana_open", "grafana_ready"),
+    );
     await sleep(1_000);
 
     // 6. The clean clip with the rights control still dark.
@@ -686,7 +708,8 @@ async function runTake() {
     dashboard.searchParams.set("from", "now-1h");
     dashboard.searchParams.set("to", "now");
     grafanaVideos.push(
-      await visitGrafana(context, dashboard.toString(), "Verdicts (7d)", 9_000, "dashboard"),
+      await visitGrafana(context, dashboard.toString(), "Verdicts (7d)", 9_000, "dashboard",
+        "dashboard_ready"),
     );
     const landed = await snapshot(page);
     if (landed.verdict !== "PASS") {

@@ -19,6 +19,8 @@ PRICING_PATH = pathlib.Path(__file__).resolve().parents[1] / "pricing.yaml"
 
 
 def load_pricing(path: pathlib.Path = PRICING_PATH) -> dict[str, Any]:
+    if not path.exists():
+        raise FileNotFoundError(f"pricing.yaml not found at {path}; ship it beside the airlock package (extra_packages)")
     return yaml.safe_load(path.read_text())
 
 

@@ -12,141 +12,146 @@ and nobody can prove which one was checked, or whether the
 check worked.
 
 4
-00:00:11,672 --> 00:00:17,801
+00:00:15,576 --> 00:00:21,705
 This is the reviewer's job today: a ruling on one side, the
 asset on the other, no trace.
 
 5
-00:00:19,229 --> 00:00:24,104
+00:00:23,904 --> 00:00:28,779
 Airlock: four gates, then a verdict that asks Grafana before
 it rules.
 
 6
-00:00:24,104 --> 00:00:29,397
+00:00:28,779 --> 00:00:34,072
 The rights gate is amber: its telemetry has been dark for
 seventeen minutes.
 
 7
-00:00:29,397 --> 00:00:30,651
+00:00:34,072 --> 00:00:35,326
 Keep that in mind.
 
 8
-00:00:31,051 --> 00:00:34,228
+00:00:35,726 --> 00:00:38,903
 A real commercial with a real trademark on screen.
 
 9
-00:00:34,228 --> 00:00:39,185
+00:00:38,903 --> 00:00:43,860
 The four gates run in parallel on Vertex AI Agent Engine
 while the clip plays.
 
 10
-00:00:39,585 --> 00:00:46,763
+00:00:44,260 --> 00:00:51,438
 Provenance is a cryptographic check, not an opinion: this
 film was shot decades before C2PA existed.
 
 11
-00:00:47,163 --> 00:00:53,851
+00:00:51,838 --> 00:00:58,526
 Brand: the charter forbids health claims, comparisons and
 children, and the wordmark is not even there.
 
 12
-00:01:02,136 --> 00:01:06,949
+00:01:08,506 --> 00:01:10,934
+Click the time and the clip goes there.
+
+13
+00:01:10,934 --> 00:01:15,665
 The claim gate reads every claim with its timestamp and maps
 it to the rule:
 
-13
-00:01:06,949 --> 00:01:11,888
+14
+00:01:15,665 --> 00:01:20,520
 an expert endorsement, an organisation endorsement, no
 substantiation on file.
 
-14
-00:01:11,888 --> 00:01:14,168
-Click the time, the clip goes there.
-
 15
-00:01:14,568 --> 00:01:21,137
+00:01:20,920 --> 00:01:27,489
 Rights: the Video Intelligence API found the logo and the
 faces; the registry clears neither.
 
 16
-00:01:21,537 --> 00:01:28,837
+00:01:27,889 --> 00:01:35,189
 Before it rules, the verdict asks Grafana about each gate:
 healthy, and has it caught a real injected defect this week.
 
 17
-00:01:28,837 --> 00:01:33,990
+00:01:35,189 --> 00:01:40,342
 Then it writes the verdict back as an annotation and opens
 the incident for a human.
 
 18
-00:01:37,179 --> 00:01:40,783
+00:01:40,742 --> 00:01:44,346
 A clean generated asset, signed with a real manifest.
 
 19
-00:01:41,183 --> 00:01:47,696
+00:01:44,746 --> 00:01:51,259
 Provenance passes in under a second: the manifest verifies
 against the studio's own trust list.
 
 20
-00:01:47,696 --> 00:01:49,273
+00:01:51,259 --> 00:01:52,836
 Brand and claim follow.
 
 21
-00:01:52,825 --> 00:01:54,240
+00:01:53,236 --> 00:01:54,651
 Four gates pass.
 
 22
-00:02:00,412 --> 00:02:02,405
+00:02:00,494 --> 00:02:02,487
 And the verdict still refuses:
 
 23
-00:02:02,405 --> 00:02:07,322
+00:02:02,487 --> 00:02:07,404
 Grafana cannot see the rights control succeed, so its PASS
 does not count.
 
 24
-00:02:07,322 --> 00:02:10,112
+00:02:07,404 --> 00:02:10,194
 A control nobody can see is not a control.
 
 25
-00:02:10,512 --> 00:02:13,123
+00:02:10,594 --> 00:02:13,205
 Turn the telemetry back on and run again.
 
 26
-00:02:13,523 --> 00:02:15,198
+00:02:13,605 --> 00:02:15,604
 Same clip, same gates.
 
 27
-00:02:15,198 --> 00:02:18,015
-This time every push reaches Grafana.
+00:02:22,766 --> 00:02:24,528
+Brand and claim pass again.
 
 28
-00:02:29,134 --> 00:02:33,623
+00:02:24,528 --> 00:02:30,077
+The rights gate reads the clip one more time, and this time
+its push reaches Grafana.
+
+29
+00:02:30,477 --> 00:02:34,966
 Now every gate is healthy and has caught a real injected
 defect this week.
 
-29
-00:02:33,623 --> 00:02:36,899
+30
+00:02:34,966 --> 00:02:38,242
 This is the PASS the reviewer no longer signs by hand.
 
-30
-00:02:37,299 --> 00:02:40,229
+31
+00:02:38,642 --> 00:02:41,572
 Every verdict is an annotation on this dashboard.
 
-31
-00:02:40,229 --> 00:02:42,979
+32
+00:02:41,572 --> 00:02:44,322
 Every block that needs a human is an incident.
 
-32
-00:02:42,979 --> 00:02:47,882
+33
+00:02:44,322 --> 00:02:49,225
 Each gate had to catch a real injected defect before it
 earned the right to block.
 
-33
-00:02:48,282 --> 00:02:52,353
+34
+00:02:49,625 --> 00:02:53,696
 Nothing ships without a gate that has already caught a real
 defect.
 
-34
-00:02:52,353 --> 00:02:53,325
+35
+00:02:53,696 --> 00:02:54,668
 That is Airlock.

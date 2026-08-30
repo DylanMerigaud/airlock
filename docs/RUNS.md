@@ -1086,3 +1086,41 @@ about $0.505 to $0.506 each, slightly less, on shorter clips.
   four flash pictures without changing bulbs", Kodak), a comparative ("You just need the coffee
   with better flavor", Folgers). Sixty-year-old copywriting maps onto 16 CFR 255 as cleanly as the
   demo asset does.
+
+### Draft 4 (2026-08-29 23:38 to 2026-08-30 00:15 UTC), on the console v3 with its own stage controls, synthetic voice
+
+Three things changed before the take. The Grafana inserts now start when the panels have drawn:
+the recorder logs `grafana_ready` and `dashboard_ready` at that instant and writes it into the
+overlay entry as `ready_at`, and the assembler starts each insert there instead of at the page
+opening, with the blackdetect head kept as the fallback. The claim seek keeps its cue and gains
+`seek_done`, so the compressed rights wait starts where the beat actually ends instead of four
+seconds after it. The script's claim line now opens with "Click the time and the clip goes there"
+and the third run carries two lines (`provenance_done_3`, `claim_done_3`), both placed by name.
+Selectors re-read on the live page first: the stage has no native video controls any more (its own
+play, pause and mute buttons and a marker slider), and nothing the recorder reads moved.
+
+The take, 325.0 s, 32 cues, 0 notes, none timed out: Crest BLOCK content at 120.2 s (incident 19),
+clean clip muted BLOCK control unavailable at 245.8 s (incident 20), unmuted PASS at 295.0 s. The
+rights gate waited 35 s, 71 s and 22 s over the three runs and the first Grafana insert took 19.1 s
+to draw, which left the render at 185.0 s measured with only the rights waits compressible, over
+the 180 s limit on a take that was otherwise clean. So the assembler now also compresses the wait
+for a Grafana insert to draw, under its own caption ("waiting for Grafana to draw, N s compressed")
+and with the same one second kept on screen: what it removes is still nothing but waiting, and it
+still says so on the picture. Nothing under a second is ever cut now either, so no caption can read
+"0 s compressed". Compressions: 35 s of Video Intelligence, 18 s of Grafana drawing, then 71 s and
+22 s of Video Intelligence, each labelled; no hold trimmed.
+
+`video/out/airlock-draft-4-synthetic-voice.mp4`, 177.2 s, 39.0 MB:
+
+```
+PASS  G41 definition  (1920x1080)      PASS  G45 niveau audio  (-16.4 LUFS, peak -4.0)
+PASS  G42 cadence  (30.0 fps)          PASS  G46 silence  (plus long blanc 0.0s)
+PASS  G43 duree  (177s)                PASS  G47 ouverture  (1 plage(s) de noir)
+PASS  G44 audio present  (aac)         RESULTAT: PASS mecanique
+```
+
+Open for the human pass: the footer's "Cost per check" and the dashboard's cost panel both read
+$0 on camera (`/api/stats` returns `cost_per_check_usd_7d: 0`), which reads as free rather than as
+a 7-day average that has only just started being written; the verdict line is spoken over the first
+Grafana insert rather than over the verdict card it describes, because the card fills four seconds
+before the insert opens; and the Grafana caption puts a fourth editing note on the picture.

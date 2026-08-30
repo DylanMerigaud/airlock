@@ -6,10 +6,11 @@ Voix: off humaine (Dylan, recorded separately from the screen, read from this sc
 Musique: aucune
 
 One take inside the console, the clip on the stage while the gates read it. The rights gate waits
-30 to 60 s on the Video Intelligence API in every run; the cut keeps one second of that wait, then
-compresses it and says so on screen ("waiting for Video Intelligence, N s compressed"), never hiding
-it and never cutting anything else. No stretch without a voice longer than 6 s: a line lands on
-every gate landing. Each picture line names its cue in parentheses so the narration is placed where
+30 to 70 s on the Video Intelligence API in every run, and a Grafana insert takes a few seconds to
+draw its panels; the cut keeps one second of each of those waits, then compresses the rest and says
+so on screen ("waiting for Video Intelligence, N s compressed", "waiting for Grafana to draw, N s
+compressed"), never hiding it and cutting nothing that is not waiting. No stretch without a voice
+longer than 6 s: a line lands on every gate landing. Each picture line names its cue in parentheses so the narration is placed where
 the picture is (the cue ids are the recorder's, `video/record.mjs`). Three runs, one
 decision shown three ways: the real film blocked on its content, a clean asset blocked because a
 control went dark, the same asset passed once the control is back. The stake, the stack and the

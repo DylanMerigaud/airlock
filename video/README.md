@@ -53,15 +53,19 @@ uv run python video/assemble.py                          # 3. the render and the
    row and the Grafana href by switching the `Checks | Findings | Record` segmented control to
    Record and straight back, so the clip never leaves the screen. On the Crest run the claim beat
    switches to Findings, clicks the first time chip of the claim finding so the clip seeks there,
-   holds 3 s and goes back to Checks (`cue seek_claim`); the clip autoplays on the stage through
-   every run and the recorder writes a note if it ever reports otherwise. The ASA ruling is
+   holds 3 s and goes back to Checks (`cue seek_claim`, then `cue seek_done` once it is back on
+   Checks, which is where the assembler may start compressing again); the clip autoplays on the
+   stage through every run and the recorder writes a note if it ever reports otherwise. The ASA ruling is
    scrolled slowly for 6 s on the wall clock, so that beat lasts exactly as long as it is worth
    and never has to be cut. It logs each gate the moment its status line settles, so the four
    gates can land in any order. Every wait has a 200 s timeout and names the cue it gave up on,
    and the take stops there rather than recording a beat that never happened. Grafana is
    visited on a second page of the same context, because the console keeps a finished run in the
    page and navigating the recorded tab away would throw the verdict card out of the take;
-   Playwright writes that page to its own file and step 3 lays it over the take.
+   Playwright writes that page to its own file and step 3 lays it over the take. That file opens
+   on a blank tab and then shows a dashboard drawing itself, and none of that belongs in the
+   video, so the recorder logs `grafana_ready` and `dashboard_ready` the moment the panels have
+   drawn their canvases, and writes the same instant into the overlay entry as `ready_at`.
 
    Flags: `--url <url>`, `--mock` (the url is a local mock server: no telemetry wait, fixed
    verdicts), `--skip-asa` (skip the external ASA ruling page), `--prep`, `--gap-min <m>`,
@@ -76,10 +80,11 @@ uv run python video/assemble.py                          # 3. the render and the
    `video/out/voice/` and `video/out/narration.json`. Two lines never overlap: the second slides
    to the end of the first plus 0.4 s, and the shift is written down.
 
-3. **`video/assemble.py`** converts the take to 1920x1080 at 30 fps constant H.264, lays the
-   Grafana pages over the windows they were open, minus the blank tab at the head of each one
-   (the page is recorded from the moment it opens, so its first seconds are black and the console
-   take plays through them instead), burns the Article 50 overlay over the first 8 s
+3. **`video/assemble.py`** converts the take to 1920x1080 at 30 fps constant H.264, lays each
+   Grafana page over the take from its `ready_at` to the moment it closed, so an insert opens on a
+   drawn dashboard and never on a loading one and the console take plays underneath until then (a
+   page whose panels never drew falls back to skipping the black head blackdetect measures), burns
+   the Article 50 overlay over the first 8 s
    and the subtitles from `narration.json`, mixes the narration at its cue times over a quiet room
    tone, normalises to -16 LUFS integrated with the true peak under -1 dBTP, brings the total
    between 170 and 190 s, and writes `video/out/airlock-draft-<n>-synthetic-voice.mp4`. It then
@@ -89,19 +94,22 @@ uv run python video/assemble.py                          # 3. the render and the
    python3 ~/Code/growth-cockpit/career/hackathon-evals/check.py --render <mp4> --limit-s 180
    ```
 
-   The take is always longer than the video, so the assembler cuts, and the only stretch it is
-   allowed to take is the wait on the rights gate: from the moment the last of the other three
-   chips settles to the moment rights settles, which is the Video Intelligence call and nothing
-   else. Every stretch taken out of a run says so on the picture, a mono caption at the top
-   centre reading "waiting for Video Intelligence, N s compressed" over the 2.5 s that run up to
-   the cut, and every one of them is written into `assembly.json` under `compressions`. The
+   The take is always longer than the video, so the assembler cuts, and the only thing it is
+   allowed to take out is waiting. There are two kinds. The wait on the rights gate: from the
+   moment the last of the other three chips settles to the moment rights settles, which is the
+   Video Intelligence call and nothing else. And the wait on a Grafana insert: from the moment the
+   second tab opens to the moment its panels have drawn, seconds in which the console take is
+   holding on a card that has already settled. Every stretch taken out says so on the picture, a
+   mono caption at the top centre reading "waiting for Video Intelligence, N s compressed" or
+   "waiting for Grafana to draw, N s compressed" over the 2.5 s that run up to the cut, and every
+   one of them is written into `assembly.json` under `compressions` with its kind. The
    subtitles are one cue per sentence rather than one per spoken line, each sentence taking its
    share of that line's wav duration, wrapped at about 60 characters over two rows at most, while
    the narration audio stays one wav per line. If the waits still leave the render over 179 s, the
    assembler keeps one second of each of them on screen, the number the picture itself promises,
    and shortens the dashboard hold and the landing hold instead, printing by how much. The claim
    seek the recorder plays right after the claim gate lands is never inside a compressed stretch:
-   that window starts after the beat, because what gets compressed has to be waiting and nothing
+   that window starts at `seek_done`, because what gets compressed has to be waiting and nothing
    else. Every cue time is mapped through the cuts before the narration is placed, so a line
    still lands on the picture it describes. `check.py --limit-s 180` fails above 180 s, so the
    render targets 177 s and never goes over 179. Flags: `--target`, `--min`, `--max`,
@@ -110,7 +118,8 @@ uv run python video/assemble.py                          # 3. the render and the
 ## What lands in `video/out/`
 
 ```
-cues.json          the take: every cue with its time, the Grafana overlays, the notes
+cues.json          the take: every cue with its time, the Grafana overlays with the instant
+                   their panels drew, the notes
 prep.json          the two preparation runs, when they ran and what they returned
 raw/console.webm   the console take, one file for the whole recording
 raw/*.webm         one file per Grafana page the recorder opened
