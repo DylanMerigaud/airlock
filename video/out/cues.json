@@ -1,30 +1,41 @@
 {
-  "recorded_at": "2026-08-29T23:55:40.645Z",
+  "recorded_at": "2026-08-30T01:25:24.006Z",
   "console": "https://airlock-console-771466810465.us-central1.run.app",
   "mock": false,
-  "duration_s": 331.341,
+  "duration_s": 283.645,
   "video": "raw/console.webm",
   "overlays": [
     {
       "cue": "grafana_open",
       "file": "grafana_open.webm",
-      "page_opened_at": 123.231,
+      "page_opened_at": 98.387,
       "ready_cue": "grafana_ready",
-      "ready_at": 142.355,
-      "closed_at": 148.421,
+      "ready_at": 116.306,
+      "glide_from": 118.308,
+      "glide_to": 119.385,
+      "glide_px": 70,
+      "closed_at": 121.896,
       "panel_seen": true
     },
     {
       "cue": "dashboard",
       "file": "dashboard.webm",
-      "page_opened_at": 297.546,
+      "page_opened_at": 259.143,
       "ready_cue": "dashboard_ready",
-      "ready_at": 301.654,
-      "closed_at": 312.683,
+      "ready_at": 262.121,
+      "glide_from": 264.122,
+      "glide_to": 265.194,
+      "glide_px": 70,
+      "closed_at": 273.267,
       "panel_seen": true
     }
   ],
-  "notes": [],
+  "notes": [
+    {
+      "t": 7.089,
+      "text": "no ASA beat: the take goes from the stake straight to the console"
+    }
+  ],
   "cues": [
     {
       "cue": "record_start",
@@ -33,163 +44,162 @@
     },
     {
       "cue": "stake",
-      "t": 2.098,
+      "t": 1.586,
       "detail": "console idle, the clip on the stage, six check rows"
     },
     {
-      "cue": "asa",
-      "t": 17.274,
-      "url": "https://www.asa.org.uk/rulings/nutri-paw-ltd.html",
-      "detail": "scrolling the assessment"
-    },
-    {
       "cue": "mute_on",
-      "t": 25.585,
+      "t": 7.746,
       "detail": "switched on by the recorder"
     },
     {
       "cue": "console_idle",
-      "t": 25.602,
+      "t": 7.762,
       "detail": "the Crest clip on the stage, the rights row amber"
     },
     {
       "cue": "crest_click",
-      "t": 34.637,
+      "t": 16.805,
       "detail": "Run airlock on the Crest commercial"
     },
     {
       "cue": "provenance_done",
-      "t": 37.662,
+      "t": 20.342,
       "status": "BLOCK",
       "detail": "BLOCK"
     },
     {
       "cue": "brand_done",
-      "t": 48.508,
+      "t": 39.035,
       "status": "BLOCK",
       "detail": "BLOCK"
     },
     {
       "cue": "claim_done",
-      "t": 70.204,
+      "t": 50.912,
       "status": "BLOCK",
       "detail": "BLOCK"
     },
     {
       "cue": "seek_claim",
-      "t": 70.248,
-      "detail": "clip seeked to Play the clip from 6s",
-      "clip_time_before": 4.46
+      "t": 50.954,
+      "detail": "clip seeked to Play the clip from 6.8s",
+      "clip_time_before": 1.7
     },
     {
       "cue": "seek_done",
-      "t": 73.263,
+      "t": 53.97,
       "detail": "back on the Checks segment, the rights gate is still running"
     },
     {
       "cue": "rights_done",
-      "t": 109.07,
+      "t": 75.454,
       "status": "BLOCK",
       "detail": "BLOCK"
     },
     {
       "cue": "verdict",
-      "t": 120.17,
+      "t": 85.075,
       "status": "BLOCK",
       "motive": "content",
       "needs_human": true,
-      "incident": "19",
+      "incident": "21",
       "summary": "Checks complete: BLOCK, content, needs a human.",
-      "detail": "BLOCK (content) incident 19"
+      "detail": "BLOCK (content) incident 21"
+    },
+    {
+      "cue": "record_open",
+      "t": 96.865,
+      "detail": "Record segment: This check: $0.52 at list price (rights $0.50, claim $0.02, brand $0.004, provenance $0), 17,629 tokens in, 1,282 out, 1 min of video"
     },
     {
       "cue": "grafana_ready",
-      "t": 142.355,
+      "t": 116.306,
       "url": "https://narrowsubmarine1895.grafana.net/public-dashboards/97860661238c4536a743e0d858aef845",
-      "detail": "panels drawn 19.1 s after the page opened, the insert starts here"
+      "detail": "panels drawn 17.9 s after the page opened, the insert starts here"
     },
     {
       "cue": "grafana_open",
-      "t": 142.355,
+      "t": 116.306,
       "url": "https://narrowsubmarine1895.grafana.net/public-dashboards/97860661238c4536a743e0d858aef845",
       "detail": "panel visible"
     },
     {
       "cue": "clean_muted_click",
-      "t": 150.165,
+      "t": 123.357,
       "detail": "Run airlock on the clean clip, rights telemetry muted"
     },
     {
       "cue": "provenance_done_2",
-      "t": 153.443,
+      "t": 127.153,
       "status": "PASS",
       "detail": "PASS"
     },
     {
       "cue": "brand_done_2",
-      "t": 162.023,
+      "t": 134.716,
       "status": "PASS",
       "detail": "PASS"
     },
     {
       "cue": "claim_done_2",
-      "t": 165.297,
+      "t": 139.519,
       "status": "PASS",
       "detail": "PASS"
     },
     {
       "cue": "rights_done_2",
-      "t": 236.95,
+      "t": 195.885,
       "status": "PASS",
       "detail": "PASS"
     },
     {
       "cue": "verdict_2",
-      "t": 245.776,
+      "t": 204.486,
       "status": "BLOCK",
       "motive": "control unavailable",
       "needs_human": true,
-      "incident": "20",
+      "incident": "22",
       "summary": "Checks complete: BLOCK, control unavailable, needs a human.",
-      "detail": "BLOCK (control unavailable) incident 20"
+      "detail": "BLOCK (control unavailable) incident 22"
     },
     {
       "cue": "unmute",
-      "t": 249.865,
+      "t": 208.581,
       "detail": "rights mute telemetry switched off"
     },
     {
       "cue": "clean_click_2",
-      "t": 250.898,
+      "t": 209.607,
       "detail": "Run airlock on the clean clip again"
     },
     {
       "cue": "provenance_done_3",
-      "t": 253.924,
+      "t": 212.897,
       "status": "PASS",
       "detail": "PASS"
     },
     {
       "cue": "brand_done_3",
-      "t": 264.012,
+      "t": 220.224,
       "status": "PASS",
       "detail": "PASS"
     },
     {
       "cue": "claim_done_3",
-      "t": 268.048,
+      "t": 223.762,
       "status": "PASS",
       "detail": "PASS"
     },
     {
       "cue": "rights_done_3",
-      "t": 291.504,
+      "t": 250.565,
       "status": "PASS",
       "detail": "PASS"
     },
     {
       "cue": "verdict_3",
-      "t": 295.04,
+      "t": 256.638,
       "status": "PASS",
       "motive": null,
       "needs_human": false,
@@ -199,24 +209,24 @@
     },
     {
       "cue": "dashboard_ready",
-      "t": 301.654,
+      "t": 262.121,
       "url": "https://narrowsubmarine1895.grafana.net/public-dashboards/97860661238c4536a743e0d858aef845?from=now-1h&to=now",
-      "detail": "panels drawn 4.1 s after the page opened, the insert starts here"
+      "detail": "panels drawn 3.0 s after the page opened, the insert starts here"
     },
     {
       "cue": "dashboard",
-      "t": 301.655,
+      "t": 262.121,
       "url": "https://narrowsubmarine1895.grafana.net/public-dashboards/97860661238c4536a743e0d858aef845?from=now-1h&to=now",
       "detail": "panel visible"
     },
     {
       "cue": "landing",
-      "t": 312.684,
+      "t": 273.268,
       "detail": "holding on the PASS verdict"
     },
     {
       "cue": "end",
-      "t": 324.685,
+      "t": 279.771,
       "detail": "take finished"
     }
   ],

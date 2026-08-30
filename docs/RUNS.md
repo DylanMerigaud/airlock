@@ -1139,3 +1139,69 @@ evaluated." Dylan's direction the same evening: the winners' length but "ultra d
 cuts for pace: the ASA beat gone, the stake overlay 5 s, the first run at 0:12, the verdict card
 held for its line then a 5 s dashboard insert, a punch-in on every landing, the voice at 1.1x,
 half a second of wait kept before each labelled cut, target 150 to 170 s. Draft 5 in production.
+
+### Draft 5 (2026-08-30 01:07 to 01:31 UTC), script v5, cut for pace, synthetic voice
+
+Script v5 in the pipeline. The recorder drops the ASA page (`--skip-asa` is the default now, `--asa`
+brings it back), holds the stake 5.5 s under a 5 s Article 50 overlay, and holds the verdict card
+for as long as the line spoken over it: it reads that length out of `narration.json`, which is why
+the narration is now synthesised once before the take and once after it. The Record segment stays
+on camera a second and a half and the recorder reads the run's cost line out of it into a cue. Each
+Grafana insert holds still for two seconds and then glides down the panels, and says from when to
+when it was actually moving. The narration is at speaking rate 1.1 with the silence trimmed off
+both ends of every wav, which is 6.8 s over nineteen lines and, more to the point, 6.8 s of lines
+not being pushed off the picture they describe.
+
+The assembler stopped aiming at a length. Every wait comes off whole, down to the half second the
+caption is spoken over, and two more kinds of waiting are now cut under the same promise: the
+seconds between two gates landing once the line about the first has been said ("waiting for the
+claim gate, N s compressed") and the seconds the verdict agent spends asking Grafana before the
+card fills ("waiting for the verdict agent, N s compressed"), both only when they take out four
+seconds or more, because a caption costs the picture more than three seconds of waiting does. Two
+captions that would have been drawn on top of each other now queue. Under 150 s whole waits go back
+on the picture, shortest first and never one over six seconds, which is what happened here: full
+compression left the picture at 133.1 s against a narration ending at 139.0 s, so seven seconds of
+the render would have been a frozen last frame, and giving four short waits back put the picture
+ahead of the voice again.
+
+Every landing gets a punch-in, 1.15x over 1.2 s eased in and out, on the Checks column for a gate,
+the verdict summary for a verdict, the stage for the claim seek. The centres are measured on the
+live console by `video/measure_layout.mjs` (verdict card 1484,59 420x76; the six check rows
+1485,182 418x405; the stage 16,59 1456x916). At 1.15x the frame can only travel 125 px across and
+70 px down before the crop would leave the picture, so the right column punches all clamp to
+1085,470 and the stage punch to 835,517; `assembly.json` carries both the centre asked for and the
+one reached. Thirteen played, three dropped: `claim_done` because the seek lands on the stage in
+the same instant, `rights_done_2` and `rights_done_3` because they land inside the claim punch on
+the same centre.
+
+The take, 283.6 s, 32 cues, no timeout, one note (no ASA beat): Crest BLOCK content at 85.1 s
+(incident 21), clean clip muted BLOCK control unavailable at 204.5 s (incident 22), unmuted PASS at
+256.6 s. The rights gate waited 21 s, 56 s and 26 s, the first Grafana insert took 17.9 s to draw.
+Compressions: 21 s of Video Intelligence, 17 s of Grafana drawing, 56 s of Video Intelligence, 7 s
+of the verdict agent, 26 s of Video Intelligence, 127.5 s in all, each labelled; no hold trimmed.
+The cost line was on camera in the Record segment and read $0.52 at list price (rights $0.50, claim
+$0.02, brand $0.004, provenance $0), 17,629 tokens in, 1,282 out, 1 min of video; the footer read
+$0.03 per check at the open and $0.06 at the landing, and the dashboard panel $0.0453.
+
+`video/out/airlock-draft-5-synthetic-voice.mp4`, 151.3 s, 41.7 MB:
+
+```
+PASS  G41 definition  (1920x1080)      PASS  G45 niveau audio  (-16.4 LUFS, peak -4.1)
+PASS  G42 cadence  (30.0 fps)          PASS  G46 silence  (plus long blanc 0.0s)
+PASS  G43 duree  (151s)                PASS  G47 ouverture  (0 plage(s) de noir)
+PASS  G44 audio present  (aac)         RESULTAT: PASS mecanique
+```
+
+The pace measurement, which is the point of the draft: the longest stretch of the render with
+neither a change of picture nor a line playing is 6.40 s, at 43.4 s, between the brand line ending
+and the claim gate landing, with the clip playing on the stage and the claim row reading "Checking"
+under it. That stretch is one of the four waits given back to keep the render over 150 s; cut, it
+would have been 4.65 s, and the worst would then have been the tail of the 5 s Grafana insert,
+whose line lasts 1.6 s. The 2 s rule is not reachable while a 5 s insert carries a 1.6 s line, and
+the two numbers are the trade: 151.3 s with a 6.40 s stretch, or 140.2 s with a 4.65 s one and
+seven seconds of frozen picture at the end. Voice covers 117.4 s of the 151.3 s, and the render
+carries 38 changes of picture outside it.
+
+Open for the human pass: whether the punch-ins read as a push towards the column that changed or
+as a wobble, since a 1.15x move on a 1920x1080 frame is a small one; whether five editing captions
+in 151 s read as honesty or as clutter; and whether the 6.40 s stretch at 43.4 s is felt as slow.

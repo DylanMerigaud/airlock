@@ -11,14 +11,18 @@ The take is longer than the video, because a real run takes as long as it takes.
 the cut plan is allowed to remove is waiting, and every stretch of it says so on the picture before
 it happens: "waiting for Video Intelligence, N s compressed" for the call the rights gate is
 blocked on, "waiting for Grafana to draw, N s compressed" for the seconds a Grafana insert spends
-building itself behind a settled verdict card. If that is still not enough to fit the duration
-limit, the dashboard hold and then the landing hold are shortened and the assembler prints by how
-much. Every cue time is mapped
-through the cuts, so the narration stays on the picture it describes, and the subtitles are cut
-one per sentence rather than one per spoken line.
+building itself behind a settled verdict card. All of it comes off, down to the half second the
+caption is spoken over; if that still leaves the render over the maximum, the dashboard hold and
+then the landing hold are shortened and the assembler prints by how much. Nothing is ever padded to
+reach a length. Every cue time is mapped through the cuts, so the narration stays on the picture it
+describes, and the subtitles are cut one per sentence rather than one per spoken line.
+
+Every landing gets a punch-in: 1.15x over 1.2 s, eased in and out, towards the element that
+changed, and the assembler then measures the thing the whole cut is for, the longest stretch of the
+render with neither a change of picture nor a line playing.
 
     uv run python video/assemble.py
-    uv run python video/assemble.py --draft 2 --target 180
+    uv run python video/assemble.py --draft 2 --max 175
 """
 
 from __future__ import annotations
@@ -41,9 +45,33 @@ ARTICLE_50 = (
     "synthetic content shall ensure the outputs are marked in a machine-readable format "
     "and detectable as artificially generated"
 )
-ARTICLE_50_S = 8.0
+ARTICLE_50_S = 5.0
 MIN_GAP_S = 0.4
+GATE_ORDER = ("rights", "claim", "brand", "provenance")
 TAIL_PAD_S = 1.2
+
+# The punch-in. Every landing gets one: the frame pushes 1.15x towards the thing that changed over
+# 1.2 s, eased in and eased out, and comes back. It is the only motion effect in the render; there
+# are no transitions and no music.
+#
+# The centres are measured, not guessed: `node video/measure_layout.mjs` opens the live console at
+# the take's own 1920x1080 and writes the bounding boxes to video/out/layout.json. Measured
+# 2026-08-30 on the hosted console: verdict card (1484,59) 420x76, the six check rows (1485,182)
+# 418x405, the stage (16,59) 1456x916.
+#
+# At 1.15x the visible window is 1670x939 of the frame, so a centre can only travel 125 px
+# horizontally and 70 px vertically before the crop would leave the picture. The centres below are
+# therefore requests: build_punches clamps each one and writes both numbers into assembly.json.
+# That is why the verdict punch and a gate punch land on the same effective point, one being the
+# top of the right column and the other its middle, and both being further right than 1.15x can
+# reach.
+PUNCH_ZOOM = 1.15
+PUNCH_S = 1.2
+PUNCH_AT = {
+    "checks": (1694, 384),   # the Checks column, where a gate row lands
+    "verdict": (1694, 97),   # the verdict summary, top right
+    "stage": (744, 517),     # the clip, left
+}
 ROOM_TONE_DBFS = -38.0  # above silencedetect's -45 dB floor, so a gap never reads as dead air
 
 # A subtitle cue is one sentence, wrapped at about this width and never more than two rows, so a
@@ -55,13 +83,34 @@ SUBTITLE_ROWS = 2
 # ever cut this way, and the caption names what was being waited for: the Video Intelligence call
 # the rights gate is blocked on, or the Grafana insert drawing its panels while the console take
 # holds on the verdict card underneath.
+#
+# Script v5 cuts for pace, so two more kinds of waiting come out, both of them the same thing seen
+# on another row: the seconds after the line about one gate has been said and before the next gate
+# lands, and the seconds the verdict agent spends asking Grafana about each gate before the card
+# fills. Nothing else changed: what is removed is still nothing but waiting, and it still says so
+# on the picture, in the same words, in the same place.
 WAIT_LABEL = {
     "run_wait": "waiting for Video Intelligence, {n} s compressed",
     "grafana_wait": "waiting for Grafana to draw, {n} s compressed",
+    "gate_wait": "waiting for the {gate} gate, {n} s compressed",
+    "verdict_wait": "waiting for the verdict agent, {n} s compressed",
 }
 MONO_FONT = "/System/Library/Fonts/Supplemental/Courier New Bold.ttf"
 COMPRESSION_LABEL_S = 2.5
 COMPRESSION_FONT_SIZE = 28
+# How much of a wait survives its own cut. Half a second: enough that the viewer sees the picture
+# the caption is talking about, short enough that no wait is ever a stretch of nothing.
+WAIT_KEEP_S = 0.5
+# A caption costs 2.5 s of the picture, so the two new kinds only earn one when they take out four
+# seconds or more. Under that the stretch stays in the render, where it is a few seconds of a clip
+# playing under a row that reads "Checking", and it is counted in the pace measurement like
+# everything else.
+SMALL_WAIT_S = 4.0
+# When compressing every wait leaves the render under the length it is meant to reach, whole waits
+# go back on the picture, shortest first. Only short ones: a wait given back is a stretch of the
+# render with nothing happening in it, and past this it costs the video more than the seconds are
+# worth. A render that stays under the floor stays under it and says so.
+GIVE_BACK_MAX_S = 6.0
 # The recorder plays the claim seek right after the claim gate lands: it switches to the findings
 # thread, clicks the time chip, holds the clip there and comes back (video/record.mjs, cues
 # seek_claim and seek_done, SEEK_HOLD_MS). That beat sits inside the rights wait, and only waiting
@@ -193,6 +242,128 @@ def subtitle_cues(line: dict) -> list[dict]:
     return cues
 
 
+LANDING_CUE = re.compile(rf"^({'|'.join(GATE_ORDER)})_done(_\d+)?$")
+
+
+def punch_target(cue: str) -> str | None:
+    """Which element a cue's punch-in is centred on, or None for a cue that gets no punch.
+
+    A landing only: a gate row settling, a verdict card filling, the clip jumping to the claim.
+    `seek_done` is the camera coming back from that beat and gets nothing, or the punch would play
+    twice on the same gesture.
+    """
+    if re.match(r"^verdict(_\d+)?$", cue):
+        return "verdict"
+    if cue == "seek_claim":
+        return "stage"
+    if LANDING_CUE.match(cue):
+        return "checks"
+    return None
+
+
+def build_punches(at_render: dict[str, float], total: float) -> tuple[list[dict], list[dict]]:
+    """One punch-in per landing, in render time, with the collisions resolved.
+
+    Two cues can land in the same second: the claim gate settles and the recorder clicks the time
+    chip of its finding at once, so `claim_done` and `seek_claim` are 50 ms apart in the take. Two
+    overlapping punches would sum into one 1.3x lurch, so they are resolved instead: when the later
+    cue points at a different element, it wins, because that element is the one still on screen
+    when the move plays. When it points at the same one, the earlier keeps it.
+    """
+    wanted = sorted(
+        ({"cue": cue, "target": punch_target(cue), "t": at_render[cue]}
+         for cue in at_render if punch_target(cue)),
+        key=lambda entry: entry["t"],
+    )
+    kept: list[dict] = []
+    dropped: list[dict] = []
+    for entry in wanted:
+        if entry["t"] > total - 0.2:
+            dropped.append({**entry, "why": "after the end of the render"})
+            continue
+        if kept and entry["t"] < kept[-1]["t"] + PUNCH_S:
+            previous = kept[-1]
+            if entry["target"] == previous["target"]:
+                dropped.append({**entry, "why": f"inside the {previous['cue']} punch, same centre"})
+                continue
+            kept[-1] = entry
+            dropped.append({**previous, "why": f"{entry['cue']} lands on it, on another centre"})
+            continue
+        kept.append(entry)
+
+    half_w, half_h = 1920 / (2 * PUNCH_ZOOM), 1080 / (2 * PUNCH_ZOOM)
+    for entry in kept:
+        cx, cy = PUNCH_AT[entry["target"]]
+        entry["want"] = (cx, cy)
+        entry["centre"] = (round(min(max(cx, half_w), 1920 - half_w), 1),
+                           round(min(max(cy, half_h), 1080 - half_h), 1))
+        entry["t"] = round(entry["t"], 3)
+    return kept, dropped
+
+
+def punch_filter(punches: list[dict]) -> str | None:
+    """The single zoompan that plays every punch-in, or None when there is nothing to play.
+
+    `on/30` is the time of the frame being written, which is the render's own clock because the
+    stream is constant 30 fps by the time this runs. Each punch contributes a raised cosine, from 0
+    at its start through 1 at its middle back to 0, flattened at the top so the move holds at 1.15x
+    for about half a second instead of touching it for one frame. The pulses never overlap, so they
+    can simply be summed.
+    """
+    if not punches:
+        return None
+    pulses, dxs, dys = [], [], []
+    for punch in punches:
+        start = punch["t"]
+        cx, cy = punch["centre"]
+        u = f"(on/30-{start:.3f})/{PUNCH_S}"
+        pulse = f"between(on/30,{start:.3f},{start + PUNCH_S:.3f})*min(1,(1-cos(2*PI*{u}))/2*1.4)"
+        pulses.append(f"({pulse})")
+        dxs.append(f"({cx - 960:.1f})*({pulse})")
+        dys.append(f"({cy - 540:.1f})*({pulse})")
+    zoom = f"1+{PUNCH_ZOOM - 1:.4f}*({'+'.join(pulses)})"
+    # The window is centred on the frame at rest and on the element at the top of the move, so the
+    # picture never jumps sideways when a punch starts or ends.
+    x = f"max(0,min((960+{'+'.join(dxs)})*zoom-960,iw*zoom-1920))"
+    y = f"max(0,min((540+{'+'.join(dys)})*zoom-540,ih*zoom-1080))"
+    return f"zoompan=z='{zoom}':x='{x}':y='{y}':d=1:s=1920x1080:fps=30"
+
+
+def longest_dead_stretch(events: list[float], voice: list[tuple[float, float]],
+                         total: float, moving: list[tuple[float, float]] | None = None,
+                         step: float = 0.05) -> tuple[float, float]:
+    """The longest run of render time with no change of picture and no line playing.
+
+    An event is an instant the picture changes: a cut, an insert opening or closing, an overlay
+    ending, a punch-in landing, a caption appearing, a cue of the take. A voice interval covers its
+    whole length, and so does a `moving` interval, which is a stretch the picture is changing
+    through rather than at: a dashboard gliding under the camera. The clip playing on the stage is
+    deliberately NOT one of those, so a run's own dead seconds are counted in full.
+
+    Returns (seconds, where it starts).
+    """
+    marks = sorted(t for t in events if 0.0 <= t <= total)
+    speaking = sorted(list(voice) + list(moving or []))
+    worst, worst_at, run_from = 0.0, 0.0, 0.0
+    i = j = 0
+    t = 0.0
+    while t <= total:
+        while i < len(marks) and marks[i] < t - step / 2:
+            i += 1
+        hit = i < len(marks) and marks[i] < t + step / 2
+        while j < len(speaking) and speaking[j][1] < t:
+            j += 1
+        talking = j < len(speaking) and speaking[j][0] <= t <= speaking[j][1]
+        if hit or talking:
+            if t - run_from > worst:
+                worst, worst_at = t - run_from, run_from
+            run_from = t
+        t = round(t + step, 3)
+    if total - run_from > worst:
+        worst, worst_at = total - run_from, run_from
+    return round(worst, 2), round(worst_at, 2)
+
+
 def srt_time(seconds: float) -> str:
     seconds = max(0.0, seconds)
     hours, rest = divmod(seconds, 3600)
@@ -235,14 +406,13 @@ class CutPlan:
 
 
 def build_windows(at: dict, lines: list[dict], inserts: list[dict] | None = None,
-                  protect_voice: bool = True, wait_keep: float = 1.0) -> list[dict]:
+                  protect_voice: bool = True, wait_keep: float = WAIT_KEEP_S) -> list[dict]:
     """What may be shortened, most expendable first: the waits, then two holds.
 
     A hold is never cut below the voice line spoken over it while `protect_voice` holds, so a beat
     always stays on screen at least as long as what is said about it. `wait_keep` is how much of a
-    rights wait survives its own cut, and the script fixes it at one second: the video says on the
-    picture that it keeps a second of the wait and then compresses the rest, so this is a promise
-    to the viewer and not a knob the fitting is allowed to turn.
+    rights wait survives its own cut, and script v5 fixes it at half a second: waiting is what the
+    video is cutting for pace, so what stays of it is the glimpse the caption is about.
     """
     voice = {}
     for line in lines:
@@ -250,6 +420,22 @@ def build_windows(at: dict, lines: list[dict], inserts: list[dict] | None = None
 
     def carried(a: float, b: float) -> float:
         return sum(d for cue, d in voice.items() if cue in at and a <= at[cue] < b)
+
+    # When the narration stops talking, in the take's own time: the lines laid on their cues and
+    # cascaded the way narrate.py and place() cascade them. A wait may only start once the line
+    # about the beat that opened it has been said, or the cut would drop the picture that line is
+    # describing out from under it.
+    spoken_until: dict[str, float] = {}
+    previous_end = 0.0
+    for cue in sorted((c for c in voice if c in at), key=lambda c: at[c]):
+        start = max(at[cue], previous_end + MIN_GAP_S if previous_end else 0.0)
+        previous_end = start + voice[cue]
+        spoken_until[cue] = previous_end
+
+    def quiet_from(cue: str) -> float:
+        """The first moment after `cue` at which nothing is being said."""
+        return max(at[cue], max((end for c, end in spoken_until.items() if at[c] <= at[cue]),
+                                default=at[cue]))
 
     def window(a: float, b: float, keep: float, name: str, kind: str) -> dict | None:
         held = carried(a, b) if protect_voice else 0.0
@@ -299,7 +485,7 @@ def build_windows(at: dict, lines: list[dict], inserts: list[dict] | None = None
         The insert itself starts at `ready_at`, so these seconds are not Grafana on screen: they
         are the console take holding on a card that has already settled while a second tab loads
         behind it. That is waiting, the same as the rights gate's, so it is cut the same way and
-        announced the same way, and a second of it stays on the picture like every other wait.
+        announced the same way, and half a second of it stays on the picture like every other wait.
         """
         a, b = insert.get("open_s"), insert.get("ready_s")
         if a is None or b is None or b - a <= keep:
@@ -307,14 +493,60 @@ def build_windows(at: dict, lines: list[dict], inserts: list[dict] | None = None
         return {"name": insert["name"], "a": a, "b": b, "keep": keep, "max": (b - a) - keep,
                 "kind": "grafana_wait"}
 
+    def gate_waits(suffix: str) -> list[dict]:
+        """Between two landings of the same run: one gate's line has been said, the next has not
+        landed yet, and the picture is a clip playing under a row that reads "Checking".
+
+        The last pair of a run is the rights gate's own wait, which `rights_wait` already names
+        after the call it is blocked on, so it is not repeated here.
+        """
+        landed = sorted(((at[f"{g}_done{suffix}"], g) for g in GATE_ORDER
+                         if f"{g}_done{suffix}" in at))
+        out = []
+        for (t_prev, prev), (t_next, gate) in zip(landed, landed[1:]):
+            if gate == "rights":
+                continue
+            a = max(quiet_from(f"{prev}_done{suffix}"), t_prev)
+            seek = at.get("seek_claim")
+            if seek is not None and a <= seek < t_next:
+                a = min(at.get("seek_done", seek + SEEK_BEAT_S), t_next)
+            if t_next - a <= wait_keep + SMALL_WAIT_S:
+                continue
+            out.append({"name": f"waiting for the {gate} gate{suffix}", "a": a, "b": t_next,
+                        "keep": wait_keep, "max": (t_next - a) - wait_keep, "kind": "gate_wait",
+                        "gate": gate})
+        return out
+
+    def verdict_wait(suffix: str) -> dict | None:
+        """The seconds between the last gate landing and the verdict card: the verdict agent
+        asking Grafana about each gate before it rules."""
+        last = max((at[f"{g}_done{suffix}"] for g in GATE_ORDER if f"{g}_done{suffix}" in at),
+                   default=None)
+        end = at.get(f"verdict{suffix}")
+        if last is None or end is None:
+            return None
+        # Strictly before the card fills: the line spoken over the verdict itself starts there and
+        # is the reason the hold exists, so it must not close the window it opens.
+        a = max(last, max((v for c, v in spoken_until.items() if at[c] < end), default=last))
+        if end - a <= wait_keep + SMALL_WAIT_S:
+            return None
+        return {"name": f"waiting for the verdict agent{suffix}", "a": a, "b": end,
+                "keep": wait_keep, "max": (end - a) - wait_keep, "kind": "verdict_wait"}
+
     candidates = [
-        # Only waiting is ever taken out, and each stretch is announced on the picture: first the
-        # rights gate's calls to Video Intelligence, then the Grafana inserts drawing. The holds
-        # below are the overflow, in that order, and only when the waits alone cannot bring the
-        # render under the duration limit.
+        # Only waiting is ever taken out, and each stretch is announced on the picture: the rights
+        # gate's calls to Video Intelligence, the seconds between two landings, the verdict agent
+        # asking Grafana, a Grafana insert drawing. The holds below are the overflow, in that
+        # order, and only when the waits alone cannot bring the render under the maximum.
         rights_wait("", "Crest run, waiting for Video Intelligence"),
         rights_wait("_2", "muted clean run, waiting for Video Intelligence"),
         rights_wait("_3", "clean run, waiting for Video Intelligence"),
+        *gate_waits(""),
+        *gate_waits("_2"),
+        *gate_waits("_3"),
+        verdict_wait(""),
+        verdict_wait("_2"),
+        verdict_wait("_3"),
         *(grafana_wait(insert) for insert in (inserts or [])),
         span("dashboard", "landing", 5.0, "dashboard hold"),
         span("landing", "end", 8.0, "landing hold"),
@@ -432,7 +664,7 @@ def write_srt(lines: list[dict], path: Path) -> list[dict]:
 def build_video(
     console: Path, overlays: list[dict], plan: CutPlan, total: float, raw_len: float,
     out_dir: Path, srt: Path, audio: Path, target: Path, subtitle_size: int,
-    labels: list[dict],
+    labels: list[dict], punch: str | None = None,
 ) -> None:
     a50 = out_dir / "article-50.txt"
     a50.write_text("\n".join(wrap(ARTICLE_50, 58)) + "\n", encoding="utf-8")
@@ -460,6 +692,11 @@ def build_video(
     pad = total - (raw_len - plan.removed)
     if pad > 0.05:
         chain.append(f"tpad=stop_mode=clone:stop_duration={pad + 0.5:.3f}")
+    # The punch-ins run on the picture only. Everything burned in below (the Article 50 overlay,
+    # the compression captions, the subtitles) is drawn after them and never moves.
+    if punch:
+        chain.append("format=yuv444p")
+        chain.append(punch)
     chain.append(
         f"drawtext=fontfile={FONT}:textfile={a50}:fontsize=40:fontcolor=white:line_spacing=10"
         ":box=1:boxcolor=black@0.78:boxborderw=32:x=(w-text_w)/2:y=(h-text_h)/2-90"
@@ -510,9 +747,11 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--out", default=str(ROOT / "video" / "out"))
     ap.add_argument("--draft", type=int, default=None)
-    ap.add_argument("--target", type=float, default=177.0)
-    ap.add_argument("--min", dest="minimum", type=float, default=170.0)
-    ap.add_argument("--max", dest="maximum", type=float, default=179.0)
+    # The cut aims at nothing: it removes all the waiting and reports where that lands. --min is
+    # the length the render is expected to reach and only ever prints a warning; --max is the one
+    # number with teeth, because past it a hold gets shortened.
+    ap.add_argument("--min", dest="minimum", type=float, default=150.0)
+    ap.add_argument("--max", dest="maximum", type=float, default=170.0)
     # libass scales the style of an SRT from a 384x288 script box, so a size lands on screen at
     # roughly 3.75 times its number: 13 renders about 49 px tall at 1080p, which is the intent of
     # the brief's "size 26". Passing 26 itself fills a third of the frame.
@@ -560,6 +799,10 @@ def main() -> int:
                          "window": (max(0.0, end - (length - skip)), end),
                          "open_s": max(0.0, entry["page_opened_at"] - offset),
                          "ready_s": None if ready is None else max(0.0, ready - offset),
+                         "glide_s": (None if entry.get("glide_from") is None
+                                     else max(0.0, entry["glide_from"] - offset)),
+                         "glide_to_s": (None if entry.get("glide_to") is None
+                                        else max(0.0, entry["glide_to"] - offset)),
                          "name": f"{entry['cue']} insert, waiting for Grafana"})
         if skip > 0.05:
             print(f"overlay {entry['cue']}: {length:.1f}s recorded, skipping {skip:.1f}s of its "
@@ -567,32 +810,66 @@ def main() -> int:
 
     head = max(0.0, at_video.get("stake", 0.0) - 0.4)
 
+    def measure(plan: CutPlan) -> dict:
+        placed = place(narration["lines"], plan, offset)
+        narration_end = max(line["end_final_s"] for line in placed)
+        video_len = raw_len - plan.removed
+        return {"plan": plan, "placed": placed, "video_len": video_len,
+                "narration_end": narration_end,
+                "total": max(video_len, narration_end + TAIL_PAD_S)}
+
     def search(windows: list[dict]) -> dict:
-        budget = sum(w["max"] for w in windows)
-        best = None
-        for trim_tenths in range(0, int(budget * 10) + 1, 5):
-            trim = trim_tenths / 10
-            plan = plan_for(trim, head, windows)
-            placed = place(narration["lines"], plan, offset)
-            narration_end = max(line["end_final_s"] for line in placed)
-            video_len = raw_len - plan.removed
-            total = max(video_len, narration_end + TAIL_PAD_S)
-            penalty = 0.0 if args.minimum <= total <= args.maximum else 1000.0
-            score = penalty + abs(total - args.target)
-            if best is None or score < best["score"]:
-                best = {"score": score, "trim": trim, "plan": plan, "placed": placed,
-                        "total": total, "video_len": video_len, "narration_end": narration_end}
+        """Compress every wait, then only as much of a hold as the length limit demands.
+
+        Draft 4 looked for the trim that landed closest to a target, which could leave half a wait
+        on the picture to make the numbers work: twenty seconds of a settled card and no voice,
+        which is exactly what this cut is against. So the waits now always come off whole, down to
+        the half second the caption promises, and a hold is only ever touched to get back under the
+        maximum. Nothing is ever padded to reach a length: a render that lands short lands short
+        and says so.
+        """
+        waits = [w for w in windows if w["kind"] in WAIT_LABEL]
+        holds = sum(w["max"] for w in windows if w["kind"] not in WAIT_LABEL)
+
+        def with_waits(cut: list[dict], extra: float = 0.0) -> dict:
+            chosen = cut + [w for w in windows if w["kind"] not in WAIT_LABEL]
+            trim = sum(w["max"] for w in cut) + extra
+            out = measure(plan_for(trim, head, chosen))
+            out.update(trim=trim, windows=chosen)
+            return out
+
+        best = with_waits(waits)
+        # Under the floor, whole waits go back on the picture, the shortest first, until the render
+        # reaches it. A wait is never given back in part: what is cut is cut to the half second the
+        # caption promises, and what is kept is kept whole.
+        if best["total"] < args.minimum:
+            cut = list(waits)
+            for window in sorted(waits, key=lambda w: w["max"]):
+                if best["total"] >= args.minimum or window["max"] > GIVE_BACK_MAX_S:
+                    break
+                attempt = with_waits([w for w in cut if w is not window])
+                if attempt["total"] > args.maximum:
+                    break
+                cut = [w for w in cut if w is not window]
+                best = attempt
+        if best["total"] <= args.maximum:
+            return best
+        for extra_tenths in range(5, int(holds * 10) + 1, 5):
+            attempt = with_waits(waits, extra_tenths / 10)
+            best = attempt
+            if attempt["total"] <= args.maximum:
+                break
         return best
 
-    # Two passes, the second giving up less than the first. The waits come off first in both,
-    # because they are the only stretch the script allows the assembler to remove, and one second
-    # of each survives in both: that number is on the picture, so the fitting cannot move it. What
-    # the second pass gives up is the floor that protected the line spoken over a hold.
+    # Two passes, the second giving up less than the first. The waits come off whole in both,
+    # because they are the only stretch the script allows the assembler to remove, and half a
+    # second of each survives in both: that is what the picture shows behind the caption. What the
+    # second pass gives up is the floor that protected the line spoken over a hold.
     attempts = [
-        ("the waits with 1.0 s of each kept on screen, the two holds protected",
-         dict(protect_voice=True, wait_keep=1.0)),
+        (f"every wait compressed to {WAIT_KEEP_S:.1f} s, the two holds protected",
+         dict(protect_voice=True)),
         ("the two holds giving up the floor that protected the line spoken over them",
-         dict(protect_voice=False, wait_keep=1.0)),
+         dict(protect_voice=False)),
     ]
     best = None
     for label, kwargs in attempts:
@@ -606,13 +883,20 @@ def main() -> int:
     print(f"take {raw_len:.1f}s, head trim {head:.1f}s, cut {best['trim']:.1f}s, "
           f"video {best['video_len']:.1f}s, narration ends {best['narration_end']:.1f}s, "
           f"render {total:.1f}s")
+    if total < args.minimum:
+        print(f"  the picture is {total:.1f}s, under the {args.minimum:.0f}s target floor: the "
+              f"take is what it is and no hold is padded to reach a length")
+    if total > args.maximum:
+        print(f"  the picture is {total:.1f}s, over the {args.maximum:.0f}s target ceiling with "
+              f"everything this cut is allowed to remove")
 
     compressions = []
     labels = []
+    by_name = {window["name"]: window for window in best["windows"]}
     for a, b, name, kind in plan.compressions:
         removed = int(round(b - a))
         at_cut = plan.map(a)
-        text = WAIT_LABEL[kind].format(n=removed)
+        text = WAIT_LABEL[kind].format(n=removed, gate=by_name.get(name, {}).get("gate", ""))
         compressions.append({"start_take_s": round(a, 3), "end_take_s": round(b, 3),
                              "removed_s": removed, "name": name, "kind": kind, "label": text,
                              "at_render_s": round(at_cut, 3)})
@@ -621,6 +905,13 @@ def main() -> int:
             "from": max(0.0, at_cut - COMPRESSION_LABEL_S),
             "to": at_cut,
         })
+    # Two cuts can land close enough that their captions would be drawn on top of each other, in
+    # the same place, at the same size, for the second it takes to read either. The later one waits
+    # for the earlier to have said what it says.
+    labels.sort(key=lambda label: label["to"])
+    for previous, label in zip(labels, labels[1:]):
+        if label["from"] < previous["to"]:
+            label["from"] = min(previous["to"], label["to"] - 0.5)
     held_back = sum(b - a for a, b, _, kind in plan.cuts if kind not in WAIT_LABEL)
 
     for a, b, name, kind in plan.cuts:
@@ -634,6 +925,36 @@ def main() -> int:
         print(f"  {line['cue']:<20} {line['start_final_s']:7.2f}s to {line['end_final_s']:7.2f}s"
               f"  (+{line['shift_final_s']:.2f}s)")
 
+    # The punch-ins, in the render's own time, and then the measurement the whole cut is for: the
+    # longest stretch with neither a change of picture nor a line playing.
+    at_render = {cue: plan.map(t) for cue, t in at_video.items()}
+    punches, punches_dropped = build_punches(at_render, total)
+    punch = punch_filter(punches)
+    print(f"{len(punches)} punch-ins of {PUNCH_ZOOM}x over {PUNCH_S}s")
+    for entry in punches:
+        cx, cy = entry["centre"]
+        wx, wy = entry["want"]
+        clamp = "" if (cx, cy) == (wx, wy) else f"  (asked for {wx},{wy}, 1.15x reaches this far)"
+        print(f"  {entry['t']:7.2f}s  {entry['cue']:<20} {entry['target']:<8} at {cx},{cy}{clamp}")
+    for entry in punches_dropped:
+        print(f"  dropped {entry['cue']} at {entry['t']:.2f}s: {entry['why']}")
+
+    picture_events = (
+        [t for t in at_render.values() if 0.0 <= t <= total]
+        + [plan.map(a) for a, _, _, _ in plan.cuts]
+        + [entry["t"] for entry in punches]
+        + [label["from"] for label in labels]
+        + [ARTICLE_50_S]
+        + [t for overlay in overlays for t in (plan.map(overlay["window"][0]),
+                                               plan.map(overlay["window"][1]))]
+    )
+    voice_spans = [(line["start_final_s"], line["end_final_s"]) for line in placed]
+    glides = [(plan.map(overlay["glide_s"]), plan.map(overlay["glide_to_s"]))
+              for overlay in overlays
+              if overlay.get("glide_s") is not None and overlay.get("glide_to_s") is not None]
+    dead_s, dead_at = longest_dead_stretch(picture_events, voice_spans, total, glides)
+    print(f"longest stretch with no change of picture and no voice: {dead_s:.2f}s at {dead_at:.1f}s")
+
     srt = out_dir / "narration.srt"
     subtitles = write_srt(placed, srt)
     print(f"{len(subtitles)} subtitle cues over {len(placed)} spoken lines")
@@ -646,7 +967,7 @@ def main() -> int:
     for attempt in range(1, 4):
         audio = build_audio(placed, out_dir, total, tone)
         build_video(console, overlays, plan, total, raw_len, out_dir, srt, audio, target,
-                    args.subtitle_size, labels)
+                    args.subtitle_size, labels, punch)
         size_mb = target.stat().st_size / 1024 / 1024
         print(f"\nwrote {target} ({size_mb:.1f} MB)")
         if args.no_check or not CHECK.exists():
@@ -677,6 +998,14 @@ def main() -> int:
         "compression_labels": [{"text": label["text"], "from_s": round(label["from"], 3),
                                 "to_s": round(label["to"], 3)} for label in labels],
         "hold_trim_s": round(held_back, 3),
+        "punches": [{"cue": entry["cue"], "target": entry["target"], "at_s": entry["t"],
+                     "centre": list(entry["centre"]), "wanted_centre": list(entry["want"]),
+                     "zoom": PUNCH_ZOOM, "seconds": PUNCH_S} for entry in punches],
+        "punches_dropped": [{"cue": entry["cue"], "at_s": round(entry["t"], 3),
+                             "why": entry["why"]} for entry in punches_dropped],
+        "pace": {"longest_no_picture_no_voice_s": dead_s, "starts_at_s": dead_at,
+                 "voice_s": round(sum(b - a for a, b in voice_spans), 2),
+                 "picture_events": len(set(round(t, 2) for t in picture_events))},
         "overlays": [{"cue": o["cue"], "from_s": round(plan.map(o["window"][0]), 2),
                       "to_s": round(plan.map(o["window"][1]), 2),
                       "head_skipped_s": round(o["skip"], 2),

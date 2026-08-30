@@ -1,5 +1,5 @@
 {
-  "at": "2026-08-29T23:52:53.254Z",
+  "at": "2026-08-30T01:22:18.987Z",
   "console": "https://airlock-console-771466810465.us-central1.run.app",
   "gap_minutes": 13,
   "min_mute_age_s": 990,
@@ -7,20 +7,20 @@
     {
       "asset": "clean",
       "mute": [],
-      "seconds": 42.9,
+      "seconds": 92.4,
       "verdict": "PASS",
       "motive": "content",
-      "at": "2026-08-29T23:38:23.014Z"
+      "at": "2026-08-30T01:07:14.904Z"
     },
     {
       "asset": "clean",
       "mute": [
         "rights"
       ],
-      "seconds": 47.3,
+      "seconds": 31.6,
       "verdict": "PASS",
       "motive": "content",
-      "at": "2026-08-29T23:52:05.935Z"
+      "at": "2026-08-30T01:21:47.361Z"
     }
   ]
 }

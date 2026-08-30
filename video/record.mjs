@@ -14,7 +14,8 @@
  * Flags:
  *   --url <url>          console to drive (default: the hosted console)
  *   --mock               the url is a mock server: no telemetry age wait, fixed verdicts
- *   --skip-asa           skip the external ASA ruling page
+ *   --asa                visit the external ASA ruling page (script v4 and earlier; off by default)
+ *   --skip-asa           kept for compatibility, and now the default
  *   --prep               preparation only, no browser: one clean run, then one with rights muted
  *   --no-wait            do not wait for the rights telemetry to go stale before the take
  *   --min-mute-age <s>   how stale the rights telemetry must be before the take (default 990)
@@ -46,6 +47,22 @@ const GATES = ["rights", "claim", "brand", "provenance"];
 const STEP_TIMEOUT_MS = 200_000;
 const ASA_SCROLL_MS = 6_000;
 const SEEK_HOLD_MS = 3_000;
+// The stake: the Article 50 overlay assemble.py burns over the open lasts 5 s, and the console
+// is alone on the picture for the rest of this hold before the reviewer's first gesture.
+const STAKE_HOLD_MS = 5_500;
+// The verdict card is held for as long as the line spoken over it, which is measured and not
+// assumed: video/out/narration.json from the previous narration carries that wav's duration. The
+// fallback is for a first run, before any narration exists.
+const VERDICT_HOLD_FALLBACK_MS = 12_000;
+const VERDICT_HOLD_MARGIN_MS = 1_000;
+const VERDICT_HOLD_MAX_MS = 16_000;
+const GRAFANA_INSERT_MS = 5_000;
+const DASHBOARD_INSERT_MS = 9_500;
+const LANDING_HOLD_MS = 6_500;
+// An insert holds still while the line names what is on it, then glides down the panels for the
+// rest of its window, so no insert is ever a still picture with nothing being said over it.
+const DASHBOARD_STILL_MS = 2_000;
+const DASHBOARD_GLIDE_STEP_MS = 60;
 
 function arg(name, fallback) {
   const i = process.argv.indexOf(name);
@@ -56,7 +73,9 @@ const has = (name) => process.argv.includes(name);
 const OPTS = {
   url: (arg("--url", DEFAULT_CONSOLE) || DEFAULT_CONSOLE).replace(/\/$/, ""),
   mock: has("--mock"),
-  skipAsa: has("--skip-asa"),
+  // Script v5 has no ASA beat: the ruling was a picture the video could not afford. --skip-asa is
+  // still accepted so an older command line still runs, and --asa brings the beat back.
+  skipAsa: !has("--asa"),
   prep: has("--prep"),
   wait: !has("--no-wait"),
   minMuteAge: Number(arg("--min-mute-age", "990")),
@@ -393,14 +412,51 @@ async function seekClaim(page) {
   cue("seek_done", { detail: "back on the Checks segment, the rights gate is still running" });
 }
 
-/** The Grafana link lives in the Record segment; the camera goes there and comes straight back. */
+/**
+ * The Grafana link lives in the Record segment; the camera goes there and comes straight back.
+ * The record also carries the run's cost line ("This check: $0.50 at list price, ..."), which is
+ * on camera for this second and a half, so the recorder reads it and writes it into the cue log:
+ * a draft can then be checked for a cost that says $0 without anyone squinting at the frame.
+ */
 async function grafanaHref(page) {
   await segment(page, "Record");
   const link = page.locator("a").filter({ hasText: /^Open in Grafana$/ }).first();
   const href = await link.getAttribute("href", { timeout: 20_000 });
-  await sleep(500);
+  const cost = await page
+    .evaluate(() => {
+      const node = Array.from(document.querySelectorAll("p")).find((p) =>
+        /^This check:/.test((p.textContent || "").trim()),
+      );
+      return node ? node.textContent.replace(/\s+/g, " ").trim() : null;
+    })
+    .catch(() => null);
+  cue("record_open", { detail: cost ? `Record segment: ${cost}` : "Record segment: no cost line" });
+  if (!cost) note("the Record segment showed no cost line");
+  await sleep(1_500);
   await segment(page, "Checks");
   return href;
+}
+
+/**
+ * How long the verdict card is held: the length of the line spoken over it. narration.json is the
+ * previous narration, synthesised from the same script at the same speaking rate, so its wav
+ * duration is the measurement. A missing file, or a narration with no verdict line, falls back.
+ */
+function verdictHoldMs() {
+  const path_ = path.join(OPTS.out, "narration.json");
+  try {
+    const narration = JSON.parse(fs.readFileSync(path_, "utf8"));
+    const line = (narration.lines || []).find((entry) => entry.cue === "verdict");
+    if (line && line.duration_s) {
+      const ms = Math.min(VERDICT_HOLD_MAX_MS, line.duration_s * 1000 + VERDICT_HOLD_MARGIN_MS);
+      log(`the verdict line lasts ${line.duration_s.toFixed(1)} s, holding the card ${(ms / 1000).toFixed(1)} s`);
+      return ms;
+    }
+  } catch {
+    // No narration yet, or one this script cannot read: the fallback is the whole point of it.
+  }
+  log(`no verdict line in narration.json, holding the card ${VERDICT_HOLD_FALLBACK_MS / 1000} s`);
+  return VERDICT_HOLD_FALLBACK_MS;
 }
 
 /**
@@ -415,6 +471,52 @@ async function grafanaHref(page) {
  * entry as `ready_at`, and assemble.py starts the insert there. The console take, with the
  * verdict on it, keeps playing underneath until then.
  */
+/**
+ * Hold on a drawn dashboard: still at first, so the annotation the voice is pointing at is read
+ * where it landed, then a slow glide down the panels for the rest of the insert.
+ *
+ * The glide is not decoration. An insert is on screen longer than the line spoken over it, and a
+ * still dashboard for those seconds is the one thing this cut is against: a stretch with no change
+ * of picture. Grafana scrolls an inner element rather than the window, so the tallest scrollable
+ * node is found and moved, and if nothing moves at all the recorder says so in the notes.
+ */
+async function holdOnDashboard(page, holdMs, cueId) {
+  const still = Math.min(DASHBOARD_STILL_MS, holdMs / 2);
+  await sleep(still);
+  const glideFrom = now();
+  const glideMs = holdMs - still;
+  if (glideMs < 400) return null;
+  const steps = Math.floor(glideMs / DASHBOARD_GLIDE_STEP_MS);
+  let moved = 0;
+  let movedAt = null;
+  for (let i = 0; i < steps; i += 1) {
+    const at = await page
+      .evaluate(() => {
+        const nodes = [document.scrollingElement, ...document.querySelectorAll("div")].filter(
+          (node) => node && node.scrollHeight - node.clientHeight > 40,
+        );
+        const tallest = nodes.sort((a, b) => b.scrollHeight - a.scrollHeight)[0];
+        if (!tallest) return 0;
+        tallest.scrollTop += 4;
+        return tallest.scrollTop;
+      })
+      .catch(() => moved);
+    // A public dashboard is not always taller than the viewport. When it stops moving the picture
+    // stops changing, and the pace measurement in assemble.py is told exactly when that was.
+    if (at > moved) {
+      moved = at;
+      movedAt = now();
+    }
+    await sleep(DASHBOARD_GLIDE_STEP_MS);
+  }
+  if (!moved) {
+    note(`${cueId}: the dashboard did not scroll, the insert holds still`);
+    return null;
+  }
+  log(`${cueId}: the dashboard glided ${moved} px, moving until t+${movedAt.toFixed(1)}s`);
+  return { from: glideFrom, to: movedAt, pixels: moved };
+}
+
 async function visitGrafana(context, url, waitForText, holdMs, cueId, readyCueId) {
   const openedAt = now();
   const page = await context.newPage();
@@ -449,7 +551,7 @@ async function visitGrafana(context, url, waitForText, holdMs, cueId, readyCueId
       : "the panels never drew, the insert falls back to skipping its black head",
   });
   cue(cueId, { url, detail: ok ? "panel visible" : "panel title not seen" });
-  await sleep(holdMs);
+  const glide = await holdOnDashboard(page, holdMs, cueId);
   const video = page.video();
   await page.close();
   const file = `${cueId}.webm`;
@@ -459,6 +561,9 @@ async function visitGrafana(context, url, waitForText, holdMs, cueId, readyCueId
     page_opened_at: openedAt,
     ready_cue: readyCueId,
     ready_at: readyAt,
+    glide_from: glide ? glide.from : null,
+    glide_to: glide ? glide.to : null,
+    glide_px: glide ? glide.pixels : 0,
     closed_at: now(),
     panel_seen: ok,
   });
@@ -607,15 +712,15 @@ async function runTake() {
     consoleVideo = page.video();
     cue("record_start", { t: 0, detail: "the context video starts here" });
 
-    // 1. The stake. The Article 50 overlay is laid over these seconds in assemble.py.
+    // 1. The stake. The Article 50 overlay is laid over the first 5 s of it in assemble.py.
     cue("stake", { detail: "console idle, the clip on the stage, six check rows" });
-    await sleep(8_000);
+    await sleep(STAKE_HOLD_MS);
 
-    // 2. The reviewer's job today: a real ASA ruling, scrolled for 6 s.
+    // 2. The reviewer's job today: a real ASA ruling, scrolled for 6 s. Off since script v5.
     if (OPTS.skipAsa) {
-      note("ASA page skipped (--skip-asa); the stake beat holds on the console instead");
-      cue("asa", { detail: "skipped" });
-      await sleep(ASA_SCROLL_MS);
+      // Script v5 dropped the beat: the take goes straight from the stake to the reviewer's first
+      // gesture, and nothing waits here. --asa brings the page back.
+      note("no ASA beat: the take goes from the stake straight to the console");
     } else {
       try {
         await page.goto(ASA_URL, { waitUntil: "domcontentloaded", timeout: 90_000 });
@@ -668,15 +773,18 @@ async function runTake() {
     if (!OPTS.mock && (verdict1.status !== "BLOCK" || verdict1.motive !== "content")) {
       note(`verdict expected BLOCK (content), got ${verdict1.status} (${verdict1.motive})`);
     }
-    await sleep(2_500);
+    // The card stays on the picture for the whole line spoken about it, and only then does the
+    // camera leave for the dashboard. This hold is the one beat of the take nothing may compress.
+    await sleep(verdictHoldMs());
 
     // 5. Grafana, on a second page so the console keeps the verdict on screen.
     const href = await grafanaHref(page);
     log(`open in Grafana: ${href}`);
     grafanaVideos.push(
-      await visitGrafana(context, href, "Verdicts (7d)", 5_000, "grafana_open", "grafana_ready"),
+      await visitGrafana(context, href, "Verdicts (7d)", GRAFANA_INSERT_MS, "grafana_open",
+        "grafana_ready"),
     );
-    await sleep(1_000);
+    await sleep(700);
 
     // 6. The clean clip with the rights control still dark.
     await clickAsset(page, "Nimbus clean clip");
@@ -708,15 +816,15 @@ async function runTake() {
     dashboard.searchParams.set("from", "now-1h");
     dashboard.searchParams.set("to", "now");
     grafanaVideos.push(
-      await visitGrafana(context, dashboard.toString(), "Verdicts (7d)", 9_000, "dashboard",
-        "dashboard_ready"),
+      await visitGrafana(context, dashboard.toString(), "Verdicts (7d)", DASHBOARD_INSERT_MS,
+        "dashboard", "dashboard_ready"),
     );
     const landed = await snapshot(page);
     if (landed.verdict !== "PASS") {
       note(`landing: the console no longer shows the PASS verdict (verdict=${landed.verdict})`);
     }
     cue("landing", { detail: `holding on the ${landed.verdict ?? "idle"} verdict` });
-    await sleep(12_000);
+    await sleep(LANDING_HOLD_MS);
     cue("end", { detail: "take finished" });
   } catch (error) {
     failure = error;

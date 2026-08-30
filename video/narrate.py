@@ -32,8 +32,16 @@ PREFERRED_VOICE = "en-US-Neural2-D"
 FALLBACK_VOICE = "en-US-Neural2-D"
 LANGUAGE = "en-US"
 SAMPLE_RATE = 24_000
-SPEAKING_RATE = 1.0
+# The read is at 1.1: the script is cut for pace and a line has to be over before the picture it
+# describes is, so the words come faster rather than the beats getting longer.
+SPEAKING_RATE = 1.1
 MIN_GAP_S = 0.4
+# Text to Speech hands back a fifth of a second of silence at each end of every line. Eighteen
+# lines of that is four seconds of nothing, and worse, it is four seconds that push the next line
+# off the picture it belongs to, because a line never starts before the one before it has ended.
+# So each wav is trimmed to its speech and given back a short tail, and the trim is written down.
+SILENCE_FLOOR_DB = -50
+TAIL_S = 0.08
 
 # Which cue of the take each beat is spoken over is named by the script itself: every picture
 # description carries "(cue xxx)", and a beat that names two cues is placed on the first. A beat
@@ -81,6 +89,32 @@ def parse_script(path: Path) -> list[dict]:
             }
         )
     return beats
+
+
+def trim_silence(path: Path) -> float:
+    """Cut the silence off both ends of a synthesised line, leaving a short tail.
+
+    Returns how many seconds came off. The file is replaced in place, so narration.json and the
+    mix downstream read the trimmed length and nothing has to know this happened.
+    """
+    before = wav_duration(path)
+    trimmed = path.with_suffix(".trimmed.wav")
+    edge = (
+        f"silenceremove=start_periods=1:start_duration=0:start_threshold={SILENCE_FLOOR_DB}dB"
+        ":detection=peak"
+    )
+    result = subprocess.run(
+        ["ffmpeg", "-y", "-nostdin", "-v", "error", "-i", str(path), "-af",
+         f"{edge},areverse,{edge},areverse,apad=pad_dur={TAIL_S}", str(trimmed)],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0 or not trimmed.exists():
+        print(f"  could not trim {path.name}, keeping it whole: {result.stderr.strip()[:200]}")
+        trimmed.unlink(missing_ok=True)
+        return 0.0
+    trimmed.replace(path)
+    return round(before - wav_duration(path), 3)
 
 
 def wav_duration(path: Path) -> float:
@@ -176,8 +210,10 @@ def main() -> int:
         )
         path.write_bytes(response.audio_content)
         line["wav"] = str(path.relative_to(out))
+        line["trimmed_s"] = trim_silence(path)
         line["duration_s"] = round(wav_duration(path), 3)
-        print(f"{name}: {line['duration_s']:6.2f}s  at {line['start_s']:7.2f}s ({line['start_source']})")
+        print(f"{name}: {line['duration_s']:6.2f}s (-{line['trimmed_s']:.2f}s silence)"
+              f"  at {line['start_s']:7.2f}s ({line['start_source']})")
 
     # A line never lands on top of the one before it: it slides to the previous end plus a beat,
     # and the shift is recorded so the take can be re-cut if a beat is systematically too tight.
@@ -196,6 +232,7 @@ def main() -> int:
         "sample_rate_hz": SAMPLE_RATE,
         "speaking_rate": SPEAKING_RATE,
         "min_gap_s": MIN_GAP_S,
+        "silence_trimmed_s": round(sum(line["trimmed_s"] for line in lines), 3),
         "take": {
             "recorded_at": take.get("recorded_at"),
             "duration_s": take.get("duration_s"),
@@ -209,9 +246,14 @@ def main() -> int:
     print()
     for name in missing:
         print(f"  the take has no cue {name}, that line fell back to the script timecode")
-    print(f"{len(lines)} lines, voice {voice_name}, narration ends at {previous_end:.1f}s")
+    spoken = sum(line["duration_s"] for line in lines)
+    trimmed = sum(line["trimmed_s"] for line in lines)
+    print(f"{len(lines)} lines, voice {voice_name} at {SPEAKING_RATE}x, {spoken:.1f}s spoken, "
+          f"{trimmed:.1f}s of silence trimmed, narration ends at {previous_end:.1f}s")
     for line in shifted:
         print(f"  shifted {line['cue']} by {line['shift_s']:.2f}s to avoid an overlap")
+    worst = max((line["shift_s"] for line in lines), default=0.0)
+    print(f"  the largest shift on the take's own cue times is {worst:.2f}s")
     print(f"wrote {out / 'narration.json'}")
     return 0
 
