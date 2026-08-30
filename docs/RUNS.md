@@ -1124,3 +1124,18 @@ $0 on camera (`/api/stats` returns `cost_per_check_usd_7d: 0`), which reads as f
 a 7-day average that has only just started being written; the verdict line is spoken over the first
 Grafana insert rather than over the verdict card it describes, because the card fills four seconds
 before the insert opens; and the Grafana caption puts a fourth editing note on the picture.
+
+### Cost verified live, the length rule, the pace direction (2026-08-30 00:22 to 00:40 UTC)
+
+Agent redeployed with `pricing.yaml` in the package (the draft 4 take had shown "$0": the file was
+not shipped, so no gate could price itself). Console revision `airlock-console-00008`: a run whose
+cost is not measured says so. Verified through the hosted console on the clean clip (annotation
+44): rights 1 min x 4 features 0.50 USD, claim 2,223 in and 142 out on gemini-2.5-pro 0.0042 USD,
+brand 2,504 in and 161 out on gemini-2.5-flash 0.0012 USD, provenance 0; the run 0.505 USD.
+
+The video length rule, read on the Devpost rules page on 2026-08-30 (verbatim): "It should not be
+longer than 3 minutes. If it is longer than 3 minutes, only the first 3 minutes will be
+evaluated." Dylan's direction the same evening: the winners' length but "ultra dynamic". Script v5
+cuts for pace: the ASA beat gone, the stake overlay 5 s, the first run at 0:12, the verdict card
+held for its line then a 5 s dashboard insert, a punch-in on every landing, the voice at 1.1x,
+half a second of wait kept before each labelled cut, target 150 to 170 s. Draft 5 in production.
