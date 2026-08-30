@@ -276,6 +276,9 @@ export function formatVerdictCostLine(cost: VerdictCost): string {
   const gateParts = GATE_ORDER.filter((gate) => perGate[gate] !== undefined).map(
     (gate) => `${gate} ${formatUsd(perGate[gate] as number)}`,
   );
+  if (cost.cost_usd === null || cost.cost_usd === undefined) {
+    return `This check: cost not measured${cost.basis ? ` (${cost.basis})` : ""}`;
+  }
   let head = `This check: ${formatUsd(cost.cost_usd)} at list price`;
   if (gateParts.length > 0) head += ` (${gateParts.join(", ")})`;
 
