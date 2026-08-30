@@ -9,8 +9,12 @@
    least 16 minutes before recording, so the "control unavailable" beat is real. Leave it muted.
 3. Open the public dashboard in a second tab set to "Last 1 hour" so the annotation markers of the
    recording are visible when the script cuts to it at 2:38.
-4. Record one take of the console at 1920x1080, 30 fps, following `docs/VIDEO-SCRIPT.md`. The
-   voice is recorded separately and laid over the take; subtitles burned in from the script.
+4. The take is recorded by `video/record.mjs` against the live console (see `video/README.md`);
+   the drafts carry a synthetic voice. For the final with Dylan's voice: record the script's lines
+   one wav per line in a quiet room, name them after the cues (`stake.wav`, `console_idle.wav`,
+   `crest_click.wav`, ...), drop them in `video/out/voice-human/`, and run `narrate.py` with the
+   human voice directory in place of the synthesis (the option is added when the lines exist);
+   `assemble.py` then does the rest, subtitles included.
 5. `python3 <cockpit>/career/hackathon-evals/check.py --render demo.mp4 --limit-s 180` must PASS.
 6. Upload unlisted on YouTube with the English subtitles; tick the video box in `docs/DEVPOST.md`
    and rerun `check.py --type submission docs/DEVPOST.md`.
