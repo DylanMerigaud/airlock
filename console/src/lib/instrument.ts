@@ -1,6 +1,7 @@
 "use client";
 
 import { type GateName, type ReportedInstrument } from "@/lib/events";
+import { STALE_AFTER_S, type GateState } from "@/lib/gate-state";
 import { percent, shortSeconds } from "@/lib/utils";
 
 /** One hue per gate, matched to the scrubber markers. */
@@ -13,7 +14,7 @@ export const GATE_DOT: Record<GateName, string> = {
 
 export type GateHealthView = {
   gate: GateName;
-  state: "healthy" | "degraded" | "uncalibrated";
+  state: GateState;
   error_rate_15m: number | null;
   seconds_since_success: number | null;
   calibration_catches_7d: number | null;
@@ -27,31 +28,68 @@ export type HealthView = {
   error: string | null;
 };
 
+/**
+ * A stretch during which /api/health or /api/stats answers ok: false. The
+ * console retries on its own (use-instruments.ts); what the screen shows
+ * meanwhile is a placeholder, then "unavailable" once the budget is spent.
+ */
+export type Outage = {
+  /** When the current outage began, ms since epoch. */
+  since: number;
+  /** Plain words for the screen, never the raw error. */
+  reason: string;
+  /** The error text as the route returned it, for a tooltip. */
+  raw: string;
+  /** Grafana Cloud is waking a paused stack (503, "Loading"). */
+  starting: boolean;
+  /** The fast retry budget is spent; the console now retries every minute. */
+  exhausted: boolean;
+};
+
+/** What the calibration line has to read from: the last good reading and the outage, if any. */
+export type InstrumentReading = {
+  health: HealthView | null;
+  loading: boolean;
+  outage: Outage | null;
+};
+
+export function describeOutage(error: string | null | undefined): { reason: string; starting: boolean } {
+  const text = error ?? "";
+  if (/loading|503/i.test(text)) {
+    return { reason: "Grafana Cloud is starting, retrying", starting: true };
+  }
+  return { reason: "Grafana did not answer, retrying", starting: false };
+}
+
 export type Calibration = {
   text: string;
   tone: "quiet" | "amber" | "block";
   detail: string;
+  /** No reading yet: the row draws a placeholder instead of the text. */
+  pending?: boolean;
 };
 
-function localCalibration(
-  health: HealthView | null,
-  loading: boolean,
-  gate: GateName,
-): Calibration {
-  if (loading) {
-    return {
-      text: "reading Grafana",
-      tone: "quiet",
-      detail: "The console is querying the Grafana datasource.",
-    };
-  }
-  if (!health || !health.ok) {
+function localCalibration(reading: InstrumentReading, gate: GateName): Calibration {
+  const { health, loading, outage } = reading;
+
+  if (!health) {
+    if (loading || (outage && !outage.exhausted)) {
+      return {
+        text: "reading Grafana",
+        tone: "quiet",
+        detail: outage
+          ? `${outage.reason}. ${outage.raw}`
+          : "The console is querying the Grafana datasource.",
+        pending: true,
+      };
+    }
     return {
       text: "calibration unavailable",
       tone: "block",
-      detail: health?.error ?? "The console could not reach Grafana.",
+      detail: outage ? `${outage.reason}. ${outage.raw}` : "The console could not reach Grafana.",
     };
   }
+
   const entry = health.gates.find((g) => g.gate === gate);
   if (!entry) {
     return {
@@ -68,25 +106,27 @@ function localCalibration(
   ].join("\n");
 
   if (entry.state === "degraded") {
-    if (entry.error_rate_15m !== null && entry.error_rate_15m > 0) {
-      return {
-        text: `degraded: error rate ${percent(entry.error_rate_15m)}`,
-        tone: "amber",
-        detail,
-      };
-    }
-    if (entry.seconds_since_success === null) {
-      return { text: "degraded: no success in the last 7d", tone: "amber", detail };
-    }
     return {
-      text: `degraded: last success ${shortSeconds(entry.seconds_since_success)} ago`,
+      text: `degraded: error rate ${percent(entry.error_rate_15m)}`,
       tone: "amber",
       detail,
     };
   }
 
+  if (entry.state === "unproven") {
+    return { text: "unproven: no success seen in 7 d", tone: "amber", detail };
+  }
+
   if (entry.state === "uncalibrated") {
     return { text: "never calibrated: ADVISORY", tone: "amber", detail };
+  }
+
+  if (entry.state === "idle") {
+    return {
+      text: `idle: last success ${shortSeconds(entry.seconds_since_success)} ago, the run re-proves it`,
+      tone: "quiet",
+      detail: `${detail}\nidle past ${STALE_AFTER_S} s without a success; the gates run before the verdict asks Grafana`,
+    };
   }
 
   const catches = entry.calibration_catches_7d ?? 0;
@@ -103,12 +143,11 @@ function localCalibration(
  * on. The recomputed line stays as the fallback and as the tooltip numbers.
  */
 export function calibrationFor(
-  health: HealthView | null,
-  loading: boolean,
+  reading: InstrumentReading,
   gate: GateName,
   reported?: ReportedInstrument | null,
 ): Calibration {
-  const local = localCalibration(health, loading, gate);
+  const local = localCalibration(reading, gate);
   if (!reported?.calibration) return local;
 
   const degraded =

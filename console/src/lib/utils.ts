@@ -15,6 +15,14 @@ export function ms(value: number | null | undefined): string {
   return `${Math.round(value)} ms`;
 }
 
+/** A wall time in words: 2 ms, 3.4 s, 78 s. One decimal under 10 s, none above. */
+export function duration(value: number | null | undefined): string {
+  if (value === null || value === undefined || Number.isNaN(value)) return "n/a";
+  if (value < 1000) return `${Math.round(value)} ms`;
+  if (value < 10000) return `${(value / 1000).toFixed(1)} s`;
+  return `${Math.round(value / 1000)} s`;
+}
+
 export function shortSeconds(value: number | null | undefined): string {
   if (value === null || value === undefined || Number.isNaN(value)) return "never";
   if (value < 90) return `${Math.round(value)} s`;

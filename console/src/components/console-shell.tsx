@@ -8,7 +8,7 @@ import { DecisionRecord } from "@/components/decision-record";
 import { FindingsThread } from "@/components/findings-thread";
 import { Stage, type StageAsset } from "@/components/stage";
 import { Timeline } from "@/components/timeline";
-import { StatTiles, type StatsView } from "@/components/stat-tiles";
+import { StatTiles } from "@/components/stat-tiles";
 import { SpecStrip } from "@/components/spec-strip";
 import { BlockQueue } from "@/components/block-queue";
 import { Button } from "@/components/ui/button";
@@ -16,12 +16,15 @@ import { Panel, PanelBody, PanelHeader, PanelTitle } from "@/components/ui/card"
 import { SegmentTrigger, Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useRun } from "@/lib/use-run";
+import { useInstruments } from "@/lib/use-instruments";
 import { buildFindings, verdictNotes } from "@/lib/findings";
 import { collectMarkers } from "@/lib/timecodes";
 import { loadQueue, saveQueue, type BlockEntry } from "@/lib/block-queue";
 import { labelForTarget, presetById } from "@/lib/assets";
-import type { HealthView } from "@/lib/instrument";
 import type { GateName } from "@/lib/events";
+
+const SOURCES_LINE =
+  "Every clip is read against the Nimbus brand book (charter.yaml), the rights registry, 16 CFR 255 with two ASA rulings, and its C2PA manifest.";
 
 export type ShellProps = {
   dashboardUrl: string;
@@ -55,10 +58,10 @@ export function ConsoleShell({ dashboardUrl, environment, mock }: ShellProps) {
   // Per run, and kept between runs until the reviewer switches it back off.
   const [muted, setMuted] = React.useState<GateName[]>([]);
 
-  const [health, setHealth] = React.useState<HealthView | null>(null);
-  const [healthLoading, setHealthLoading] = React.useState(true);
-  const [stats, setStats] = React.useState<StatsView | null>(null);
-  const [statsLoading, setStatsLoading] = React.useState(true);
+  // Grafana's readings: one refresh on mount, one per settled run, and its own
+  // retries while a route answers ok: false (a paused Grafana Cloud stack waking).
+  const instruments = useInstruments(mock);
+  const refreshInstruments = instruments.refresh;
 
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
   const [clipReady, setClipReady] = React.useState(false);
@@ -70,50 +73,16 @@ export function ConsoleShell({ dashboardUrl, environment, mock }: ShellProps) {
     setQueue(loadQueue());
   }, []);
 
-  const refreshInstruments = React.useCallback(async () => {
-    setHealthLoading(true);
-    setStatsLoading(true);
-    await Promise.all([
-      fetch("/api/health", { cache: "no-store" })
-        .then((r) => r.json() as Promise<HealthView>)
-        .then((payload) => setHealth(payload))
-        .catch((error: unknown) =>
-          setHealth({
-            ok: false,
-            mock,
-            gates: [],
-            error: error instanceof Error ? error.message : "the health route did not answer",
-          }),
-        )
-        .finally(() => setHealthLoading(false)),
-      fetch("/api/stats", { cache: "no-store" })
-        .then((r) => r.json() as Promise<StatsView>)
-        .then((payload) => setStats(payload))
-        .catch((error: unknown) =>
-          setStats({
-            ok: false,
-            mock,
-            checked_7d: null,
-            passed_7d: null,
-            blocked_7d: null,
-            incidents_7d: null,
-            gates_calibrated: null,
-            gates_total: 4,
-            cost_per_check_usd_7d: null,
-            error: error instanceof Error ? error.message : "the stats route did not answer",
-          }),
-        )
-        .finally(() => setStatsLoading(false)),
-    ]);
-  }, [mock]);
-
+  // A run restored from this tab's session puts its clip back on the stage.
   React.useEffect(() => {
-    void refreshInstruments();
-  }, [refreshInstruments]);
+    if (state.restored && state.target) setTarget(state.target);
+  }, [state.restored, state.target]);
 
   const recorded = React.useRef<number | null>(null);
   React.useEffect(() => {
     if (state.phase !== "settled") return;
+    // A restored run already refreshed the instruments and queued itself when it landed.
+    if (state.restored) return;
     void refreshInstruments();
     const verdict = state.verdict;
     const runKey = state.startedAt;
@@ -135,7 +104,15 @@ export function ConsoleShell({ dashboardUrl, environment, mock }: ShellProps) {
       saveQueue(next);
       return next;
     });
-  }, [state.phase, state.verdict, state.startedAt, state.target, target, refreshInstruments]);
+  }, [
+    state.phase,
+    state.restored,
+    state.verdict,
+    state.startedAt,
+    state.target,
+    target,
+    refreshInstruments,
+  ]);
 
   const select = React.useCallback(
     (next: string, uploaded?: { name: string; objectUrl: string }) => {
@@ -207,13 +184,21 @@ export function ConsoleShell({ dashboardUrl, environment, mock }: ShellProps) {
         objectUrl: upload?.objectUrl ?? null,
       };
 
+  // The badge counts issues; a PASS sentence is an attestation, not a finding to fix.
+  const issueCount = findings.filter((finding) => finding.status !== "PASS").length;
+  const attestationCount = findings.length - issueCount;
+
   const stateLine =
     state.phase === "running"
       ? (state.step ?? "The gates are reading this clip.")
       : state.phase === "lost"
         ? "The event stream was lost, so nothing was cleared."
         : state.verdict
-          ? `${findings.length} finding${findings.length === 1 ? "" : "s"} from the four gates. Click a marker or a time to watch one.`
+          ? issueCount > 0
+            ? `${issueCount} issue${issueCount === 1 ? "" : "s"} from the four gates${
+                markers.length > 0 ? ". Click a marker or a time to watch one" : ""
+              }.`
+            : `No issue from the four gates, ${attestationCount} attestation${attestationCount === 1 ? "" : "s"}.`
           : "Press Run airlock to read this clip against the four gates.";
 
   // The caption line reports where the run is, not what it decided: the verdict
@@ -280,6 +265,7 @@ export function ConsoleShell({ dashboardUrl, environment, mock }: ShellProps) {
                   onHover={setHoverSecond}
                   onReadyChange={setClipReady}
                 />
+                <p className="shrink-0 px-1 text-[12px] leading-[1.4] text-ink-soft">{SOURCES_LINE}</p>
                 <AssetStrip target={target} onSelect={select} disabled={busy} />
               </div>
 
@@ -299,7 +285,7 @@ export function ConsoleShell({ dashboardUrl, environment, mock }: ShellProps) {
                     <SegmentTrigger value="findings">
                       Findings
                       <span className="tabular font-mono text-[11px] text-ink-soft">
-                        {findings.length}
+                        {issueCount}
                       </span>
                     </SegmentTrigger>
                     <SegmentTrigger value="record">Record</SegmentTrigger>
@@ -308,8 +294,7 @@ export function ConsoleShell({ dashboardUrl, environment, mock }: ShellProps) {
                   <TabsContent value="checks" className="fit-scroll flex-1">
                     <ChecksList
                       state={state}
-                      health={health}
-                      healthLoading={healthLoading}
+                      reading={instruments}
                       mute={muted}
                       onToggleMute={toggleMute}
                       muteDisabled={busy}
@@ -392,7 +377,11 @@ export function ConsoleShell({ dashboardUrl, environment, mock }: ShellProps) {
 
         <footer className="shrink-0 border-t border-line bg-surface px-4 py-1.5">
           <div className="mx-auto w-full max-w-[1920px]">
-            <StatTiles stats={stats} loading={statsLoading} />
+            <StatTiles
+              stats={instruments.stats}
+              loading={instruments.loading}
+              outage={instruments.outage}
+            />
             <SpecStrip lastRunMs={state.elapsedMs} />
           </div>
         </footer>

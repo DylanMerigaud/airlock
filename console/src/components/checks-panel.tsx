@@ -5,9 +5,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { cn, ms } from "@/lib/utils";
+import { cn, duration } from "@/lib/utils";
 import {
   formatGateUsage,
+  GATE_INSTRUMENT,
+  GATE_MEASURED,
   GATE_ORDER,
   GATE_STEP,
   MOTIVE_COPY,
@@ -15,8 +17,30 @@ import {
   type ChipStatus,
   type GateName,
 } from "@/lib/events";
-import { calibrationFor, GATE_DOT, type HealthView } from "@/lib/instrument";
+import { calibrationFor, GATE_DOT, type InstrumentReading } from "@/lib/instrument";
 import type { GateCardState, RunState } from "@/lib/use-run";
+
+/**
+ * A once-a-second clock, only while something runs. It feeds the elapsed
+ * counter on a running gate row: a number that changes, not an animation.
+ */
+function useNow(active: boolean): number {
+  const [now, setNow] = React.useState(() => Date.now());
+  React.useEffect(() => {
+    if (!active) return;
+    setNow(Date.now());
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [active]);
+  return now;
+}
+
+function elapsedLine(card: GateCardState, now: number): string | null {
+  if (card.status !== "RUNNING" || card.runningSince === null) return null;
+  const seconds = Math.max(0, Math.round((now - card.runningSince) / 1000));
+  const measured = GATE_MEASURED[card.gate];
+  return `${GATE_INSTRUMENT[card.gate]}, ${seconds} s elapsed${measured ? `, ${measured}` : ""}`;
+}
 
 const MUTE_HELP =
   "The gate still runs but pushes nothing to Grafana. The verdict has to notice through Grafana that the control went dark.";
@@ -129,6 +153,8 @@ function CheckRow({
   line,
   under,
   underTone = "quiet",
+  underPending = false,
+  counter,
   badges,
   children,
 }: {
@@ -138,6 +164,10 @@ function CheckRow({
   line: string;
   under?: string;
   underTone?: keyof typeof TONE_CLASS;
+  /** The under line has no reading yet: draw a placeholder bar, keep the words for readers. */
+  underPending?: boolean;
+  /** The elapsed counter of a running gate. */
+  counter?: string | null;
   badges?: React.ReactNode;
   children?: React.ReactNode;
 }) {
@@ -165,7 +195,16 @@ function CheckRow({
             {badges}
           </span>
           <span className="mt-0.5 block text-[13px] leading-[1.4] text-ink">{line}</span>
-          {under && (
+          {under && underPending && (
+            <span className="mt-0.5 block font-mono text-[10.5px] leading-[1.4]">
+              <span
+                aria-hidden="true"
+                className="inline-block h-[9px] w-[168px] translate-y-[1px] rounded-[2px] bg-sunk"
+              />
+              <span className="sr-only">{under}</span>
+            </span>
+          )}
+          {under && !underPending && (
             <span
               className={cn(
                 "mt-0.5 block font-mono text-[10.5px] leading-[1.4]",
@@ -173,6 +212,11 @@ function CheckRow({
               )}
             >
               {under}
+            </span>
+          )}
+          {counter && (
+            <span className="tabular mt-0.5 block font-mono text-[10.5px] leading-[1.4] text-accent">
+              {counter}
             </span>
           )}
         </span>
@@ -314,7 +358,7 @@ export function VerdictSummary({
           )}
           {state.elapsedMs !== null && (
             <span className="tabular font-mono text-[10.5px] text-ink-soft">
-              {ms(state.elapsedMs)}
+              {duration(state.elapsedMs)}
             </span>
           )}
         </div>
@@ -353,15 +397,13 @@ export function VerdictSummary({
 /** The four gates, the verdict and the escalation, one row each. */
 export function ChecksList({
   state,
-  health,
-  healthLoading,
+  reading,
   mute,
   onToggleMute,
   muteDisabled,
 }: {
   state: RunState;
-  health: HealthView | null;
-  healthLoading: boolean;
+  reading: InstrumentReading;
   mute: GateName[];
   onToggleMute: (gate: GateName) => void;
   muteDisabled: boolean;
@@ -369,12 +411,14 @@ export function ChecksList({
   const verdict = state.verdict;
   const probed = GATE_ORDER.filter((g) => state.gates[g].probe !== null).length;
   const escalation = state.escalation;
+  const anyRunning = GATE_ORDER.some((g) => state.gates[g].status === "RUNNING");
+  const now = useNow(anyRunning);
 
   return (
     <ol>
       {GATE_ORDER.map((gate) => {
         const card = state.gates[gate];
-        const calibration = calibrationFor(health, healthLoading, gate, card.reported);
+        const calibration = calibrationFor(reading, gate, card.reported);
         return (
           <CheckRow
             key={gate}
@@ -384,6 +428,8 @@ export function ChecksList({
             line={gateLine(card)}
             under={calibration.text}
             underTone={calibration.tone}
+            underPending={calibration.pending}
+            counter={elapsedLine(card, now)}
             badges={
               card.muted ? (
                 <Badge tone="neutral" size="xs" title={MUTE_HELP}>
@@ -410,7 +456,7 @@ export function ChecksList({
                 <div>
                   <dt className="label-micro text-ink-soft">Ran in</dt>
                   <dd className="tabular mt-1 font-mono text-[11px] text-ink-soft">
-                    {ms(card.done.elapsed_ms)}
+                    {duration(card.done.elapsed_ms)}
                   </dd>
                 </div>
               )}
@@ -467,7 +513,11 @@ export function ChecksList({
                 ? "No issues found: every gate healthy and calibrated"
                 : `Blocked: ${verdict?.motive ?? "no motive returned"}`
         }
-        under={`${probed} of 4 gates probed through mcp-grafana`}
+        under={
+          state.verdictStatus === "PENDING" || state.verdictStatus === "RUNNING"
+            ? "Waits for the four gates, then asks Grafana four PromQL questions per gate through mcp-grafana"
+            : `${probed} of 4 gates probed through mcp-grafana`
+        }
       >
         <dl className="space-y-2 text-[12.5px] leading-[1.5]">
           <div>

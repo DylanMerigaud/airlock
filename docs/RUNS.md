@@ -1534,3 +1534,101 @@ section below). The 173 s seen at 23:58 UTC was concurrency: the cold judge's Cr
 session's clean run were on Video Intelligence at the same time, the pattern measured on
 2026-08-28 (59 s alone, 598 s with three jobs). Judges testing at the same moment will see it;
 the `Try it` paragraph says one to three minutes.
+
+## Console v3.1 and the dashboard range (2026-09-02)
+
+Measured 2026-09-01 23:54 UTC, after two idle days, then by a browser agent playing a cold judge
+(2026-09-02 00:00 to 00:10 UTC, viewport 1208 x 819 CSS px):
+
+- F1. The Grafana Cloud free stack pauses after idle days. The console's first load got
+  `Grafana answered 503: {"code":"Loading","message":"Your instance is loading, and will be ready shortly."}`
+  from /api/health and /api/stats; the stat tiles read "unavailable" with that JSON in a tooltip
+  and nothing retried (`refreshInstruments` ran once on mount and once per settled run). The stack
+  woke in about two minutes.
+- F2. At open, every gate row read `degraded: last success 3 d ago` in amber: the word for a gate
+  that simply had not run in 15 minutes.
+- F3. The public dashboard opened on "Last 6 hours" (`now-6h` in `grafana_bootstrap.py`): the time
+  series were empty unless a check had run in the last hours.
+- F4. README's dashboard screenshot predated the cost panels (dashboard v4) and said 51 tests
+  where `uv run pytest -q` collects 53.
+- The judge scored Design 3 of 5 and the other three criteria 4; every point lost was first
+  impression: six red UNAVAILABLE stats and "reading Grafana" under every gate for several seconds
+  at cold load; the Nimbus brand book never introduced, so the first red finding on Crest read as a
+  bug; "0 of 4 gates probed" under the verdict while the header said "3 of 4 gates have reported";
+  the rights gate on "Checking" for 40 s with no cue; the run gone after following the Grafana
+  link and coming back; "78175 ms"; "Findings 4" on a clean PASS; "Cost per check $0.08" in the
+  footer beside "This check: $0.52"; scrubber labels overprinting at the left edge; the tech line
+  truncated at 1208 px; a dashed box over the left girl's chest at 0:07 with nothing under it.
+
+**Console.** While `/api/health` or `/api/stats` answers `ok: false` the console retries every
+10 s for 3 minutes, then every 60 s, keeps the last good payload on screen, and nothing polls
+while all is well (`console/src/lib/use-instruments.ts`). Measured against a stand-in Grafana that
+answers 503 "Loading" for 75 s then values: page load at 19:28:22 local, retries at :32, :43, :53,
+:03, :13, values at 19:29:23, no further request afterwards. While loading or waking, the stat
+tiles and the calibration lines are grey placeholder bars with one quiet footer line, "Grafana
+Cloud is starting, retrying" (plain words; the raw error stays in a tooltip); "unavailable" in red
+only once the 3 minute budget is spent with nothing to show. The gate state is split
+(`console/src/lib/gate-state.ts`): `degraded` keeps error_rate_15m > 0 (amber); `unproven` is no
+success sample in 7 d (amber, "unproven: no success seen in 7 d"); `never calibrated: ADVISORY`
+stays; `idle` is no error and a last success older than 900 s, in soft ink: "idle: last success
+17 min ago, the run re-proves it" (the gates run before the verdict asks Grafana). The verdict
+rules in `airlock/verdict.py` are untouched.
+
+The judge's list, all in `console/`: one line above the asset tiles ("Every clip is read against
+the Nimbus brand book (charter.yaml), the rights registry, 16 CFR 255 with two ASA rulings, and its
+C2PA manifest."); the verdict row in idle and running reads "Waits for the four gates, then asks
+Grafana four PromQL questions per gate through mcp-grafana"; a running gate row carries a plain
+elapsed counter ("Video Intelligence, 41 s elapsed, 30 to 90 s usual, up to 600 s measured", the
+numbers from the `annotate()` docstring in `airlock/gates/rights.py`; a counter, not an
+animation); the last settled run is kept in `sessionStorage` keyed by `startedAt` and restored on
+mount with a "restored" note in the Record segment, and the Grafana links open a new tab with
+`rel="noopener noreferrer"`; wall times read "78 s" (one decimal under 10 s, ms under 1 s); the
+asset label sits beside the annotation and incident ids with the asset id in mono; the Findings
+badge counts issues only, the PASS sentences are listed under an "attestations" label; the footer
+cost reads "Cost $0.11 avg per check, 7 d, list price" and the Record's video minutes say "(Video
+Intelligence bills per started minute)"; a scrubber label within 24 px of the previous one is
+skipped (the tick stays); the tech line wraps to two rows instead of truncating. The dashed box at
+0:07 is in the film: `ffmpeg -ss 7 -i assets/real/CrestToothpa-18-48.mp4 -frames:v 1` shows the
+same dashed outline on the left girl's nightgown, the 1950s animation of the "other toothpaste"
+side of the test; the console draws no box on the clip, so nothing was anchored wrong. At
+1208 x 819 the Checks list on the Crest run overflows by 20 px (scrollHeight 579, clientHeight
+559) with its 10 px scrollbar drawn and the ESCALATION row cut mid-line, so it scrolls visibly.
+
+`pnpm typecheck`, `pnpm lint`, `pnpm build` clean. Mock mode (`AIRLOCK_MOCK=1`) walked through in
+Arc at 1208 x 819: idle, the Crest BLOCK (10 issues, "15 s"), the clean PASS ("Findings 0", four
+attestations), a reload restoring the Crest run with the note "restored: this run started at
+00:31 UTC and was kept in this tab while you were away".
+
+**Dashboard.** `scripts/grafana_bootstrap.py`: default range `now-7d`, refresh `1m`. Run:
+
+```
+scripts/with_env.sh .venv/bin/python scripts/grafana_bootstrap.py    # the repo's venv, run from a worktree
+{"prometheus_uid": "grafanacloud-prom", "dashboard_uid": "airlock-gates", "dashboard_url": "https://narrowsubmarine1895.grafana.net/d/airlock-gates/airlock-gates", "version": 5}
+```
+
+The bootstrap upserts by uid (`overwrite: true`) and never touches the public dashboard object,
+so the public link is unchanged:
+https://narrowsubmarine1895.grafana.net/public-dashboards/97860661238c4536a743e0d858aef845
+answers 200 and `/api/public/dashboards/<token>` returns version 5 with
+`"time": {"from": "now-7d", "to": "now"}` and `"refresh": "1m"`; opened in Arc it reads "Last
+7 days" with the runs of 08/29, 08/30 and 09/01 on the series. Screenshot, whole dashboard with the
+two cost panels: `docs/img/grafana-public-dashboard-2026-09-02.png` (the 2026-08-28 png removed).
+README: that screenshot, its alt text, 53 tests.
+
+**Deployed** (2026-09-02 00:40 UTC): revision `airlock-console-00009-4tx`, page 200 in 2.1 s,
+`/api/health` ok with the four gates `idle` (982 to 1063 s since success), `/api/stats` ok (52
+checked, 24 blocked, 28 passed, 23 incidents, 4 of 4 calibrated, 0.1075 USD per check). Opened in
+Arc at 1208 x 819 with `error` and `unhandledrejection` listeners and `console.error` hooked:
+nothing logged through a full run. The run: the clean clip, PASS in 243 s, annotation 55, "This
+check: $0.51 at list price (rights $0.50, claim $0.004, brand $0.001, provenance $0), 4,727 tokens
+in, 292 out, 1 min of video (Video Intelligence bills per started minute)"; the rights row counted
+"Video Intelligence, 8 s elapsed" through "78 s elapsed" and beyond, which is why the counter's
+range now names the upper bound: revision `airlock-console-00010-xsq` (2026-09-02 01:05 UTC)
+carries "30 to 90 s usual, up to 600 s measured" and the footer note "retrying every minute" once
+the budget is spent (measured on the stand-in: fast retries to 187 s after load, then one at
+61 s). Page 200 in 2.0 s, both routes ok, no error logged, and the same tab reopened on the PASS
+run it had left. What a judge sees at open now: four rows in soft ink reading
+"idle: last success N min ago, the run re-proves it", the sources line, the verdict row saying
+what it waits for, the footer numbers; during a Grafana wake, grey bars and "Grafana Cloud is
+starting, retrying". Screenshot of the open state in the session scratchpad (`hosted-open.png`,
+1208 x 819; the lane cannot resize Arc's window, so no 1920 x 1080 capture was taken).

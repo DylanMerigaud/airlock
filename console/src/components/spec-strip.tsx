@@ -1,4 +1,4 @@
-import { ms } from "@/lib/utils";
+import { duration } from "@/lib/utils";
 
 const SPECS = [
   "gemini-2.5-pro and gemini-2.5-flash on Vertex AI",
@@ -9,16 +9,19 @@ const SPECS = [
   "Apache-2.0",
 ];
 
-/** What the console runs on, one line, the way a colophon sits under a page. */
+/**
+ * What the console runs on, the way a colophon sits under a page. One line
+ * when it fits, two rows when the window is narrow: it never truncates.
+ */
 export function SpecStrip({ lastRunMs }: { lastRunMs: number | null }) {
   return (
     <p
       aria-label="What this console runs on"
-      className="truncate font-mono text-[10px] leading-[1.5] text-ink-soft"
+      className="font-mono text-[10px] leading-[1.5] text-ink-soft"
     >
       {SPECS.join("  ·  ")}
       {"  ·  last run "}
-      {lastRunMs === null ? "not measured yet" : ms(lastRunMs)}
+      {lastRunMs === null ? "not measured yet" : duration(lastRunMs)}
     </p>
   );
 }

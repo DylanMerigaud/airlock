@@ -89,6 +89,12 @@ export function FindingsThread({
 }) {
   const rows = React.useRef(new Map<string, HTMLLIElement>());
 
+  // An issue is what a gate blocked or failed on; a PASS sentence is an
+  // attestation, listed below the issues under its own label so a clean run
+  // does not read as four findings.
+  const issues = findings.filter((finding) => finding.status !== "PASS");
+  const attestations = findings.filter((finding) => finding.status === "PASS");
+
   // Clicking a marker on the scrubber has to land on the finding it belongs to.
   React.useEffect(() => {
     if (activeSecond === null) return;
@@ -96,6 +102,20 @@ export function FindingsThread({
     if (!finding) return;
     rows.current.get(finding.key)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }, [activeSecond, findings]);
+
+  const renderRow = (finding: Finding) => (
+    <Row
+      key={finding.key}
+      ref={(node) => {
+        if (node) rows.current.set(finding.key, node);
+        else rows.current.delete(finding.key);
+      }}
+      finding={finding}
+      active={finding.seconds !== null && finding.seconds === activeSecond}
+      onSeek={onSeek}
+      onHover={onHover}
+    />
+  );
 
   return (
     <div>
@@ -106,21 +126,25 @@ export function FindingsThread({
             : "Nothing yet. Run the airlock and each gate writes what it read here, anchored to the second of the clip it read it at."}
         </p>
       ) : (
-        <ol>
-          {findings.map((finding) => (
-            <Row
-              key={finding.key}
-              ref={(node) => {
-                if (node) rows.current.set(finding.key, node);
-                else rows.current.delete(finding.key);
-              }}
-              finding={finding}
-              active={finding.seconds !== null && finding.seconds === activeSecond}
-              onSeek={onSeek}
-              onHover={onHover}
-            />
-          ))}
-        </ol>
+        <>
+          {issues.length > 0 && <ol>{issues.map(renderRow)}</ol>}
+          {attestations.length > 0 && (
+            <section
+              aria-label="Attestations"
+              className={cn(issues.length > 0 && "border-t border-line")}
+            >
+              <h3 className="label-micro px-3 pb-1 pt-2.5 text-ink-soft">
+                attestations
+                <span className="ml-1.5 normal-case tracking-normal">
+                  {issues.length === 0
+                    ? "no issue found, what each gate read"
+                    : "what the passing gates read"}
+                </span>
+              </h3>
+              <ol>{attestations.map(renderRow)}</ol>
+            </section>
+          )}
+        </>
       )}
 
       {notes.length > 0 && (

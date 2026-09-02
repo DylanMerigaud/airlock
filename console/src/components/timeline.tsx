@@ -105,7 +105,7 @@ function Row({
               <a
                 href={dashboardUrl}
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 text-[12px] text-accent underline underline-offset-[3px]"
               >
                 Open in Grafana

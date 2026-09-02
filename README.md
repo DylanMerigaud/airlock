@@ -8,7 +8,7 @@ Try it, no login: https://airlock-console-771466810465.us-central1.run.app (pick
 
 ![The reviewer console after the Crest commercial ran, one screen: the clip on the stage with the findings marked on the scrubber, the verdict and the checks list with one status line per gate on the right, the stats in the footer](docs/img/console-v3-crest-block-2026-08-29.png)
 
-![The Airlock gates dashboard on Grafana Cloud, 2026-08-28: verdicts, calibration catches and misses, seconds since each gate last succeeded, runs, errors, latency and blocks per gate, with one annotation per verdict](docs/img/grafana-public-dashboard-2026-08-28.png)
+![The Airlock gates dashboard on Grafana Cloud, 2026-09-02, open on the last 7 days: verdicts, calibration catches and misses, seconds since each gate last succeeded, runs, errors, latency and blocks per gate, and the two cost panels (list price per check over 7 days, cost per gate run), with one annotation per verdict](docs/img/grafana-public-dashboard-2026-09-02.png)
 
 Public dashboard (no login): https://narrowsubmarine1895.grafana.net/public-dashboards/97860661238c4536a743e0d858aef845
 

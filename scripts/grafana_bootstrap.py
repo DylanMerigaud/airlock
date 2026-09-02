@@ -62,8 +62,8 @@ def dashboard(ds_uid: str) -> dict:
         "tags": ["airlock"],
         "timezone": "browser",
         "schemaVersion": 39,
-        "time": {"from": "now-6h", "to": "now"},
-        "refresh": "30s",
+        "time": {"from": "now-7d", "to": "now"},
+        "refresh": "1m",
         "annotations": {
             "list": [
                 {
