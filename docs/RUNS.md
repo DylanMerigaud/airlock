@@ -1443,7 +1443,7 @@ cap of the "Cost and the cap" section stays the guard either way.
 ### Left as follow-ups, on purpose
 
 - A dashboard panel for `airlock_daily_proof_total` (pass and fail per day): the metric is pushed,
-  the panel is not drawn yet.
+  the panel is not drawn yet. Done the same night, see "M8 addendum" below.
 - `scripts/demo_prep.sh` keeps calling `airlock.calibrate` in step 2 by default (fast, no Agent
   Engine run) and names the job in its heading; `--proof` runs `airlock.daily_proof` in its place,
   the same module the job runs. Chosen so a recording-day preparation stays under a minute unless
@@ -1632,3 +1632,23 @@ run it had left. What a judge sees at open now: four rows in soft ink reading
 what it waits for, the footer numbers; during a Grafana wake, grey bars and "Grafana Cloud is
 starting, retrying". Screenshot of the open state in the session scratchpad (`hosted-open.png`,
 1208 x 819; the lane cannot resize Arc's window, so no 1920 x 1080 capture was taken).
+
+## M8 addendum: the proof carries its cost, three panels (2026-09-02, 00:55 to 01:20 UTC)
+
+`proof_line()` now writes `cost_usd` beside `total` when the proof priced itself, so Grafana holds
+`airlock_daily_proof_cost_usd{outcome}` next to `airlock_daily_proof_total{outcome}`.
+`scripts/grafana_bootstrap.py` draws three panels under the cost row: "Daily proofs (7d): every
+gate re-proven, then a clean PASS" (stat by outcome, red at 0, green from 1), "Cost per daily
+proof, list price USD (7d)" (stat), "Daily proofs over time (per 12 h)" (timeseries by outcome).
+Upserted: dashboard version 6; the public link answers 200.
+
+The job image rebuilt and redeployed by `infra/gcp/daily_proof.sh` (idempotent, scheduler
+untouched), then one execution by hand: `airlock-daily-proof-fwlp5`, 01:11 to 01:15 UTC, 5/5
+CAUGHT (rights 52.1 s, brand 22.5 s, claim 15.5 s, provenance 0.7 and 0.6 s), clean clip PASS in
+38 s, annotation 56, summary `cost_usd 1.011633` (calibration 0.506388, clean clip 0.505245).
+Read back through the Grafana query API: `sum by (outcome) (sum_over_time(airlock_daily_proof_total[1d]))`
+= pass 3; the cost panel reads 0.337 USD tonight because only this third proof carried the field
+(1.0116 over three proofs); it converges on 1.01 as the scheduled proofs land.
+
+Devpost's "Try it" paragraph now says a check takes one to three minutes and why (`docs/DEVPOST.md`);
+the Devpost page itself is refreshed from that file before the Submit click.
