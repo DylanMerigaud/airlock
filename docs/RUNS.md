@@ -1507,3 +1507,30 @@ the Additional info step is not ticked; the Submit click on 2026-09-08, after wh
 allows edits until the deadline. Devpost's reminder asks for a "publicly visible" video: Unlisted
 is viewable by anyone with the link, which is what the judges get; switching it to Public is one
 radio button on the video's Visibility page if the rules reading demands it.
+
+## Rights gate latency: one operation or four (2026-09-02, 00:36 to 00:45 UTC)
+
+The judge's whole wait is the rights gate, and the rights gate is Video Intelligence. Question:
+does one `annotate_video` call with four features wait longer than four parallel calls with one
+feature each? Script in the session scratchpad (`vi_latency.py`, pure measurement, no telemetry),
+three repetitions, interleaved, strictly one configuration at a time, nothing else running on the
+project's Video Intelligence quota.
+
+```
+clip        configuration         n   min    median  max     (wall seconds)
+clean 8 s   one op, 4 features    3   28.3   33.1    51.1
+clean 8 s   four ops, 1 feature   3   25.7   28.5    63.8
+Crest 30 s  one op, 4 features    3   43.8   49.0    56.6
+Crest 30 s  four ops, 1 feature   3   46.5   49.6    55.1
+```
+
+Per feature in the four-op runs: on the 30 s excerpt logo recognition is the long pole every time
+(55.1, 49.6, 46.5 s) while faces, text and explicit content finish in 16 to 34 s; on the 8 s clip
+the four features take 13 to 29 s except one text detection at 63.8 s. So the service already runs
+the features side by side, the split buys nothing, and the spread on the same clip (28 to 51 s
+for one op on 8 s) is the service's own. Decision: no change to `airlock/gates/rights.py`; the
+console shows an elapsed counter with the measured range on a running gate instead (console
+section below). The 173 s seen at 23:58 UTC was concurrency: the cold judge's Crest run and this
+session's clean run were on Video Intelligence at the same time, the pattern measured on
+2026-08-28 (59 s alone, 598 s with three jobs). Judges testing at the same moment will see it;
+the `Try it` paragraph says one to three minutes.

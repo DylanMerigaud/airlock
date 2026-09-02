@@ -86,7 +86,8 @@ mcp, fastmcp, mcp-grafana, grafana-cloud, loki, c2pa, veo, next.js, typescript
 
 Open https://airlock-console-771466810465.us-central1.run.app, pick the Crest commercial (Prelinger Archives, public domain, 30 s) and run
 the airlock: expect four BLOCKs, the verdict citing 16 CFR 255.2(a) and the missing C2PA manifest,
-an annotation on the public dashboard, and an incident. Pick the Nimbus test clip (synthetic,
+an annotation on the public dashboard, and an incident. A check takes one to three minutes; the
+rights gate waits for the Video Intelligence API, which slows down when several checks overlap. Pick the Nimbus test clip (synthetic,
 labelled): expect rights, brand and provenance PASS, claim BLOCK on "Recommended by 9 out of 10
 sommeliers" under 16 CFR 255.3. Pick the Nimbus clean clip: expect the PASS, earned by four healthy,
 calibrated gates. Switch a gate's "mute telemetry" on and rerun after 15 minutes: the verdict refuses

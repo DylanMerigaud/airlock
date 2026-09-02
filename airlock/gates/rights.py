@@ -48,7 +48,9 @@ def annotate(asset: Asset) -> dict[str, Any]:
     """Call Video Intelligence and flatten what the gate needs.
 
     Measured 2026-08-28: 60 s clip with four features 246 s; 30 s excerpt 59 s alone and 598 s when
-    three jobs ran at once; 8 s clip 30 to 90 s. A timeout (AIRLOCK_VI_TIMEOUT_S) raises, and the
+    three jobs ran at once; 8 s clip 30 to 90 s. Measured 2026-09-02 (docs/RUNS.md): four parallel
+    one-feature operations finish in the same wall time as one four-feature operation (30 s excerpt
+    median 49.0 s against 49.6 s), logo recognition being the long pole; the spread is the service's. A timeout (AIRLOCK_VI_TIMEOUT_S) raises, and the
     envelope turns it into an ERROR the verdict treats as an instrument failure.
     """
     from google.cloud import videointelligence_v1 as vi
