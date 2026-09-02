@@ -1205,3 +1205,50 @@ carries 38 changes of picture outside it.
 Open for the human pass: whether the punch-ins read as a push towards the column that changed or
 as a wobble, since a 1.15x move on a 1920x1080 frame is a small one; whether five editing captions
 in 151 s read as honesty or as clutter; and whether the 6.40 s stretch at 43.4 s is felt as slow.
+
+## Audit after two idle days (2026-09-02, 23:50 to 00:20 UTC)
+
+Dylan's ask on 2026-09-02: audit, reorient, list the best things to do now; the final video is not
+the priority. Read before writing: repo equals origin (fc9e777, clean tree), 53 tests pass, no
+dash character in any tracked file, no vendor mention outside the MCP client example, no secret
+pattern, no trailer in any commit. The three Cloud Run services answer (console 200 in 4.3 s cold,
+the two MCP servers 401 without a bearer, as designed).
+
+What the cold read found, in the order it matters:
+
+1. **The calibration window is 7 days and calibration was manual.** Rule R2 needs a catch in
+   `[7d]`; the last ledger run was 2026-08-30. From 2026-09-06 every run would have ended in BLOCK
+   "uncalibrated control" and the 7 day tiles would have read zero, with judging starting on
+   2026-09-09. Remedy: the scheduled daily proof, section M8 below.
+2. **The Grafana Cloud free stack pauses after idle days.** At 23:54 UTC `/api/health` and
+   `/api/stats` answered `Grafana answered 503: {"code":"Loading","message":"Your instance is
+   loading, and will be ready shortly."}`; the stack answered 200 about two minutes later. The
+   console showed six red "unavailable" tiles with that JSON in a tooltip and did not retry.
+   Remedy: the daily proof keeps traffic on the stack; the console retries (section below).
+3. **The public dashboard opens on the last 6 hours**, which is empty unless someone just ran a
+   check. Remedy: default range 7 days.
+4. **The judge's whole wait is Video Intelligence.** The clean 8 s clip run from Agent Engine at
+   23:58 UTC: provenance 0.7 s, brand 9.5 s, claim 15.3 s, rights 173.5 s; verdict PASS
+   (content), annotation 50, 189.1 s in all. The eval median for rights was 47.7 s. Measured
+   next: one operation with four features against four parallel one-feature operations.
+5. **The Devpost video box is the only unticked requirement**: `check.py --type submission
+   docs/DEVPOST.md` fails on G19 alone. Remedy: draft 5 uploaded unlisted as the placeholder, the
+   final replaces the link.
+
+Spend, read from the budget notifications the cap function logs every 25 minutes: August closed
+at 3.49 EUR gross (the whole build: spike, eval, five drafts), September at 0 so far (billing
+lags a day). Agent Engine bills nothing while idle. The credit (87.79 EUR, valid to 2026-10-19)
+is essentially untouched.
+
+Housekeeping: a `curl -X POST` on the reasoningEngines collection, meant as a list, created an
+empty engine (`6039069264827121664`, 23:55:07 UTC); deleted at 23:57 UTC. The M1 spike engine
+`airlock-spike` (`1949818395360755712`) deleted with its sessions at 00:12 UTC (`?force=true`,
+the API refuses otherwise); the M1 section above stays as the record of what it proved.
+
+A browser agent played a cold judge on the hosted URL (00:00 to 00:10 UTC, lane isolated,
+screenshots kept in the session scratchpad): Crest BLOCK content in 78 s (annotation 51,
+incident 23), clean clip PASS in 38 s (annotation 52); scores 4, 3, 4, 4 on the four criteria,
+Design lowest. Its findings drive the console pass below: red "unavailable" and amber "degraded"
+before any click, the Nimbus brand book never introduced, the verdict row's "0 of 4 gates
+probed" beside the header's "3 of 4 reported", 40 s of silent rights gate, the run lost after the
+Grafana detour, "78175 ms", the "Findings 4" badge on a clean PASS.
