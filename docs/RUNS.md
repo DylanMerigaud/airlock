@@ -1252,3 +1252,201 @@ Design lowest. Its findings drive the console pass below: red "unavailable" and 
 before any click, the Nimbus brand book never introduced, the verdict row's "0 of 4 gates
 probed" beside the header's "3 of 4 reported", 40 s of silent rights gate, the run lost after the
 Grafana detour, "78175 ms", the "Findings 4" badge on a clean PASS.
+
+## M8: the daily proof (2026-09-02)
+
+Status: DONE 2026-09-02 (00:30 UTC).
+
+Why. The verdict trusts a gate only if Grafana has seen it catch an injected defect in the last 7
+days (R2, `CALIBRATION_WINDOW = "7d"`), and calibration was a command someone ran by hand, last on
+2026-08-30. Judges test the hosted console from 2026-09-09: by then every gate would read
+"uncalibrated", every run would end in BLOCK "uncalibrated control", and the 7-day stats would read
+zero. The Grafana Cloud free stack also pauses after idle days (observed 2026-09-01 23:54 UTC,
+"Your instance is loading", about two minutes to wake). So the control now proves itself on a
+schedule, which is a product feature as much as a fix: a gate that stops catching its defect loses
+its right to PASS on its own, on the dashboard, without anyone reading a log.
+
+Shape. `airlock/daily_proof.py` (`python -m airlock.daily_proof`) downloads the calibration inputs
+from GCS when missing, runs the full calibration through `airlock.calibrate`'s own functions,
+runs the clean clip through the deployed pipeline over `:streamQuery`, prints one JSON summary
+line, pushes `airlock_daily_proof_total{outcome="pass"|"fail"}` and exits 0 only when every defect
+was CAUGHT and the verdict is PASS. The streaming client moved from `scripts/query_agent_engine.py`
+into `airlock/engine_client.py`; the script imports it, so the CLI, the proof and the console read
+the same endpoint. `Dockerfile.proof` and `infra/gcp/daily_proof.sh` build the image on Cloud
+Build, deploy the Cloud Run job `airlock-daily-proof` (us-central1, 1 CPU, 2 GiB, 1800 s, one
+retry, the default compute service account, the same env and secrets as airlock-mcp plus
+`AGENT_ENGINE_RESOURCE`) and a Cloud Scheduler job of the same name at `0 */12 * * *` UTC that
+calls the Cloud Run Admin API's `:run` endpoint as `daily-proof-scheduler@`, a service account
+holding `roles/run.invoker` on this job and nothing else. Eleven unit tests cover the summary and
+exit logic, the input download and the SSE parsing, with no cloud call (`tests/test_daily_proof.py`).
+
+One deviation from the brief: the scheduler authenticates with an OAuth access token, not an
+OIDC identity token. The target is a Google API (`run.googleapis.com`), and Google APIs take OAuth
+access tokens; an OIDC token is what a Cloud Run service or a Cloud Function behind IAM would
+take. This is the documented pattern for running a Cloud Run job from Cloud Scheduler.
+
+### Build and deploy (`bash infra/gcp/daily_proof.sh`, 00:15 to 00:18 UTC, run twice to check it is idempotent)
+
+```
+apis: run, cloudscheduler, cloudbuild, artifactregistry enabled
+Created [https://cloudbuild.googleapis.com/v1/projects/airlock-agentic-cinema/locations/global/builds/794fe920-afa7-4896-b5e9-ddf777063841].
+794fe920-afa7-4896-b5e9-ddf777063841  2026-09-02T00:15:45+00:00  53S  ...  us-central1-docker.pkg.dev/airlock-agentic-cinema/airlock/airlock-daily-proof  SUCCESS
+Creating job...
+Job [airlock-daily-proof] has successfully been deployed.
+Created service account [daily-proof-scheduler].
+daily-proof-scheduler@airlock-agentic-cinema.iam.gserviceaccount.com holds roles/run.invoker on job airlock-daily-proof
+scheduler job airlock-daily-proof created: 0 */12 * * * UTC
+projects/airlock-agentic-cinema/locations/us-central1/jobs/airlock-daily-proof  0 */12 * * *  Etc/UTC  https://run.googleapis.com/v2/projects/airlock-agentic-cinema/locations/us-central1/jobs/airlock-daily-proof:run  daily-proof-scheduler@airlock-agentic-cinema.iam.gserviceaccount.com  ENABLED
+```
+
+The second run (build `314b011b`, 38 s, 00:17:38 UTC) reported "Job [airlock-daily-proof] has
+successfully been deployed", "Updated IAM policy for job" and "scheduler job airlock-daily-proof
+updated": nothing created twice. The job as deployed: `taskCount 1`, `timeoutSeconds 1800`,
+`maxRetries 1`, `cpu 1`, `memory 2Gi`, `serviceAccountName 771466810465-compute@developer.gserviceaccount.com`,
+env `AIRLOCK_PROJECT`, `AIRLOCK_ASSETS_BUCKET`, `AIRLOCK_RUNTIME=daily-proof`, `AGENT_ENGINE_RESOURCE`,
+the four Grafana URL and user variables, and the two tokens from Secret Manager. The job's IAM
+policy has one binding: `daily-proof-scheduler@` as `roles/run.invoker`.
+
+### Execution 1, by hand (`gcloud run jobs execute airlock-daily-proof --region us-central1 --wait`, 00:18:54 to 00:23:19 UTC)
+
+```
+Running execution...done
+Done.
+Execution [airlock-daily-proof-gqt9f] has successfully completed.
+```
+
+The job's log (`gcloud logging read 'resource.type="cloud_run_job" AND resource.labels.job_name="airlock-daily-proof" AND labels."run.googleapis.com/execution_name"="airlock-daily-proof-gqt9f"'`):
+
+```
+00:21:08  inputs: 6 downloaded (assets/real/CrestToothpa-18-48.mp4, assets/synthetic/calibration/nimbus-clean-clip.mp4, assets/synthetic/calibration/nimbus-defect-brand-red.mp4, assets/synthetic/calibration/nimbus-defect-provenance-broken.mp4, assets/synthetic/calibration/nimbus-defect-provenance-stripped.mp4, assets/synthetic/nimbus-test-clip.mp4)
+00:22:15  rights      CAUGHT   65869 ms  real trademark not cleared, faces without release  ->  BLOCK ['registry:brands:not_cleared', 'registry:faces:no_release']
+00:22:15  claim       CAUGHT   15151 ms  expert endorsement with no substantiation  ->  BLOCK ['16 CFR 255.3', 'ASA A26-1337640 (CAP 3.7)']
+00:22:15  brand       CAUGHT   24399 ms  forbidden red banner and urgency copy  ->  BLOCK ['charter:exclusions', 'charter:palette']
+00:22:15  provenance  CAUGHT     476 ms  manifest stripped  ->  BLOCK ['airlock:provenance:manifest-required']
+00:22:15  provenance  CAUGHT     532 ms  signed copy with one byte flipped  ->  BLOCK ['airlock:provenance:signature-valid']
+00:22:20  [   1.0s] rights_gate      running  rights
+00:22:20  [   1.1s] claim_gate       running  claim
+00:22:20  [   1.3s] brand_gate       running  brand
+00:22:20  [   1.5s] provenance_gate  running  provenance
+00:22:22  [   3.2s] provenance_gate  PASS      184 ms  C2PA manifest verified and trusted; signed by Airlock (hackathon test); created by airlock-synthetic-asset
+00:22:32  [  13.1s] brand_gate       PASS    10102 ms  Nimbus wordmark seen, palette, tone and exclusions respected
+00:22:34  [  15.0s] claim_gate       PASS    12286 ms  no regulated claim without substantiation (1 claim(s) read, 1 advisory)
+00:23:06  [  47.5s] rights_gate      PASS    45031 ms  cleared brand(s): Nimbus; no unreleased face, no explicit content
+00:23:09  [  50.0s] verdict          grafana  rights      healthy, last success 3 s ago; caught 4 injected defect(s) in 7d  {'error_rate_15m': 0.0, 'seconds_since_success': 3.49, 'calibration_catches_7d': 4.0, 'last_calibration_caught': 1.0}
+00:23:10  [  51.1s] verdict          grafana  claim       healthy, last success 37 s ago; caught 5 injected defect(s) in 7d  {'error_rate_15m': 0.0, 'seconds_since_success': 37.6, 'calibration_catches_7d': 5.0, 'last_calibration_caught': 1.0}
+00:23:11  [  52.2s] verdict          grafana  brand       healthy, last success 40 s ago; caught 4 injected defect(s) in 7d  {'error_rate_15m': 0.0, 'seconds_since_success': 40.7, 'calibration_catches_7d': 4.0, 'last_calibration_caught': 1.0}
+00:23:12  [  53.4s] verdict          grafana  provenance  healthy, last success 51 s ago; caught 8 injected defect(s) in 7d  {'error_rate_15m': 0.0, 'seconds_since_success': 51.8, 'calibration_catches_7d': 8.0, 'last_calibration_caught': 1.0}
+00:23:13  [  54.4s] verdict          VERDICT PASS (content) needs_human=False annotation=53 6065 ms
+                                     all 4 gates PASS, healthy and calibrated
+00:23:13  [  54.7s] escalation       escalation: no human needed: verdict PASS on content
+00:23:15  {"annotation_id": 53, "calibration_cost_usd": 0.506388, "clean_clip_cost_usd": 0.505163, "cost_usd": 1.011551, "elapsed_s": {"calibration": 70.9, "clean_clip": 54.7, "inputs": 2.1}, "gates": {"brand": "CAUGHT", "claim": "CAUGHT", "provenance": "CAUGHT", "rights": "CAUGHT"}, "motive": "content", "outcome": "pass", "reasons": [], "verdict": "PASS", "calibration": [{"gate": "rights", "caught": true, "cost_usd": 0.5, "elapsed_ms": 65869}, {"gate": "claim", "caught": true, "cost_usd": 0.004739, "elapsed_ms": 15151}, {"gate": "brand", "caught": true, "cost_usd": 0.001649, "elapsed_ms": 24399}, {"gate": "provenance", "caught": true, "cost_usd": 0, "elapsed_ms": 476}, {"gate": "provenance", "caught": true, "cost_usd": 0, "elapsed_ms": 532}]}
+00:23:15  Container called exit(0).
+```
+
+The summary line lands in Cloud Logging as a `jsonPayload` (the runtime parses JSON lines), so it
+is read with `AND jsonPayload.outcome:*` rather than `textPayload`. The calibration rows now carry
+`cost_usd` from the gate's usage, so the proof prices itself whole: the five calibration runs
+plus the clean clip run.
+
+### The console, right after
+
+```
+$ curl https://airlock-console-771466810465.us-central1.run.app/api/health      (00:24:51 UTC)
+ok true
+  rights      healthy  error_rate_15m 0  seconds_since_success 106  calibration_catches_7d 4
+  claim       healthy  error_rate_15m 0  seconds_since_success 139  calibration_catches_7d 5
+  brand       healthy  error_rate_15m 0  seconds_since_success 141  calibration_catches_7d 4
+  provenance  healthy  error_rate_15m 0  seconds_since_success 151  calibration_catches_7d 8
+
+$ curl https://airlock-console-771466810465.us-central1.run.app/api/stats       (00:24:52 UTC)
+{"ok":true,"mock":false,"checked_7d":51,"passed_7d":27,"blocked_7d":24,"incidents_7d":23,"gates_calibrated":4,"gates_total":4,"cost_per_check_usd_7d":0.09971690196078431,"error":null,"read_at":"2026-09-02T00:24:52.483Z"}
+```
+
+Four gates calibrated, and the proof's own series on the stack, read through the Prometheus
+datasource: `sum by (outcome) (sum_over_time(airlock_daily_proof_total[1d]))` answered
+`{outcome="pass"} 1`.
+
+### Execution 2, from the scheduler (`gcloud scheduler jobs run airlock-daily-proof --location us-central1`, 00:24:59 UTC)
+
+The scheduler as described after the run:
+
+```
+name: projects/airlock-agentic-cinema/locations/us-central1/jobs/airlock-daily-proof
+schedule: 0 */12 * * *
+timeZone: Etc/UTC
+state: ENABLED
+scheduleTime: '2026-09-02T12:00:01.960792Z'
+httpTarget:
+  httpMethod: POST
+  uri: https://run.googleapis.com/v2/projects/airlock-agentic-cinema/locations/us-central1/jobs/airlock-daily-proof:run
+  oauthToken:
+    serviceAccountEmail: daily-proof-scheduler@airlock-agentic-cinema.iam.gserviceaccount.com
+    scope: https://www.googleapis.com/auth/cloud-platform
+```
+
+A second execution appeared 22 s after the trigger and completed:
+
+```
+$ gcloud run jobs executions list --job=airlock-daily-proof --region us-central1
+EXECUTION                  COMPLETION_TIME              SUCCEEDED_COUNT  FAILED_COUNT  CREATION_TIMESTAMP
+airlock-daily-proof-28c9f  2026-09-02T00:29:38.753566Z  1                              2026-09-02T00:25:21.283083Z
+airlock-daily-proof-gqt9f  2026-09-02T00:23:19.344282Z  1                              2026-09-02T00:18:54.247176Z
+```
+
+Its log, the lines that decide:
+
+```
+00:27:19  inputs: 6 downloaded (...)
+00:27:58  rights      CAUGHT   37101 ms  real trademark not cleared, faces without release  ->  BLOCK ['registry:brands:not_cleared', 'registry:faces:no_release']
+00:27:58  claim       CAUGHT   17035 ms  expert endorsement with no substantiation  ->  BLOCK ['16 CFR 255.3', 'ASA A26-1337640 (CAP 3.7)']
+00:27:58  brand       CAUGHT   16732 ms  forbidden red banner and urgency copy  ->  BLOCK ['charter:exclusions', 'charter:palette']
+00:27:58  provenance  CAUGHT     543 ms  manifest stripped  ->  BLOCK ['airlock:provenance:manifest-required']
+00:27:58  provenance  CAUGHT     583 ms  signed copy with one byte flipped  ->  BLOCK ['airlock:provenance:signature-valid']
+          [   3.3s] provenance_gate  PASS      216 ms
+          [  11.6s] brand_gate       PASS     8759 ms
+          [  16.1s] claim_gate       PASS    13471 ms
+          [  84.6s] rights_gate      PASS    82085 ms  cleared brand(s): Nimbus; no unreleased face, no explicit content
+          [  87.2s] verdict          grafana  rights      healthy, last success 3 s ago; caught 5 injected defect(s) in 7d
+          [  88.3s] verdict          grafana  claim       healthy, last success 73 s ago; caught 6 injected defect(s) in 7d
+          [  89.7s] verdict          grafana  brand       healthy, last success 79 s ago; caught 5 injected defect(s) in 7d
+          [  90.9s] verdict          grafana  provenance  healthy, last success 88 s ago; caught 10 injected defect(s) in 7d
+00:29:33  [  91.8s] verdict          VERDICT PASS (content) needs_human=False annotation=54 6432 ms
+                                     all 4 gates PASS, healthy and calibrated
+00:29:35  {"outcome": "pass", "verdict": "PASS", "annotation_id": 54, "cost_usd": 1.011693, "calibration_cost_usd": 0.50653, "clean_clip_cost_usd": 0.505163, "gates": {"brand": "CAUGHT", "claim": "CAUGHT", "provenance": "CAUGHT", "rights": "CAUGHT"}, "elapsed_s": {"calibration": 42.0, "clean_clip": 92.1, "inputs": 2.0}}
+00:29:35  Container called exit(0).
+```
+
+After it, `sum by (outcome) (sum_over_time(airlock_daily_proof_total[1d]))` answered
+`{outcome="pass"} 2`. The rights gate took 45 s on the clean clip in execution 1 and 82 s in
+execution 2, the Video Intelligence variance already measured in M6a; the 1800 s task timeout
+leaves room for the 458 s maximum seen there.
+
+### What one proof costs
+
+Read from the two verdict events and the calibration rows, at list price (`pricing.yaml`, free
+quotas not netted): 1.0116 USD and 1.0117 USD per proof. Of that, 1.00 USD is Video Intelligence
+(two started minutes, the 30 s Crest excerpt in the calibration and the 8 s clean clip, at 0.50
+USD per minute over the four features) and about 0.012 USD is Gemini (the claim and brand gates
+twice, 0.0047 and 0.0016 in the calibration, 0.0040 and 0.0012 on the clean clip, read from the
+gate events in Loki); provenance costs nothing.
+
+Two proofs a day from 2026-09-02 to 2026-10-19, the day the credit expires: 47 days, 94 proofs,
+95.1 USD at list price. The Video Intelligence part of it, 94.0 USD, stays inside the monthly free
+quota: 116 minutes per feature in September (29 days) and 76 in October (19 days), against 1000
+free minutes per feature per month, so what the bill will carry is the Gemini part, about 1.1 USD
+over the period, plus the Cloud Run job itself (about 4 minutes of one vCPU and 2 GiB per proof,
+inside the Cloud Run free tier) and one Cloud Scheduler job (three are free per billing account).
+The credit read on 2026-08-29 stood at 85.50 EUR; the proof does not threaten it, and the billing
+cap of the "Cost and the cap" section stays the guard either way.
+
+### Left as follow-ups, on purpose
+
+- A dashboard panel for `airlock_daily_proof_total` (pass and fail per day): the metric is pushed,
+  the panel is not drawn yet.
+- `scripts/demo_prep.sh` keeps calling `airlock.calibrate` in step 2 by default (fast, no Agent
+  Engine run) and names the job in its heading; `--proof` runs `airlock.daily_proof` in its place,
+  the same module the job runs. Chosen so a recording-day preparation stays under a minute unless
+  the full proof is wanted.
+- Whether two metric pushes a day keep the Grafana Cloud free stack from pausing is not measured;
+  the proof runs whether the stack is awake or not (an Influx push to a paused stack would fail
+  and the proof would record that failure).

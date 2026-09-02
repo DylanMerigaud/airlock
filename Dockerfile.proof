@@ -1,0 +1,23 @@
+# Airlock daily proof: a Cloud Run job that calibrates every gate and runs the clean clip through the
+# deployed pipeline (airlock/daily_proof.py), on a Cloud Scheduler cron (infra/gcp/daily_proof.sh).
+# Source stays laid out exactly as in the repo (airlock/, rules/, charter.yaml, rights-registry.yaml,
+# trust/, pricing.yaml as siblings) because the gate modules and the cost model resolve their config
+# paths relative to their own __file__; an installed wheel would break that. The calibration inputs
+# are not in the image: the job downloads them from GCS into assets/ at start.
+FROM python:3.12-slim
+
+WORKDIR /app
+
+RUN pip install --no-cache-dir uv
+
+COPY pyproject.toml uv.lock ./
+COPY airlock ./airlock
+COPY rules ./rules
+COPY charter.yaml ./charter.yaml
+COPY rights-registry.yaml ./rights-registry.yaml
+COPY pricing.yaml ./pricing.yaml
+COPY trust ./trust
+
+RUN uv sync --frozen --no-dev
+
+CMD ["uv", "run", "python", "-m", "airlock.daily_proof"]

@@ -45,7 +45,7 @@ envelope; Grafana is asked before every verdict.
 ```
 uv sync                                                  # Python 3.12, google-adk, c2pa-python, Video Intelligence, google-genai
 scripts/fetch_assets.sh                                  # the Prelinger commercial (public domain), hash checked
-uv run pytest -q                                         # the rules, 51 tests, no cloud needed
+uv run pytest -q                                         # the rules, 64 tests, no cloud needed
 scripts/with_env.sh uv run python -m airlock.run assets/real/CrestToothpa-18-48.mp4      # the four gates, locally
 scripts/with_env.sh uv run adk run agents/pipeline "gs://<your bucket>/asset.mp4"         # the whole pipeline, verdict through Grafana
 ```
@@ -91,6 +91,12 @@ pushes the catch or the miss to Grafana. The ledger of 2026-08-28:
 The two claim misses are real: one was a bug on GCS-only assets (fixed the same hour), the other
 was `--defect-removed`, the deliberate miss that shows the verdict refusing a PASS from a gate whose
 last calibration failed (`docs/RUNS.md`, verification C).
+
+Since 2026-09-02 the control proves itself on a schedule: a Cloud Run job (`python -m
+airlock.daily_proof`, `infra/gcp/daily_proof.sh`) runs the full calibration and then the clean clip
+through the deployed pipeline at 00:00 and 12:00 UTC, and pushes `airlock_daily_proof_total` with the
+outcome. A failed proof is not retried into a pass: the gate that missed loses its right to PASS on
+its own until a calibration catches again, and every run in between is a BLOCK "uncalibrated control".
 
 ## The console
 

@@ -78,7 +78,8 @@ def run_defect(defect: Defect) -> dict[str, Any]:
     result = run_gate(defect.gate, fn, asset, source)
     caught = result.status == defect.expected_status and any(defect.expected_rule_substring in r for r in result.rule_ids)
     return {"gate": defect.gate, "defect": defect.name, "expected": defect.expected_status, "got": result.status,
-            "rule_ids": result.rule_ids, "caught": caught, "elapsed_ms": result.elapsed_ms, "reason": (result.reasons or [""])[0][:200]}
+            "rule_ids": result.rule_ids, "caught": caught, "elapsed_ms": result.elapsed_ms, "reason": (result.reasons or [""])[0][:200],
+            "cost_usd": result.usage.get("cost_usd")}
 
 
 def push_ledger(rows: list[dict[str, Any]]) -> None:
