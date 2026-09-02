@@ -79,6 +79,7 @@ def test_a_failure_on_the_way_fails_even_when_everything_else_passed():
 def test_proof_line_is_the_series_the_dashboard_reads():
     assert proof_line("pass", ts_ns=1700000000000000000) == "airlock_daily_proof,outcome=pass total=1i 1700000000000000000"
     assert proof_line("fail", ts_ns=1).startswith("airlock_daily_proof,outcome=fail total=1i")
+    assert proof_line("pass", ts_ns=1, cost_usd=1.011551) == "airlock_daily_proof,outcome=pass cost_usd=1.011551,total=1i 1"
 
 
 def test_ensure_inputs_downloads_only_what_is_missing(tmp_path):

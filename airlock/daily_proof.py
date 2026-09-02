@@ -148,14 +148,18 @@ def summarize(rows: list[dict[str, Any]], verdict: dict[str, Any] | None, elapse
                    reasons=reasons, calibration=calibration, calibration_cost_usd=calibration_cost, clean_clip_cost_usd=clean_cost)
 
 
-def proof_line(outcome: str, ts_ns: int | None = None) -> str:
-    """airlock_daily_proof,outcome=pass total=1i: the series airlock_daily_proof_total{outcome="pass"} in Grafana."""
-    return line(MEASUREMENT, {"outcome": outcome}, {"total": 1}, ts_ns=ts_ns)
+def proof_line(outcome: str, ts_ns: int | None = None, cost_usd: float | None = None) -> str:
+    """airlock_daily_proof,outcome=pass total=1i,cost_usd=1.01: the series airlock_daily_proof_total{outcome="pass"}
+    and airlock_daily_proof_cost_usd{outcome="pass"} in Grafana (the cost field only when the proof priced itself)."""
+    fields: dict[str, int | float] = {"total": 1}
+    if cost_usd is not None:
+        fields["cost_usd"] = cost_usd
+    return line(MEASUREMENT, {"outcome": outcome}, fields, ts_ns=ts_ns)
 
 
 def push_proof(summary: Summary) -> None:
     if os.environ.get("GRAFANA_INFLUX_URL"):
-        InfluxPusher.from_env().push_lines([proof_line(summary.outcome)])
+        InfluxPusher.from_env().push_lines([proof_line(summary.outcome, cost_usd=summary.cost_usd)])
     if os.environ.get("GRAFANA_LOKI_URL"):
         LokiPusher.from_env().push_event({"stage": "daily_proof", "outcome": summary.outcome,
                                           "runtime": os.environ.get("AIRLOCK_RUNTIME", "local")}, summary.to_dict())
