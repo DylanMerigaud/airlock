@@ -24,7 +24,7 @@ clean clip, and a gate whose defect slipped through loses its right to PASS unti
 
 ## How I built it
 
-All decision logic is plain, unit-tested Python (41 tests, none of them calls a model): the four
+All decision logic is plain, unit-tested Python (64 tests, none of them calls a model): the four
 gate decisions, the two verdict rules, the escalation rule. Google ADK is the runtime envelope: a
 SequentialAgent whose first step is a ParallelAgent of the four gates (each a BaseAgent around a
 plain function, run in a thread so they really overlap), then a verdict BaseAgent, then an
@@ -98,6 +98,6 @@ https://narrowsubmarine1895.grafana.net/public-dashboards/97860661238c4536a743e0
 
 Draft created 2026-09-02, not submitted: https://devpost.com/software/airlock-s2kidr (edit:
 https://devpost.com/submit-to/30721-agentic-cinema-the-blockbuster-hackathon/manage/submissions/1117836-airlock/project-overview).
-The video slot holds draft 5 (synthetic voice) until the final replaces it. Two mandatory fields of
-"Additional info" are still empty: the submitter's country of residence, and whether this is the
-first time using Grafana tools. The Submit click is left for 2026-09-08.
+The video slot holds draft 5 (synthetic voice) until the final replaces it. Additional info completed
+on 2026-09-02 (country of residence France, first time using Grafana tools: yes): 4 of 5 steps done,
+Devpost flags nothing missing. The Submit step (rules checkbox and the button) is left for 2026-09-08.

@@ -1481,6 +1481,8 @@ organisation N/A, not a government employee, Canada province N/A, project New (a
 partner track Grafana, team of 1, repository and hosted URLs, the Google Cloud products and the
 other tools listed, N/A on the IBM, Parallel, Clickhouse and Replit questions, the IBM marketing
 opt-in left unticked. Saved as draft, 3/5 steps done; the Submit page was reached and not clicked.
+Additional info completed later the same night with Dylan's two answers (France; first time with
+Grafana tools): 4/5 steps, nothing flagged, only the Submit step left.
 
 Draft: https://devpost.com/software/airlock-s2kidr (Devpost shows it as "incomplete submission")
 
