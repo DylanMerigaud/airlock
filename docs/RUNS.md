@@ -528,6 +528,7 @@ Cut list, what is NOT built and will not be for the submission:
 - one video format (mp4), 30 s and 50 MB at most per upload
 - one console view plus the BLOCK queue tab; no rights-registry or charter editor
 - the calibration ledger runs on demand (`python -m airlock.calibrate`), not on a schedule
+  (superseded on 2026-09-02 by M8: a Cloud Run job re-proves every gate every 12 hours)
 - the rights registry and the charter are YAML files in the repo
 
 ### Revision 3 (2026-08-29 00:41 UTC)
