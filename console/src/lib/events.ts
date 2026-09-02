@@ -27,6 +27,23 @@ export const GATE_STEP: Record<GateName, string> = {
   provenance: "c2pa-python verifying the manifest",
 };
 
+/** The instrument a running gate is waiting on, for the elapsed counter. */
+export const GATE_INSTRUMENT: Record<GateName, string> = {
+  rights: "Video Intelligence",
+  claim: "gemini-2.5-pro",
+  brand: "gemini-2.5-flash",
+  provenance: "c2pa-python",
+};
+
+/**
+ * How long the instrument took when it was measured, so a reviewer watching
+ * the counter knows what is normal. Rights: airlock/gates/rights.py, annotate()
+ * docstring, 2026-08-28: an 8 s clip 30 to 90 s, the 30 s excerpt 59 s alone.
+ */
+export const GATE_MEASURED: Partial<Record<GateName, string>> = {
+  rights: "30 to 90 s measured",
+};
+
 export type RawEvent = { author: string; text: string; ts: number };
 
 export type GateRunningPayload = {
@@ -285,7 +302,11 @@ export function formatVerdictCostLine(cost: VerdictCost): string {
   const tail: string[] = [];
   if (cost.tokens_in !== undefined) tail.push(`${cost.tokens_in.toLocaleString("en-US")} tokens in`);
   if (cost.tokens_out !== undefined) tail.push(`${cost.tokens_out.toLocaleString("en-US")} out`);
-  if (cost.video_minutes !== undefined) tail.push(`${formatMinutes(cost.video_minutes)} min of video`);
+  if (cost.video_minutes !== undefined) {
+    tail.push(
+      `${formatMinutes(cost.video_minutes)} min of video (Video Intelligence bills per started minute)`,
+    );
+  }
 
   return tail.length > 0 ? `${head}, ${tail.join(", ")}` : head;
 }

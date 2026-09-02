@@ -99,6 +99,31 @@ function Scrubber({
 }) {
   const played = position === null ? 0 : Math.min(100, Math.max(0, (position / duration) * 100));
 
+  // Two markers a few pixels apart keep both ticks but only the first label:
+  // a label closer than 24 px to the previous printed one is skipped.
+  const trackRef = React.useRef<HTMLDivElement | null>(null);
+  const [trackWidth, setTrackWidth] = React.useState(0);
+  React.useEffect(() => {
+    const node = trackRef.current;
+    if (!node) return;
+    const measure = () => setTrackWidth(node.getBoundingClientRect().width);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+  const labelled = React.useMemo(() => {
+    const shown = new Set<number>();
+    let lastLeft = Number.NEGATIVE_INFINITY;
+    for (const marker of markers) {
+      const left = (Math.min(1, Math.max(0, marker.seconds / duration))) * trackWidth;
+      if (trackWidth > 0 && left - lastLeft < 24) continue;
+      shown.add(marker.seconds);
+      lastLeft = left;
+    }
+    return shown;
+  }, [markers, duration, trackWidth]);
+
   function seekFromClick(event: React.MouseEvent<HTMLDivElement>) {
     const rect = event.currentTarget.getBoundingClientRect();
     if (rect.width === 0) return;
@@ -109,7 +134,7 @@ function Scrubber({
   return (
     <div className="px-4 pt-2.5">
       <h2 className="sr-only">Findings on the clip</h2>
-      <div className="relative h-[30px]">
+      <div ref={trackRef} className="relative h-[30px]">
         <span
           aria-hidden="true"
           className="pointer-events-none absolute inset-x-0 top-[5px] h-[4px] rounded-[2px] bg-line"
@@ -152,7 +177,10 @@ function Scrubber({
               onMouseLeave={() => onHover(null)}
               onFocus={() => onHover(marker.seconds)}
               onBlur={() => onHover(null)}
-              className="group absolute top-0 flex h-[30px] w-[26px] -translate-x-1/2 flex-col items-center"
+              className={cn(
+                "group absolute top-0 flex h-[30px] w-[26px] -translate-x-1/2 flex-col items-center",
+                lit && "z-10",
+              )}
               style={{ left: `${left}%` }}
             >
               <span className="sr-only">
@@ -169,15 +197,17 @@ function Scrubber({
                   <span key={source} className={cn("flex-1", hueFor(source))} />
                 ))}
               </span>
-              <span
-                aria-hidden="true"
-                className={cn(
-                  "tabular mt-[2px] font-mono text-[9px] leading-none",
-                  lit ? "text-ink" : "text-ink-soft",
-                )}
-              >
-                {marker.label}
-              </span>
+              {(labelled.has(marker.seconds) || lit) && (
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "tabular mt-[2px] font-mono text-[9px] leading-none",
+                    lit ? "bg-surface text-ink" : "text-ink-soft",
+                  )}
+                >
+                  {marker.label}
+                </span>
+              )}
             </button>
           );
         })}

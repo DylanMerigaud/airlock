@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { loadLastRun, saveLastRun } from "@/lib/last-run";
 import {
   GATE_ORDER,
   GATE_SOURCE_OF_TRUTH,
@@ -27,6 +28,8 @@ export type GateCardState = {
   reported: ReportedInstrument | null;
   /** The order this gate reported in, so the findings thread reads oldest first. */
   settledAt: number | null;
+  /** Wall clock (ms since epoch) when the gate started running, for the elapsed counter. */
+  runningSince: number | null;
 };
 
 export type RowTone = "neutral" | "pass" | "block" | "amber";
@@ -60,6 +63,8 @@ export type RunState = {
   failure: string | null;
   elapsedMs: number | null;
   startedAt: number | null;
+  /** Restored from this tab's sessionStorage on mount, not produced by a live stream. */
+  restored?: boolean;
 };
 
 function freshGates(muted: GateName[] = []): Record<GateName, GateCardState> {
@@ -74,6 +79,7 @@ function freshGates(muted: GateName[] = []): Record<GateName, GateCardState> {
         muted: muted.includes(gate),
         reported: null,
         settledAt: null,
+        runningSince: null,
       };
       return acc;
     },
@@ -138,6 +144,19 @@ export function useRun(): RunHandle {
   const lastTarget = useRef<string | null>(null);
   const counter = useRef(0);
 
+  // The last settled run of this tab comes back on mount, and every settled run
+  // is written as it lands, so leaving the page for Grafana loses nothing.
+  useEffect(() => {
+    const previous = loadLastRun();
+    if (!previous) return;
+    lastTarget.current = previous.target;
+    setState((current) => (current.phase === "idle" ? previous : current));
+  }, []);
+
+  useEffect(() => {
+    if (state.phase === "settled" && !state.restored) saveLastRun(state);
+  }, [state]);
+
   const start = useCallback((asset: string, mute: GateName[] = []) => {
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -181,6 +200,7 @@ export function useRun(): RunHandle {
             status: "RUNNING",
             sourceOfTruth: GATE_SOURCE_OF_TRUTH[gate],
             muted,
+            runningSince: Date.now(),
           };
           step = GATE_STEP[gate];
           rows = [

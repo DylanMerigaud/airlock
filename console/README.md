@@ -76,8 +76,13 @@ output, listening on `$PORT`). The script prints the service URL when it is done
 | `GET /api/stats` | Seven day verdict and incident totals, plus how many gates are calibrated. Cached 20 s. |
 | `GET /api/asset/[id]` | Streams a preloaded clip out of Cloud Storage with the server credentials, for the player on the stage. In mock mode it answers 503, so the stage falls back to the poster and says so. |
 
-Every one of them runs on the Node runtime. When Grafana cannot be reached the stat tiles read
-`unavailable` in red and say why on hover: no placeholder number is ever shown.
+Every one of them runs on the Node runtime. While Grafana has not answered yet the stat tiles and
+the calibration lines are grey placeholder bars, never a number and never a red word. When a route
+answers `ok: false` (a paused Grafana Cloud free stack answers 503 "Loading" for about two minutes
+while it wakes) the console retries every 10 s for 3 minutes, then every 60 s, keeps the last good
+payload on screen, and says "Grafana Cloud is starting, retrying" in the footer; the tiles read
+`unavailable` in red, with the reason on hover, only once that budget is spent with nothing to show.
+Nothing polls while every route answers `ok: true`: one refresh on mount and one per settled run.
 
 ## The three preloaded assets
 
@@ -107,8 +112,15 @@ Crest was itself recorded with the rights gate muted, so its rights row carries 
 
 ## Notes for anyone reading the code
 
-- The block queue is per browser, in `localStorage`. Nothing about a run leaves the session except
-  what the agents themselves wrote to Grafana.
+- The block queue is per browser, in `localStorage`. The last settled run (events and verdict) is
+  kept in `sessionStorage`, keyed by its `startedAt`, and restored on mount with a "restored" note
+  in the Record segment, so following the Grafana link and coming back loses nothing. Nothing about
+  a run leaves the session except what the agents themselves wrote to Grafana.
+- The calibration line under a gate before a run reads one of five states derived from Grafana's
+  three numbers (`src/lib/gate-state.ts`): `degraded` (errors in 15 minutes, amber), `unproven` (no
+  success sample in 7 d, amber), `never calibrated: ADVISORY` (amber), `idle` (no error, last
+  success older than 900 s, soft ink: the gates run before the verdict asks Grafana, so the run
+  re-proves it) and `healthy`. The verdict rules on the Python side are untouched by this wording.
 - A finding becomes a marker on the scrubber when its sentence names a second of the clip, which
   is parsed narrowly: `at 16.12s`, `first at 7.5s`, `at 3.0s`. A bare `533 s ago` in a health
   line is a duration, not a position, and never becomes one (`src/lib/timecodes.ts`).

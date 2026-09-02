@@ -1,8 +1,9 @@
 import "server-only";
 import { GATE_ORDER, type GateName } from "@/lib/events";
 import { grafanaInstant, isMock, type InstantQuery } from "@/lib/grafana";
+import { deriveState, type GateState } from "@/lib/gate-state";
 
-export type GateState = "healthy" | "degraded" | "uncalibrated";
+export { deriveState, type GateState };
 
 export type GateHealth = {
   gate: GateName;
@@ -28,18 +29,6 @@ export function exprs(gate: GateName) {
     seconds_since_success: `time() - max(max_over_time(airlock_gate_last_success_ts{gate="${gate}"}[7d]))`,
     calibration_catches_7d: `sum(sum_over_time(airlock_calibration_catches_total{gate="${gate}"}[7d]))`,
   };
-}
-
-export function deriveState(
-  errorRate: number | null,
-  sinceSuccess: number | null,
-  catches: number | null,
-): GateState {
-  if ((errorRate !== null && errorRate > 0) || sinceSuccess === null || sinceSuccess > 900) {
-    return "degraded";
-  }
-  if (catches === null || catches === 0) return "uncalibrated";
-  return "healthy";
 }
 
 /** Mirrors console/fixtures/run-nimbus-block.jsonl so mock mode is coherent. */

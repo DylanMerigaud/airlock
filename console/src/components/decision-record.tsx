@@ -5,7 +5,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatVerdictCostLine, groupRuleIds, readC2pa } from "@/lib/events";
+import { labelForTarget } from "@/lib/assets";
 import type { RunState } from "@/lib/use-run";
+
+function clockUtc(ms: number): string {
+  const d = new Date(ms);
+  const hh = String(d.getUTCHours()).padStart(2, "0");
+  const mm = String(d.getUTCMinutes()).padStart(2, "0");
+  return `${hh}:${mm} UTC`;
+}
 
 function Chevron({ open }: { open: boolean }) {
   return (
@@ -60,16 +68,34 @@ export function DecisionRecord({
   const c2pa = readC2pa(state.gates.provenance.done);
   const escalation = state.escalation;
 
+  const assetLabel = state.target ? labelForTarget(state.target) : null;
+
   return (
     <div>
-      <section className="flex flex-wrap items-baseline justify-between gap-2 border-b border-line px-3 py-2">
-        <h3 className="label-micro text-ink-soft">Written to Grafana during the run</h3>
-        <span className="font-mono text-[10.5px] text-ink-soft">
-          {verdict.annotation_id !== undefined && verdict.annotation_id !== null
-            ? `annotation ${verdict.annotation_id}`
-            : "no annotation id"}
-          {escalation?.incident_id ? `, incident ${escalation.incident_id}` : ""}
-        </span>
+      <section className="border-b border-line px-3 py-2">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h3 className="label-micro text-ink-soft">Written to Grafana during the run</h3>
+          <span className="font-mono text-[10.5px] text-ink-soft">
+            {verdict.annotation_id !== undefined && verdict.annotation_id !== null
+              ? `annotation ${verdict.annotation_id}`
+              : "no annotation id"}
+            {escalation?.incident_id ? `, incident ${escalation.incident_id}` : ""}
+          </span>
+        </div>
+        {(assetLabel || verdict.asset_id) && (
+          <p className="mt-1 flex flex-wrap items-baseline gap-x-2 text-[12.5px] leading-[1.45] text-ink">
+            {assetLabel && <span>{assetLabel}</span>}
+            {verdict.asset_id && (
+              <span className="font-mono text-[10.5px] text-ink-soft">{verdict.asset_id}</span>
+            )}
+          </p>
+        )}
+        {state.restored && state.startedAt !== null && (
+          <p className="mt-1 font-mono text-[10.5px] leading-[1.45] text-ink-soft">
+            restored: this run started at {clockUtc(state.startedAt)} and was kept in this tab while
+            you were away
+          </p>
+        )}
       </section>
 
       {ruleIds.length > 0 && (
@@ -137,7 +163,7 @@ export function DecisionRecord({
         <a
           href={dashboardUrl}
           target="_blank"
-          rel="noreferrer"
+          rel="noopener noreferrer"
           className="text-[12.5px] text-accent underline underline-offset-[3px]"
         >
           Open in Grafana
