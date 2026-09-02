@@ -38,10 +38,12 @@ export const GATE_INSTRUMENT: Record<GateName, string> = {
 /**
  * How long the instrument took when it was measured, so a reviewer watching
  * the counter knows what is normal. Rights: airlock/gates/rights.py, annotate()
- * docstring, 2026-08-28: an 8 s clip 30 to 90 s, the 30 s excerpt 59 s alone.
+ * docstring, 2026-08-28: an 8 s clip 30 to 90 s, the 30 s excerpt 59 s alone
+ * and 598 s when three jobs ran at once; a hosted run of the 8 s clean clip on
+ * 2026-09-02 waited 220 s, so the upper bound is said too.
  */
 export const GATE_MEASURED: Partial<Record<GateName, string>> = {
-  rights: "30 to 90 s measured",
+  rights: "30 to 90 s usual, up to 600 s measured",
 };
 
 export type RawEvent = { author: string; text: string; ts: number };

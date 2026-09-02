@@ -105,9 +105,14 @@ export function StatTiles({
 }) {
   const pending = stats === null && (loading || (outage !== null && !outage.exhausted));
   const unavailable = stats === null && !pending;
+  const note = outage
+    ? outage.exhausted
+      ? `${outage.reason.replace(", retrying", "")}, retrying every minute`
+      : outage.reason
+    : null;
   const reason = outage
     ? outage.exhausted
-      ? `${outage.reason.replace(", retrying", "")}, still retrying every minute. ${outage.raw}`
+      ? `${note}. ${outage.raw}`
       : outage.reason
     : loading
       ? "Reading Grafana."
@@ -143,13 +148,13 @@ export function StatTiles({
       <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-ink-soft">
         last 7 days
       </span>
-      {outage && (
+      {outage && note && (
         <span
           role="status"
           className="font-mono text-[10px] text-ink-soft"
           title={outage.raw}
         >
-          {stats ? `${outage.reason}, showing the last reading` : outage.reason}
+          {stats ? `${note}, showing the last reading` : note}
         </span>
       )}
     </div>
