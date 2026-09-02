@@ -2,6 +2,7 @@
 
 Name: Airlock
 Tagline: Studios ship dozens of generated assets a week and nobody can prove which one was checked, by which rule, or whether the check itself was working.
+Video: https://youtu.be/xWJ0nMu5cqM
 
 ## What it does
 
@@ -76,7 +77,7 @@ mcp, fastmcp, mcp-grafana, grafana-cloud, loki, c2pa, veo, next.js, typescript
 - [x] Grafana Labs track: the agent reads Grafana through MCP before every verdict and writes back an annotation and an incident (`agents/pipeline/agent.py`, `docs/RUNS.md` verifications A, B, C)
 - [x] Public repository under an OSI licence: Apache-2.0 (`LICENSE`), github.com/DylanMerigaud/airlock
 - [x] Hosted URL a judge can open without a login: https://airlock-console-771466810465.us-central1.run.app (Cloud Run, `docs/RUNS.md` M4)
-- [ ] Demo video of 3 minutes or less (M5)
+- [x] Demo video of 3 minutes or less: https://youtu.be/xWJ0nMu5cqM (draft 5, synthetic voice; the final replaces it)
 - [x] Every synthetic input named (`SYNTHETIC.md`); every real input named with its source and licence (`assets/real/SOURCE.md`)
 
 ## Try it
@@ -89,3 +90,11 @@ sommeliers" under 16 CFR 255.3. Pick the Nimbus clean clip: expect the PASS, ear
 calibrated gates. Switch a gate's "mute telemetry" on and rerun after 15 minutes: the verdict refuses
 to PASS whatever the gates say, because Grafana no longer sees the control succeed. Public dashboard:
 https://narrowsubmarine1895.grafana.net/public-dashboards/97860661238c4536a743e0d858aef845
+
+## Devpost draft
+
+Draft created 2026-09-02, not submitted: https://devpost.com/software/airlock-s2kidr (edit:
+https://devpost.com/submit-to/30721-agentic-cinema-the-blockbuster-hackathon/manage/submissions/1117836-airlock/project-overview).
+The video slot holds draft 5 (synthetic voice) until the final replaces it. Two mandatory fields of
+"Additional info" are still empty: the submitter's country of residence, and whether this is the
+first time using Grafana tools. The Submit click is left for 2026-09-08.

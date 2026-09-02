@@ -1205,3 +1205,59 @@ carries 38 changes of picture outside it.
 Open for the human pass: whether the punch-ins read as a push towards the column that changed or
 as a wobble, since a 1.15x move on a 1920x1080 frame is a small one; whether five editing captions
 in 151 s read as honesty or as clutter; and whether the 6.40 s stretch at 43.4 s is felt as slow.
+
+## M6 first pass: the video placeholder and the Devpost draft (2026-09-02)
+
+Two outward actions on Dylan's own accounts, authorised the same day, so that the submission
+carries a video link and a project page before the final take exists.
+
+**YouTube.** Channel "Dylan Merigaud" (@dylanmerigaudpro, UC2Yns3jvybFGmPemTd4z3vA), signed in
+already in Arc. `video/out/airlock-draft-5-synthetic-voice.mp4` (151.3 s, 43.7 MB) uploaded through
+Studio's dialog: title "Airlock: ship or block a generated asset, on proof (Agentic Cinema 2026,
+Grafana Labs track)", the description from `docs/DEVPOST.md` (console, public dashboard, repository,
+the stack, the synthetic narration named), audience "not made for kids", video language English,
+visibility Unlisted, everything else default. The English SRT went in as a subtitle track through
+Video elements > Subtitles > Upload file (with timing): the editor read the 19 cues back at the
+right times and the row shows "English by you", on top of the burned-in subtitles. Checks:
+"Checks complete. No issues found." (copyright included) before the save. The watch page shows the
+title, the Unlisted badge and 2:31 (the player reports 151.341 s).
+
+Video: https://youtu.be/xWJ0nMu5cqM
+
+**Devpost.** Logged in as @DylanMerigaud. A draft "Untitled" (1/5 steps) already existed under My
+projects, so it was filled rather than a second one created. Project overview: name Airlock, the
+tagline of `docs/DEVPOST.md` (146 of 200 characters), thumbnail
+`docs/img/console-v3-crest-block-2026-08-29.png`. Project details: the four story sections (What
+it does, How I built it, Challenges, Accomplishments) verbatim as one Markdown field, the 17
+"Built With" tags one by one, three "Try it out" links (console, repository, public dashboard),
+the video link above; the image gallery kept the same screenshot. Additional info: Individual,
+organisation N/A, not a government employee, Canada province N/A, project New (after 2026-07-27),
+partner track Grafana, team of 1, repository and hosted URLs, the Google Cloud products and the
+other tools listed, N/A on the IBM, Parallel, Clickhouse and Replit questions, the IBM marketing
+opt-in left unticked. Saved as draft, 3/5 steps done; the Submit page was reached and not clicked.
+
+Draft: https://devpost.com/software/airlock-s2kidr (Devpost shows it as "incomplete submission")
+
+`check.py --type submission docs/DEVPOST.md`:
+
+```
+PASS  G17 zero em-dash / en-dash
+PASS  G14 section 'what it does'  (216 mots)
+PASS  G14 section 'how i built it'  (238 mots)
+PASS  G14 section 'challenges'  (178 mots)
+PASS  G14 section 'built with'  (17 mots)
+PASS  G13 probleme avant techno
+PASS  G16 au moins un chiffre  (15 minutes, 7 days, 48 s, 8 s)
+PASS  G20 nom du projet  (Airlock)
+PASS  G19 exigences du track  (8 cochees)
+
+RESULTAT: PASS mecanique
+```
+
+Open: the final video with Dylan's voice (M5), which replaces the draft at the same YouTube link or
+at a new one written back into `docs/DEVPOST.md` and the Devpost form; two mandatory Devpost
+fields only Dylan can answer (country of residence, first time using Grafana tools), which is why
+the Additional info step is not ticked; the Submit click on 2026-09-08, after which Devpost still
+allows edits until the deadline. Devpost's reminder asks for a "publicly visible" video: Unlisted
+is viewable by anyone with the link, which is what the judges get; switching it to Public is one
+radio button on the video's Visibility page if the rules reading demands it.
