@@ -2112,6 +2112,13 @@ MCP round trip. The old revision was not re-measured (its tools ran inline on th
 construction, mcp 1.29.1 `func_metadata.py:112-115`); the unit test is the regression guard.
 `usage_error` is null and `cost_usd` 0.0 on both: `pricing.yaml` now ships in the image.
 
+**The daily proof job rebuilt with the tagged ledger.** `bash infra/gcp/daily_proof.sh`, 06:37 to
+06:39 UTC: Cloud Build `43ef31e2-35b1-4cad-a5bf-172f7be02431` SUCCESS in 42 s, job
+`airlock-daily-proof` generation 5, scheduler `0 */12 * * *` UTC updated in place. Not executed by
+hand (a calibration was not needed for this verification); the 12:00 UTC run is the first to push
+`airlock_calibration_*{gate, defect}`. The Agent Engine was not redeployed from this branch: it
+carries `airlock/` as an extra package and T2's deploy takes the merged tree.
+
 **Left for the main session and the other tasks.** `agents/pipeline/agent.py` (T2): import `CHECKS`
 from `airlock.gates`, `settings` and `shared_pushers` (the reference diff above). Console dead
 symbols, defined and referenced nowhere else in `console/src` at 4c2d0f4 (grep, definitions only):
