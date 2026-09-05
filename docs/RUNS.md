@@ -3168,8 +3168,8 @@ outside it. The pace: the longest stretch with neither a change of picture nor a
 166.6 s (the end of the dashboard line, before the landing line), against 2.15 s in take 2. The largest
 line shift on the take's own cues is 7.05 s (`provenance_done_3`, the same cause as take 2).
 
-Two pipeline changes came out of reading the frames, both in `video/assemble.py` and both committed with
-this take. `--subtitle-right-margin <px>` (default 0, the frame-centred subtitles of every earlier
+Commits: a44bf7e (the take's cue log and narration), 0da7e7d (the pipeline), e6e377c (the render and this
+paragraph). Two pipeline changes came out of reading the frames, both in `video/assemble.py`. `--subtitle-right-margin <px>` (default 0, the frame-centred subtitles of every earlier
 render): the first render of this take at size 12 alone still clipped the first letters of "incident 34
 resolved, annotation 104 written" under the resolved punch-in at 114.6 s, because a 60 character row is
 about 1090 px and the column's left edge sits at 1418 px during a punch; with 432 px kept free the box is
