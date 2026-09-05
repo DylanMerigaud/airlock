@@ -5,7 +5,7 @@ import * as React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { BlockEntry } from "@/lib/block-queue";
-import type { IncidentPreview } from "@/lib/incident-types";
+import { ownerLabel, type IncidentPreview } from "@/lib/incident-types";
 
 function stamp(iso: string): string {
   const date = new Date(iso);
@@ -19,16 +19,51 @@ function motiveTone(motive: string | null): "amber" | "block" {
 
 const HEAD = "label-micro px-3 py-2 text-ink-soft";
 
+const NO_OWNER_LABEL_HELP =
+  "This incident carries no owner label: it was opened before the escalation agent labelled owners. A run that joins it says who owns it in its Record.";
+
+const OWNER_NOT_READ_HELP =
+  "The labels of this incident were not read on this refresh (beyond the 20 rows read per refresh, or Grafana did not answer for it).";
+
+/** Who the incident is routed to, in words; the session's own escalation fills in an unlabelled incident it joined. */
+export type RunOwner = { incidentId: string; owner: string };
+
+function OwnerCell({ incident, runOwner }: { incident: IncidentPreview; runOwner: RunOwner | null }) {
+  if (incident.owner) {
+    return <span className="block text-[12.5px] leading-[1.4] text-ink">{ownerLabel(incident.owner)}</span>;
+  }
+  if (runOwner && runOwner.incidentId === incident.id) {
+    return (
+      <>
+        <span className="block text-[12.5px] leading-[1.4] text-ink">{ownerLabel(runOwner.owner)}</span>
+        <span className="mt-0.5 block font-mono text-[10px] text-ink-soft" title={NO_OWNER_LABEL_HELP}>
+          from this run&apos;s escalation, no label on the incident
+        </span>
+      </>
+    );
+  }
+  return (
+    <span
+      className="block text-[12px] leading-[1.4] text-ink-soft"
+      title={incident.ownerRead ? NO_OWNER_LABEL_HELP : OWNER_NOT_READ_HELP}
+    >
+      {incident.ownerRead ? "no owner label" : "owner not read"}
+    </span>
+  );
+}
+
 /**
  * The open Airlock incidents in Grafana: the queue a reviewer works through.
  * Every one was opened (or joined) by the escalation agent; resolving one from
- * the Record removes it here on the next refresh.
+ * the Record removes it here on the next refresh. The Owner column is the
+ * escalation's `owner` label read back from Grafana, in words.
  */
 export function IncidentQueue({
   incidents,
   onRerun,
   onResolve,
   rerunTarget,
+  runOwner,
   busy,
 }: {
   incidents: IncidentPreview[];
@@ -37,6 +72,8 @@ export function IncidentQueue({
   onResolve: (incident: IncidentPreview) => Promise<void>;
   /** The console target (preset id or gs:// URI) for an incident's asset id, when the console knows it. */
   rerunTarget: (assetId: string | null) => string | null;
+  /** The incident the last run of this session opened or joined, and the owner it routed it to. */
+  runOwner: RunOwner | null;
   busy: boolean;
 }) {
   const [resolving, setResolving] = React.useState<string | null>(null);
@@ -61,7 +98,7 @@ export function IncidentQueue({
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[720px] border-collapse text-left">
+      <table className="w-full min-w-[820px] border-collapse text-left">
         <caption className="sr-only">Open Airlock incidents in Grafana</caption>
         <thead>
           <tr className="border-b border-line">
@@ -73,6 +110,9 @@ export function IncidentQueue({
             </th>
             <th scope="col" className={HEAD}>
               Motive
+            </th>
+            <th scope="col" className={HEAD}>
+              Owner
             </th>
             <th scope="col" className={HEAD}>
               Opened
@@ -117,6 +157,9 @@ export function IncidentQueue({
                   <span className="mt-1 block font-mono text-[10px] uppercase tracking-[0.07em] text-warn">
                     needs a human
                   </span>
+                </td>
+                <td className="px-3 py-2.5">
+                  <OwnerCell incident={incident} runOwner={runOwner} />
                 </td>
                 <td className="tabular whitespace-nowrap px-3 py-2.5 font-mono text-[10.5px] text-ink-soft">
                   {stamp(incident.createdAt)}

@@ -15,6 +15,8 @@ import type { IncidentDetail, IncidentPreview } from "@/lib/incident-types";
 const IRM_PATH = "/api/plugins/grafana-irm-app/resources/api/v1/";
 const TITLE_PREFIX = "Airlock needs a human: ";
 const PREVIEW_LIMIT = 50;
+/** How many incidents get their labels read per refresh: one GetIncident each, in parallel. */
+const OWNER_DETAIL_LIMIT = 20;
 
 export type { IncidentDetail, IncidentPreview };
 
@@ -56,6 +58,8 @@ export function parseIncidentTitle(title: string): { motive: string | null; asse
   return { motive: rest.slice(0, split), assetId: rest.slice(split + 4) };
 }
 
+type RawLabel = { key: string; label: string };
+
 type RawPreview = {
   incidentID: string;
   title: string;
@@ -65,7 +69,15 @@ type RawPreview = {
   createdTime?: string;
   closedTime?: string;
   slug?: string;
+  /** Present on a preview but always empty there (measured 2026-09-05); filled on GetIncident. */
+  labels?: RawLabel[];
 };
+
+/** The escalation labels every incident it opens `owner:clearance` or `owner:platform`. */
+export function ownerFromLabels(labels: Array<{ key: string; label: string }>): string | null {
+  const hit = labels.find((l) => l.key === "owner" && typeof l.label === "string" && l.label.trim() !== "");
+  return hit ? hit.label : null;
+}
 
 function incidentUrl(id: string, slug?: string): string {
   return `${grafanaBase()}/a/grafana-irm-app/incidents/${id}${slug ? `/${slug}` : ""}`;
@@ -84,6 +96,8 @@ function toPreview(raw: RawPreview): IncidentPreview {
     motive,
     assetId,
     url: incidentUrl(String(raw.incidentID), raw.slug),
+    owner: null,
+    ownerRead: false,
   };
 }
 
@@ -98,8 +112,23 @@ export async function queryOpenIncidents(): Promise<IncidentPreview[]> {
     .map(toPreview);
 }
 
+/**
+ * QueryIncidentPreviews answers `labels: []` on every preview while GetIncident
+ * returns them (measured on this stack, 2026-09-05), so the owner is read one
+ * incident at a time, in parallel, for the first OWNER_DETAIL_LIMIT rows. A row
+ * whose read fails keeps ownerRead false and the Queue says the owner was not read.
+ */
+export async function withOwners(previews: IncidentPreview[]): Promise<IncidentPreview[]> {
+  const head = previews.slice(0, OWNER_DETAIL_LIMIT);
+  const details = await Promise.allSettled(head.map((preview) => getIncident(preview.id)));
+  return previews.map((preview, index) => {
+    const result = details[index];
+    if (!result || result.status !== "fulfilled") return preview;
+    return { ...preview, owner: result.value.owner, ownerRead: true };
+  });
+}
+
 type RawIncident = RawPreview & {
-  labels?: Array<{ key: string; label: string }>;
   summary?: string;
   durationSeconds?: number;
 };
@@ -107,9 +136,12 @@ type RawIncident = RawPreview & {
 export async function getIncident(id: string): Promise<IncidentDetail> {
   const payload = await irm<{ incident?: RawIncident } | RawIncident>("IncidentsService.GetIncident", { incidentID: id });
   const raw = ("incident" in payload && payload.incident ? payload.incident : payload) as RawIncident;
+  const labels = (raw.labels ?? []).map((l) => ({ key: l.key, label: l.label }));
   return {
     ...toPreview(raw),
-    labels: (raw.labels ?? []).map((l) => ({ key: l.key, label: l.label })),
+    owner: ownerFromLabels(labels),
+    ownerRead: true,
+    labels,
     summary: raw.summary ?? "",
     durationSeconds: typeof raw.durationSeconds === "number" ? raw.durationSeconds : null,
   };

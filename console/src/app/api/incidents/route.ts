@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { isMock } from "@/lib/grafana";
 import type { IncidentPreview, IncidentsPayload } from "@/lib/incident-types";
-import { queryOpenIncidents } from "@/lib/incidents";
+import { queryOpenIncidents, withOwners } from "@/lib/incidents";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,6 +19,8 @@ const MOCK_INCIDENTS: IncidentPreview[] = [
     motive: "control unavailable",
     assetId: "nimbus-clean-clip",
     url: "https://narrowsubmarine1895.grafana.net/a/grafana-irm-app/incidents/29",
+    owner: "platform",
+    ownerRead: true,
   },
   {
     id: "26",
@@ -31,10 +33,16 @@ const MOCK_INCIDENTS: IncidentPreview[] = [
     motive: "content",
     assetId: "nimbus-test-clip",
     url: "https://narrowsubmarine1895.grafana.net/a/grafana-irm-app/incidents/26",
+    owner: "clearance",
+    ownerRead: true,
   },
 ];
 
-/** The open Airlock incidents in Grafana, the queue a reviewer works through. */
+/**
+ * The open Airlock incidents in Grafana, the queue a reviewer works through. Each
+ * row carries its owner (the escalation's `owner` label), read per incident since
+ * the preview API returns no labels; at most 20 rows per refresh.
+ */
 export async function GET() {
   const read_at = new Date().toISOString();
   if (isMock()) {
@@ -44,7 +52,7 @@ export async function GET() {
     );
   }
   try {
-    const incidents = await queryOpenIncidents();
+    const incidents = await withOwners(await queryOpenIncidents());
     return NextResponse.json({ ok: true, mock: false, incidents, error: null, read_at } satisfies IncidentsPayload, {
       headers: { "Cache-Control": "no-store" },
     });

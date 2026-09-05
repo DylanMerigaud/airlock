@@ -133,6 +133,14 @@ export function ConsoleShell({ dashboardUrl, environment, mock }: ShellProps) {
     return null;
   }, [target]);
 
+  // The incident this session's last run opened or joined, and who the escalation routed it to: it
+  // fills the Owner column for an incident that predates the owner label.
+  const runOwner = React.useMemo(() => {
+    const escalation = state.escalation;
+    if (!escalation?.incident_id || !escalation.owner) return null;
+    return { incidentId: String(escalation.incident_id), owner: escalation.owner };
+  }, [state.escalation]);
+
   const select = React.useCallback(
     (next: string, uploaded?: { name: string; objectUrl: string }) => {
       if (next !== target) clear(); // another clip on the stage: the previous verdict and its markers go
@@ -195,7 +203,7 @@ export function ConsoleShell({ dashboardUrl, environment, mock }: ShellProps) {
     () =>
       collectMarkers(
         findings.map((finding) => ({
-          text: finding.text,
+          seconds: finding.seconds,
           source: finding.gate,
           tone: finding.status === "PASS" ? ("pass" as const) : ("block" as const),
         })),
@@ -203,8 +211,8 @@ export function ConsoleShell({ dashboardUrl, environment, mock }: ShellProps) {
     [findings],
   );
   const notes = React.useMemo(
-    () => verdictNotes(state.verdict?.reasons ?? [], findings),
-    [state.verdict, findings],
+    () => verdictNotes(state.verdict?.reasons ?? [], state.gates),
+    [state.verdict, state.gates],
   );
 
   const preset = presetById(target);
@@ -415,6 +423,7 @@ export function ConsoleShell({ dashboardUrl, environment, mock }: ShellProps) {
                       await refreshIncidents();
                     }}
                     rerunTarget={rerunTarget}
+                    runOwner={runOwner}
                     busy={busy}
                   />
                 </Panel>
