@@ -154,7 +154,7 @@ last calibration failed (`docs/RUNS.md`, verification C).
 
 Since 2026-09-02 the control proves itself on a schedule: a Cloud Run job (`python -m
 airlock.daily_proof`, `infra/gcp/daily_proof.sh`) runs the full calibration and then the clean clip
-through the deployed pipeline at 00:00 and 12:00 UTC, and pushes `airlock_daily_proof_total` with the
+through the deployed pipeline every six hours (00:00, 06:00, 12:00, 18:00 UTC; every twelve until 2026-09-05), and pushes `airlock_daily_proof_total` with the
 outcome. A failed proof is not retried into a pass (the Cloud Run job runs with `--max-retries=0`
 since 2026-09-05; before that, one retry turned two proofs that met a paused Grafana Cloud into
 passes, `docs/RUNS.md`): the gate that missed loses its right to PASS on its own until a calibration

@@ -3,7 +3,7 @@
 The verdict trusts a gate only if Grafana has seen it catch an injected defect in the last 7 days
 (rule R2, airlock/verdict.py). A calibration nobody runs expires: every gate turns "uncalibrated",
 every run ends in BLOCK, the 7-day stats read zero. So a Cloud Run job (infra/gcp/daily_proof.sh)
-runs this module every 12 hours; it is also what scripts/demo_prep.sh runs with --proof.
+runs this module every 6 hours (every 12 until 2026-09-05); it is also what scripts/demo_prep.sh runs with --proof.
 
     python -m airlock.daily_proof              # calibrate every gate, run the clean clip, print one JSON line
     python -m airlock.daily_proof --no-push    # the same, nothing pushed to Grafana

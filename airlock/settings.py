@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from dataclasses import dataclass
 from typing import Any
 
@@ -230,7 +231,51 @@ def describe() -> list[dict[str, Any]]:
     return rows
 
 
+# The Agent Engine deployment config, rendered from these settings so a judge on another project edits
+# nothing by hand: `scripts/with_env.sh uv run python -m airlock.settings --render-engine-config`.
+
+ENGINE_CONFIG_PATH = "agents/pipeline/.agent_engine_config.json"
+ENGINE_EXTRA_PACKAGES = ["../../airlock", "../../charter.yaml", "../../rights-registry.yaml", "../../trust", "../../rules", "../../pricing.yaml"]
+ENGINE_DESCRIPTION = ("Airlock: four gates in parallel, a verdict that asks Grafana before it rules, an investigator (gemini-2.5-flash) "
+                      "that reads Loki and the alert rules and names the cause, an escalation that opens or joins the incident")
+# Secret Manager names the deployed pipeline reads; the tokens never sit in the file.
+ENGINE_SECRETS = {"AIRLOCK_MCP_TOKEN": "airlock-mcp-token", "GRAFANA_INFLUX_TOKEN": "grafana-influx-token", "GRAFANA_LOKI_TOKEN": "grafana-influx-token"}
+
+
+def engine_config() -> dict[str, Any]:
+    """The .agent_engine_config.json content from the current settings (env over defaults)."""
+    env: dict[str, Any] = {
+        "AIRLOCK_MCP_URL": grafana_mcp_url(),
+        "AIRLOCK_DASHBOARD_UID": dashboard_uid(),
+        "GRAFANA_URL": grafana_url(),
+        "GRAFANA_PROM_UID": prometheus_uid(),
+        "GRAFANA_LOKI_UID": loki_uid(),
+        "AIRLOCK_RUNTIME": "agent-engine",
+        "AIRLOCK_ASSETS_BUCKET": bucket(),
+        "GRAFANA_INFLUX_URL": influx().url,
+        "GRAFANA_INFLUX_USER": influx().user,
+        "GRAFANA_LOKI_URL": loki().url,
+        "GRAFANA_LOKI_USER": loki().user,
+    }
+    for var, secret in ENGINE_SECRETS.items():
+        env[var] = {"secret": secret, "version": "latest"}
+    env["AIRLOCK_PROJECT"] = project()
+    return {"display_name": "airlock", "description": ENGINE_DESCRIPTION, "extra_packages": ENGINE_EXTRA_PACKAGES, "env_vars": env}
+
+
+def render_engine_config(path: str = ENGINE_CONFIG_PATH) -> str:
+    text = json.dumps(engine_config(), indent=2) + "\n"
+    with open(path, "w") as f:
+        f.write(text)
+    return text
+
+
 def main() -> None:
+    if "--render-engine-config" in sys.argv:
+        path = sys.argv[sys.argv.index("--render-engine-config") + 1] if len(sys.argv) > sys.argv.index("--render-engine-config") + 1 else ENGINE_CONFIG_PATH
+        render_engine_config(path)
+        print(f"wrote {path} from airlock.settings (env over defaults)")
+        return
     for r in describe():
         print(f"{r['variable']:<48} {r['origin']:<8} {r['value']}")
     print(json.dumps({"defaults_from": "airlock/settings.py", "variables": len(describe())}))

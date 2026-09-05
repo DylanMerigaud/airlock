@@ -178,7 +178,7 @@ def alert_rules(ds_uid: str) -> list[dict]:
                            "conditions": [{"evaluator": {"type": "gt", "params": [0]}, "operator": {"type": "and"}, "query": {"params": ["C"]}, "reducer": {"type": "last", "params": []}, "type": "query"}]}},
             ],
         })
-    # The dead man's switch: the proof runs every 12 hours and pushes one sample; thirteen hours without one is
+    # The dead man's switch: the proof runs every 6 hours and pushes one sample; thirteen hours without one is
     # an outage of the schedule itself (Scheduler, the job, a quota), which no ">" rule on a counter can see.
     # No data is the alert here, so noDataState is Alerting.
     rules.append({

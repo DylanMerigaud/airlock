@@ -29,7 +29,7 @@ from Agent Engine while another check ran (audit item 4, annotation 50); the 30 
 and 119 s from Agent Engine with three Video Intelligence jobs overlapping (verification A). Every
 check reports what it cost at list price (tokens, video minutes, dollars), pushed to Grafana beside
 the verdict.
-The control also proves itself twice a day: a scheduled job re-runs every injected defect and one
+The control also proves itself four times a day: a scheduled job re-runs every injected defect and one
 clean clip, and a gate whose defect slipped through loses its right to PASS until it catches again.
 
 ## How I built it
