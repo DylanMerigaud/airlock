@@ -31,9 +31,13 @@ interface. Each preloaded asset has its own recording:
 | Asset picked | Fixture replayed | What it shows |
 | --- | --- | --- |
 | Crest | `fixtures/run-crest-incident.jsonl` | BLOCK on content, four failing gates, an incident opened |
-| Nimbus | `fixtures/run-nimbus-block.jsonl` | Three gates PASS, claim BLOCK on 16 CFR 255.3. Recorded before the paperwork rule (2026-08-28 23:30 UTC, annotation 4), so its verdict says `needs_human` false where the live agent now says true and opens an incident; re-recorded in a later pass |
+| Nimbus | `fixtures/run-nimbus-block.jsonl` | Three gates PASS, claim BLOCK on 16 CFR 255.3, a human needed, an incident opened or joined |
+| Nimbus, study on file | `fixtures/run-substantiated-pass.jsonl` | The same clip with its substantiation file beside it in the bucket: claim PASS naming the study, PASS verdict |
 | Nimbus clean | `fixtures/run-clean-pass.jsonl` | Four gates PASS and a PASS verdict, healthy and calibrated, no human needed |
-| An uploaded clip | `fixtures/run-nimbus-instrument-error.jsonl` | A gate that failed while running, so nothing is cleared |
+| An uploaded clip | `fixtures/run-nimbus-instrument-error.jsonl` | The clean clip with a timeout fault injected into the rights gate: BLOCK control unavailable, the investigator's root cause from Loki, an incident |
+
+Every fixture was re-recorded on 2026-09-05 with `scripts/record_fixture.py` against the deployed pipeline (the
+investigator, the run id in every event, the per-run Loki read).
 
 ```
 pnpm install

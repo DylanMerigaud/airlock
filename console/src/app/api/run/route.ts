@@ -45,6 +45,7 @@ function sleep(msValue: number, signal: AbortSignal): Promise<void> {
 const MOCK_FIXTURES: Record<string, string> = {
   crest: "run-crest-incident.jsonl",
   nimbus: "run-nimbus-block.jsonl",
+  substantiated: "run-substantiated-pass.jsonl",
   clean: "run-clean-pass.jsonl",
 };
 const DEFAULT_FIXTURE = "run-nimbus-instrument-error.jsonl";
