@@ -104,6 +104,9 @@ Nothing polls while every route answers `ok: true`: one refresh on mount and one
 - **Nimbus test clip**, synthetic, generated with Veo 3.1 on Vertex AI and C2PA signed, 8 s.
   Expected: rights PASS, claim BLOCK on 16 CFR 255.3, brand PASS, provenance PASS. It is labelled
   as a synthetic test asset wherever it appears.
+- **Nimbus test clip, study on file**, the same clip and manifest as above, with a substantiation
+  file beside it in the bucket (`nimbus-test-clip-substantiated.mp4.substantiation.yaml`). Expected:
+  claim PASS, naming the study; the demonstration that a substantiation lifts the block.
 - **Nimbus clean clip**, synthetic, same generator and the same C2PA signature, 8 s. The asset
   that should PASS: four gates PASS and a PASS verdict when every gate is healthy and calibrated.
   Labelled as a synthetic test asset too.
