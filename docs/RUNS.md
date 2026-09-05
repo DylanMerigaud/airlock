@@ -1979,3 +1979,370 @@ Screenshots in the session scratchpad, folder `t4/`: `01-idle.png` (the upload t
 `05-rights-header-badge.png`, `06-rights-evidence-table.png`, `07-claim-evidence-table.png`,
 `08-verdict-row.png`, `09-escalation-table-raw-open.png`, `10-trace-fault-rows.png`. The dev
 server was stopped afterwards; nothing was deployed from this task.
+
+## The investigation loop: an LlmAgent reads Loki and names the cause; incidents that close; alert rules (2026-09-05)
+
+Status: DONE 2026-09-05 (07:30 UTC). Branch `worktree-agent-ab1dffcd33f8ad45f`, commits c50ff0a, 68e4c6d,
+210cf86, 638a91e, 8d3e243, 839c004 plus this section.
+
+Why. The panel of 2026-09-05 said it in four voices: no LLM ever acted as an agent inside ADK (the
+Grafana tools were called with fixed arguments), Loki was written and never read, zero alert rules and
+zero contact points existed, incidents were opened as drills one per run and never closed, and the
+reviewer's "Mark reviewed" only flipped a browser flag ("Recorded in this browser only"). The partner's
+sample mission, investigate a firing alert, correlate Loki, summarize the root cause, annotate, was not
+done by the product on itself.
+
+What changed:
+
+- `agents/pipeline/agent.py`: an `InvestigationAgent` (a BaseAgent) between the verdict and the
+  escalation wraps the one `LlmAgent` of the pipeline, `investigator`, on `gemini-2.5-flash` with the
+  same mcp-grafana `McpToolset`, filtered to `query_loki_logs`, `query_prometheus` and
+  `alerting_manage_rules` (mcp-grafana 1.3.0 names its alert rule tool so, not `list_alert_rules` as
+  the plan assumed; the tool takes `operation: list | get | versions | create | update | delete` and the
+  budget refuses anything but `list` and `get`). The instruction is a callable built from the
+  invocation's state (the verdict payload, the run id, the asset), so ADK's `{key}` templating is
+  bypassed and the LogQL braces are sent as written. It asks for this run's line of each failing gate,
+  that gate's previous runs over 24 hours, and the state of the Airlock alert rules, then a note of at
+  most 60 words that quotes the `time_utc` of the line it rests on and ends with one line `ROOT CAUSE:`
+  (control motives) or `DECISION NOTE:` (a content BLOCK or a PASS). It runs on every verdict.
+- Bounds: at most 6 tool calls (`before_tool_callback` answers a refusal past the budget), at most 8
+  model turns and 150 s (`before_model_callback` replaces the turn by a closing note), a thinking budget
+  of 1024 tokens inside `max_output_tokens` 4096 (the first build's 1024 was eaten by thoughts and the
+  model returned no text), `on_tool_error_callback` turns a tool exception into an error text the model
+  reads, `on_model_error_callback` closes the loop with "investigation unavailable". Any exception in
+  the wrapper becomes the deterministic fallback note "investigation unavailable: <error>" followed by
+  the verdict's own first reason, and the run continues. `include_contents="none"`: the instruction
+  carries the run, the four gates' history is not re-sent.
+- The Loki answer as the model reads it: an `after_tool_callback` adds `time_utc` (the nanosecond
+  timestamp read as UTC) to every row and cuts each line's `evidence` to a 200-character head, so the
+  timestamps the note cites are the ones Loki holds and twenty rights lines do not carry twenty logo
+  tables.
+- The wrapper streams one text event per tool call and one per tool answer (`{"stage":
+  "investigation", "step": "tool_call" | "tool_result", ...}`) and a final payload with the note, the
+  conclusion line, the tool calls, the Loki lines read and the lines the note cites; stored under
+  `temp:airlock:investigation` (and the bare note under the LlmAgent's `output_key`,
+  `airlock:investigation`). Those rows carry an ADK `isolation_scope` of their own: the first build
+  yielded them without one, and ADK anchored the model's next turn on them ("Dropping function
+  responses with no matching function call"), so the model never saw its own tool answers.
+- `EscalationAgent`: `list_incidents` (active, drills included, limit 50) before `create_incident`;
+  an open incident with the same title (same asset, same motive) gets the run as a timeline note
+  (`add_activity_to_incident`) instead of a new incident. A new incident carries two labels,
+  `airlock:<motive>` and `owner:platform` (a control motive) or `owner:clearance` (a content BLOCK on
+  paperwork, `PAPERWORK_RULE_PREFIXES`), a caption of at most 500 characters (the routing line plus
+  the conclusion; Grafana Incident refuses more than 512, measured below) and the full body as its
+  first timeline note: the routing sentence, the run, the investigator's note, the Loki lines it
+  cites, the verdict's reasons. The always-zero `incidents_total` left the verdict's Influx sample;
+  the escalation pushes `airlock_incident{motive, owner} total, attached` and
+  `airlock_verdict{status, motive} incidents_total=1` when it opens or joins one.
+- `scripts/grafana_bootstrap.py` also provisions, idempotently through `/api/v1/provisioning`: the
+  folder `airlock`, the contact point `airlock-email` (dylanmerigaud@gmail.com), the notification
+  policy tree routed to it, and three alert rules by uid, one instant PromQL query and one threshold
+  expression each, `for: 0s`, no data OK, evaluated every 60 s.
+- `infra/mcp-grafana/deploy.sh`: `alerting` added to `-enabled-tools`.
+- Console: `GET /api/incidents` (IRM `IncidentsService.QueryIncidentPreviews`, `status:active`, which
+  includes the drills) feeds the Queue tab with Grafana's open Airlock incidents; the local storage
+  list stays only as the offline fallback and says so on screen. `POST /api/incident/resolve`
+  (`IncidentsService.UpdateStatus` to `resolved`, then `POST /api/annotations` tagged `airlock,
+  reviewed, <asset id>` with "reviewed by a human (<role>): <verdict summary> [incident N resolved]")
+  is what "Mark reviewed by a human" calls, signed as one of three roles; the Record shows the
+  resolved status and the annotation id, and the copy "Recorded in this browser only" is gone. The
+  Record's "Investigation" section shows the note, its conclusion and the Loki lines it cites with
+  their timestamps; the Checks column gains an "investigation" row (the note and the tool calls); the
+  Trace shows every tool call and answer of the investigator as rows.
+- Tests: `uv run pytest -q` = 120 passed, 2 skipped (was 92). `tests/test_investigation.py` (the
+  instruction, the Loki answer rewrite, the budget and the read-only guard, the fallback, the wrapper
+  with a fake LlmAgent, the incident owner, title, caption, url and dedupe, the Influx samples);
+  `tests/test_grafana_bootstrap.py` (the three rules). `pnpm typecheck`, `pnpm lint`, `pnpm build`
+  green.
+
+### Facts read from the stack before the code (06:10 to 06:20 UTC)
+
+mcp-grafana 1.3.0 tools before the redeploy, 43, none for alerting. The incident tools and the
+parameters the escalation uses (schemas read through `tools/list`):
+
+```
+list_incidents(status: 'active' | 'resolved', drill: bool, limit: int = 10, includeCustomFields: bool)
+  -> {"incidents": [{"incidentId", "title", "status", "severity", "createdTime", "modifiedTime", "incidentStart", "isDrill"}], "hasMore": bool}
+create_incident(title*, severity*, roomPrefix*, status, isDrill, labels: [{key, label, description, colorHex}], attachCaption, attachUrl, customFields)
+add_activity_to_incident(incidentId*, body*, eventTime) -> {"activityItemID", "incidentID", "activityKind": "userNote", "body", "createdTime", ...}
+get_incident(id*) -> the full incident (labels, status, closedTime, durationSeconds, overviewURL, ...)
+update_incident(incidentId*, status, severity, title, customFields)
+```
+
+The preview list carries no labels (incident 29 has `airlock:control-unavailable` and the preview
+shows `[]`), so the dedupe matches the exact title. A shape probe, `add_activity_to_incident` on the
+open drill incident 29 at 06:17:49 UTC, answered `activityItemID activity-item-6a9bb40d075cf5f4f4e25d58`.
+
+The IRM resource API from the console's side (`$GRAFANA_URL/api/plugins/grafana-irm-app/resources/api/v1/`,
+service account token): `IncidentsService.QueryIncidentPreviews` with `{"query": {"queryString":
+"status:active", "limit": 50, "orderDirection": "DESC", "orderField": "createdTime"}}` answered 28
+incidents, 28 drills, `hasMore false`; `IncidentsService.UpdateStatus {"incidentID": "27", "status":
+"resolved"}` answered 200 with `closedTime 2026-09-05T06:35:29Z, durationSeconds 6165` (incident 27, the
+local smoke run of T1, resolved as the shape probe).
+
+Provisioning API before: `GET /api/v1/provisioning/alert-rules` = `[]`, `/contact-points` = `[]`,
+`/policies` = `{"receiver":"empty","group_by":["grafana_folder","alertname"]}`, `/api/folders` = one
+folder (GrafanaCloud).
+
+### Local smoke, nothing spent (06:22 UTC), and the first defect
+
+`scripts/with_env.sh uv run adk run --session_service_uri memory:// agents/pipeline '{"gcs_uri": ".../nimbus-clean-clip.mp4", "asset_id": "nimbus-clean-clip", "mute": [all four], "fault": {all four: "timeout"}}'`:
+the four gates ERROR at 0 ms, the verdict BLOCKs control unavailable (annotation 72), and the
+investigation answered `"tool_calls": 0, "model_turns": 1, "fallback": true, "note": "investigation
+unavailable: the model returned no text ..."` in 10.9 s; the escalation joined incident 29
+(`activity-item-6a9bb5702bf80398e3f8a40f`). The ADK log showed one model call answered in 7 s. The
+harness of the session scratchpad (the investigation agent alone on a canned verdict through an
+in-memory runner) showed the two causes: `finish=MAX_TOKENS, thoughts_token_count=979,
+candidates_token_count=41` (the thinking ate `max_output_tokens=1024`), and, once the model did call
+tools, `Dropping function responses with no matching function call` because the wrapper's own row
+events sat between the function call and its response. With the thinking budget and the isolation
+scope, the same harness on the T1 fault run `e-e67b84b0-d5ad-4af7-88fc-7aa3ce448a35` (06:39 UTC):
+
+```
+[  8.1s] tool_call   query_loki_logs  {app="airlock", gate="rights"} |= "e-e67b84b0-..."  (limit 1)         -> 0 lines (default range: last hour; the run was 80 min old)
+[ 12.5s] tool_call   query_loki_logs  the same with startRfc3339 "now-24h"                                   -> 1 line
+[ 15.9s] tool_call   query_loki_logs  {app="airlock", gate="rights"} over now-24h                             -> 10 lines
+[ 15.9s] tool_call   alerting_manage_rules  {"operation": "list", "label_selectors": ["{app=\"airlock\"}"], "states": ["firing", "pending"]}
+[ 22.5s] investigator: The `rights` gate for asset `nimbus-clean-clip` failed at 2026-09-05T05:19:55.722Z due to an injected timeout error. This specific error type was not observed in other `rights` gate runs in the last 24 hours. The "Airlock daily proof failed" alert is firing.
+         ROOT CAUSE: The `rights` gate experienced an injected timeout error at 2026-09-05T05:19:55.722Z, which is not a recurring issue, and the "Airlock daily proof failed" alert is firing.
+tool_calls 4, model_turns 4, 23.0 s
+```
+
+05:19:55.722Z is the Loki timestamp of that run's rights ERROR (T1's verification 3 started at
+05:19:44). "Airlock daily proof failed" was firing for a true reason: the failed attempt of the
+scheduled proof at 00:04 UTC is inside the rule's 13-hour window.
+
+### mcp-grafana redeploy with the alerting tools (06:24 to 06:29 UTC)
+
+`scripts/with_env.sh bash infra/mcp-grafana/deploy.sh`:
+
+```
+Service [airlock-mcp-grafana] revision [airlock-mcp-grafana-00005-wcb] has been deployed and is serving 100 percent of traffic.
+mcp-grafana url: https://airlock-mcp-grafana-771466810465.us-central1.run.app/mcp (also https://airlock-mcp-grafana-3pyftkcubq-uc.a.run.app/mcp)
+```
+
+`tools/list` afterwards: 46 tools, the three new ones `alerting_manage_rules`, `alerting_manage_routing`,
+`alerting_manage_silences`. `alerting_manage_rules` list answer, one object per rule: `uid, title, state
+(firing | pending | normal | unknown), health, folder_uid, rule_group, last_evaluation, labels, annotations`.
+
+### Alert rules, contact point, policy (06:30 UTC)
+
+`scripts/with_env.sh uv run python scripts/grafana_bootstrap.py`:
+
+```
+{"prometheus_uid": "grafanacloud-prom", "dashboard_uid": "airlock-gates", "dashboard_url": "https://narrowsubmarine1895.grafana.net/d/airlock-gates/airlock-gates", "version": 7, "folder_uid": "airlock", "contact_point": {"name": "airlock-email", "uid": "cfxb9s4l845c0e"}, "policy_receiver": "airlock-email", "alert_rules": [{"uid": "airlock-daily-proof-failed", "title": "Airlock daily proof failed", "folderUID": "airlock", "ruleGroup": "airlock"}, {"uid": "airlock-gate-errors", "title": "Airlock gate errors", "folderUID": "airlock", "ruleGroup": "airlock"}, {"uid": "airlock-calibration-missed", "title": "Airlock calibration missed", "folderUID": "airlock", "ruleGroup": "airlock"}], "rule_group_interval_s": 60}
+```
+
+Run a second time: the same output (the dashboard version stays 7, the rules are PUT by uid). Read back:
+
+```
+GET /api/v1/provisioning/alert-rules  (200)
+  airlock-daily-proof-failed  "Airlock daily proof failed"  condition C, for 0s, noDataState OK, execErrState Error, labels {app: airlock, owner: platform}
+      A: sum(sum_over_time(airlock_daily_proof_total{outcome="fail"}[13h]))      C: threshold A > 0
+  airlock-gate-errors         "Airlock gate errors"         A: sum by (gate) (sum_over_time(airlock_gate_errors_total[15m]))
+  airlock-calibration-missed  "Airlock calibration missed"  A: sum by (gate) (sum_over_time(airlock_calibration_misses_total[24h]))
+GET /api/v1/provisioning/contact-points  (200)
+  [{"uid":"cfxb9s4l845c0e","name":"airlock-email","type":"email","settings":{"addresses":"dylanmerigaud@gmail.com","singleEmail":true},"disableResolveMessage":false}]
+GET /api/v1/provisioning/policies  (200)
+  {"receiver":"airlock-email","group_by":["grafana_folder","alertname"],"group_wait":"30s","group_interval":"5m","repeat_interval":"4h"}
+```
+
+The rules' state at 06:49 UTC (`GET /api/prometheus/grafana/api/v1/rules`):
+
+```
+Airlock daily proof failed   firing    activeAt 2026-09-05T06:31:00Z  value 1   (the failed attempt of the 00:04 UTC proof, inside 13 h)
+Airlock gate errors          firing    gate=rights Alerting activeAt 2026-09-05T06:48:00Z value 1; brand, claim, provenance Normal
+Airlock calibration missed   inactive  four gates Normal
+```
+
+The `gate=rights` instance went Alerting at 06:48:00Z, the first evaluation after the injected error of
+06:47:35Z (verification 1 below).
+
+### Deploys
+
+Agent Engine, three times (the first build, then the caption fix, then the incident link), each
+`scripts/with_env.sh uv run adk deploy agent_engine --project airlock-agentic-cinema --region us-central1 --agent_engine_id 1737023312967499776 --display_name airlock agents/pipeline`:
+06:44 to 06:47, 07:01 to 07:04, 07:06 to 07:09 UTC, each ending
+`Deployed to Agent Platform: projects/airlock-agentic-cinema/locations/us-central1/reasoningEngines/1737023312967499776`.
+The engine id is unchanged; the display name is `airlock` again.
+
+Console, `AGENT_ENGINE_RESOURCE=projects/771466810465/locations/us-central1/reasoningEngines/1737023312967499776 bash infra/console/deploy.sh`,
+06:49 to 06:53 UTC: `Service [airlock-console] revision [airlock-console-00012-m7v] has been deployed and
+is serving 100 percent of traffic. Service URL: https://airlock-console-771466810465.us-central1.run.app`.
+`GET /api/incidents` on it: `ok true, mock false, 27 incidents` (29, 28, 26, 25, 24, ... all drills).
+
+### Verification 1, CLI: the fault run, the note, the incident joined (06:47:29 UTC, 44.6 s)
+
+`uv run python scripts/query_agent_engine.py projects/771466810465/locations/us-central1/reasoningEngines/1737023312967499776 '{"gcs_uri":"gs://airlock-agentic-cinema-assets/calibration/nimbus-clean-clip.mp4","fault":{"rights":"timeout"}}'`
+
+```
+[   4.7s] rights_gate      ERROR       0 ms  TimeoutError: Video Intelligence operation timed out after 1 s (fault injected for run e-1c2b6f5c-5fe0-4fd0-9224-ec3e1524defc)
+[   5.7s] provenance_gate  PASS      579 ms
+[  13.5s] brand_gate       PASS     8514 ms
+[  18.7s] claim_gate       PASS    13731 ms
+[  22.8s] verdict          grafana  rights      seen by Grafana for this run, error rate 10% over 15m, under the 50% block line, last success 192 s ago; caught 12 injected defect(s) in 7d
+[  28.0s] verdict          VERDICT BLOCK (control unavailable) needs_human=True annotation=73 8216 ms
+[  31.3s] investigation    tool_call    query_loki_logs  {app="airlock", gate="rights"} |= "e-1c2b6f5c-..."
+[  31.8s] investigation    tool_result  query_loki_logs  1685 chars, 1 line
+[  33.9s] investigation    tool_call    query_loki_logs  {app="airlock", gate="rights"} over now-24h
+[  34.4s] investigation    tool_result  query_loki_logs  5971 chars
+[  35.9s] investigation    tool_call    alerting_manage_rules  {"operation": "list", "label_selectors": ["{app=\"airlock\"}"]}
+[  36.3s] investigation    tool_result  alerting_manage_rules  1542 chars
+[  39.7s] investigator     The 'rights' gate failed at 2026-09-05T06:47:35.869Z due to an injected timeout. This was a fault injected for this specific run and is not a recurring issue. The "Airlock daily proof failed" and "Airlock gate errors" alerts are currently firing.
+[  40.0s] investigation    ROOT CAUSE  (3 tool calls, 4 model turns, 12.0 s)
+[  42.7s] escalation       escalation: None
+done in 44.6 s
+```
+
+The last line is `airlock/engine_client.py`'s `describe()` not knowing the new `attached` payload
+(the file is T3's; the one-line change is listed in the report). What the escalation did is on incident
+29's timeline (`ActivityService.QueryActivity`), a `userNote` at 06:48:13Z:
+
+```
+Route to the platform owner: a control was unavailable, uncalibrated or in error; the asset was not judged.
+Run e-1c2b6f5c-5fe0-4fd0-9224-ec3e1524defc on nimbus-clean-clip: BLOCK (control unavailable).
+
+Investigation (gemini-2.5-flash, 3 tool calls):
+The 'rights' gate failed at 2026-09-05T06:47:35.869Z due to an injected timeout. This was a fault injected for this specific run and is not a recurring issue. The "Airlock daily proof failed" and "Airlock gate errors" alerts are currently firing.
+ROOT CAUSE: The rights gate experienced an injected timeout, causing the asset to be blocked.
+
+Loki lines:
+- 2026-09-05T06:47:35.869Z rights ERROR (fault: timeout): TimeoutError: Video Intelligence operation timed out after 1 s (fault injected for run e-1c2b6f5c-5fe0-4fd0-9224-ec3e1524defc) [run e-1c2b6f5c-5fe0-4fd0-9224-ec3e1524defc]
+
+Reasons:
+- rights: control unavailable (instrument error: TimeoutError: ... ; seen by Grafana for this run, error rate 10% over 15m, under the 50% block line, last success 192 s ago)
+```
+
+### Verification 2, hosted console, lane console-t2 (06:54 to 07:13 UTC)
+
+(a) The clean clip, "Inject a fault" armed on the rights row, Run airlock at 06:54:40 UTC, settled in
+37 s: rights `TIMEOUT FAULT INJECTED`, verdict `Blocked: control unavailable`, the investigation row
+`ROOT CAUSE: The rights gate experienced a recurring, injected timeout fault from the Video Intelligence
+operation.` (recurring: the run of verification 1 is in its 24-hour window), the escalation row
+`Joined open incident 29: Airlock needs a human: control unavailable on nimbus-clean-clip (same asset,
+same motive) with the investigator's note`. The Record: `annotation 74, incident 29`, and under
+Investigation:
+
+```
+gemini-2.5-flash, 3 tool calls through mcp-grafana
+The rights gate failed at 2026-09-05T06:54:43.512Z due to an injected timeout error from the Video Intelligence operation. This is a recurring injected fault, with similar errors seen in the last 24 hours. The "Airlock daily proof failed" and "Airlock gate errors" alerts are currently firing.
+ROOT CAUSE The rights gate experienced a recurring, injected timeout fault from the Video Intelligence operation.
+2026-09-05T06:54:43.512Z rights ERROR (fault: timeout): TimeoutError: Video Intelligence operation timed out after 1 s (fault injected for run e-04056c3d-f75d-438e-82c0-c77a7d7d7a47)
+```
+
+Screenshots in the session scratchpad: `t2/01-fault-checks.png`, `t2/02-record-investigation.png`.
+
+(b) Signing as `platform on-call`, "Mark reviewed by a human" at 06:56:04 UTC answered in 1 s:
+`Reviewed by a human (platform on-call). incident 29 resolved, annotation 75 written`
+(`t2/03-record-reviewed.png`). Read back: `get_incident 29` = `status resolved, closedTime
+2026-09-05T06:56:05.513679Z, durationSeconds 5751`; annotation 75, tags `["airlock", "reviewed",
+"nimbus-clean-clip", "console"]`, text `reviewed by a human (platform on-call): BLOCK (control
+unavailable) nimbus-clean-clip run e-04056c3d-f75d-438e-82c0-c77a7d7d7a47 [incident 29 resolved]`. The
+Queue tab then listed Grafana's open incidents, 26, 29 gone (`t2/04-queue-incidents.png`). The route
+refuses an unknown role: `{"error":"reviewer_role must be one of: clearance owner (legal), agency,
+platform on-call."}`. Incident 28 (T1's muted run) was resolved through the same hosted route with
+curl at 06:57:00 UTC (annotation 76).
+
+(c) The second fault run (06:57:31, run `e-4605a5aa-d079-49c2-8abd-5ba04b8f3a06`, annotation 77) joined
+the newest open incident of the same title, 22, from 2026-08-30: the dedupe reads every open drill, not
+only today's. Reviewed at 06:58:32 (incident 22 resolved, annotation 78). The other open drills on the
+clean clip from 2026-08-28 to 2026-08-30 (3, 4, 5, 11, 12, 14, 16, 18, 20, the incident storm the
+judges counted) were resolved through `IncidentsService.UpdateStatus` at 06:58:51 to 06:58:57 UTC as
+housekeeping, with no reviewer annotation, so that the next run had to create.
+
+The third fault run (06:59:14, run `e-4354b807-f93d-47be-8b21-e230047eb553`, annotation 79) found no
+open incident and the create was refused: `incident_raw: create incident: oto: validation:
+AttachCaption is too long (max 512)`; the fallback wrote the needs-human annotation 80 (tags
+`airlock, needs-human, owner:platform, nimbus-clean-clip, agent-engine`) and the console said so. The
+caption became the routing line plus the conclusion, at most 500 characters (commit 8d3e243), engine
+redeployed 07:01 to 07:04.
+
+The fourth fault run (07:04:28, run `e-c16008aa-1683-40f4-a9ad-4e68edbff7a3`, annotation 81) opened
+incident 30: `Incident 30 opened: Airlock needs a human: control unavailable on nimbus-clean-clip,
+routed to the platform owner` (`t2/05-incident-30-opened.png`); the payload's `incident_url` was
+`none` because Grafana Incident answers a relative `overviewURL` (commit 839c004, redeployed 07:06 to
+07:09). The fifth (07:09:30, run `e-d5edbfdd-920f-4e93-9ab3-cbc7eb0eead6`, annotation 82) joined
+incident 30 with an absolute link, and the Trace showed the investigator's rows
+(`t2/06-trace-investigator.png`):
+
+```
+at 30.0s  INVESTIGATION  tool call: query_loki_logs      Investigator calls query_loki_logs: {app="airlock", gate="rights"} |= "e-d5edbfdd-920f-4e93-9ab3-cbc7eb0eead6"
+at 30.7s  INVESTIGATION  tool answer: query_loki_logs    query_loki_logs answered (1685 chars, 1 log line)
+at 35.1s  INVESTIGATION  tool call: query_loki_logs      Investigator calls query_loki_logs: {app="airlock", gate="rights", status="ERROR"}
+at 35.9s  INVESTIGATION  tool answer: query_loki_logs    query_loki_logs answered (8497 chars, 7 log lines)
+at 37.2s  INVESTIGATION  tool call: alerting_manage_rules  Investigator calls alerting_manage_rules: operation list
+at 37.7s  INVESTIGATION  tool answer: alerting_manage_rules  alerting_manage_rules answered (1542 chars)
+at 40.8s  INVESTIGATION  ROOT CAUSE  gemini-2.5-flash, 3 tool calls   ROOT CAUSE: Injected TimeoutError in the 'rights' gate.
+at 43.2s  ESCALATION     joined incident 30  owner:platform   Joined open incident 30: ... with the investigator's note
+```
+
+Reviewed at 07:10:48 (incident 30 resolved, annotation 83). Incident 30 read back through
+`IncidentsService.GetIncident`:
+
+```
+{"incidentID": "30", "status": "resolved", "createdTime": "2026-09-05T07:05:12.222312Z", "closedTime": "2026-09-05T07:10:48.703665Z", "durationSeconds": 336, "title": "Airlock needs a human: control unavailable on nimbus-clean-clip", "labels": [{"key": "airlock", "label": "control-unavailable"}, {"key": "owner", "label": "platform"}], "isDrill": true, "severity": "Minor", "overviewURL": "/a/grafana-irm-app/incidents/30/airlock-needs-a-human-control-unavailable-on-nimbus-clean-clip"}
+```
+
+and its timeline (`ActivityService.QueryActivity`): `labelAdded airlock:control-unavailable` and
+`incidentCreated` at 07:05:12Z, `labelAdded owner:platform` and the first `userNote` at 07:05:13Z (run
+`e-c16008aa-...`, "The rights gate failed at '2026-09-05T07:04:34.359Z' due to an injected Video
+Intelligence timeout. This is a recurring issue, with similar injected faults seen in the last 24 hours.
+The "Airlock daily proof failed" and "Airlock gate errors" alerts are firing. ROOT CAUSE: The rights gate
+experienced a recurring, injected timeout error from the Video Intelligence API." with the Loki line
+`2026-09-05T07:04:34.359Z rights ERROR (fault: timeout)`), the second `userNote` at 07:10:14Z (run
+`e-d5edbfdd-...`, "... encountered a TimeoutError at 2026-09-05T07:09:35.709Z. This was an injected
+fault ... ROOT CAUSE: Injected TimeoutError in the 'rights' gate."), then `incidentClosed`,
+`incidentEnd` and `incidentStatusChanged Active to Resolved` at 07:10:49Z.
+
+(d) A run with the fault disarmed at 07:11:14 UTC (run `e-78e9224f-ecac-4507-8ad5-874bbb0ab61c`, 93 s,
+annotation 84): the rights gate PASSED in 63 s ($0.50, 1 min x 4 features) and the verdict still
+BLOCKED control unavailable, by R1's majority clause: `error rate 80% over 15m (5 runs)`, the four
+injected faults above. Incident 31 opened. The investigator explained exactly that, with both lines:
+
+```
+The asset was blocked because the rights control was unavailable. Although the rights gate passed for this run at 2026-09-05T07:12:20.490Z, the control experienced an 80% error rate from injected timeout faults, like one at 2026-09-05T07:09:35.709Z. The "Airlock gate errors" alert is firing.
+ROOT CAUSE The rights gate control was unavailable due to recurring injected timeout faults, triggering the "Airlock gate errors" alert.
+2026-09-05T07:12:20.490Z rights PASS: cleared brand(s): Nimbus; no unreleased face, no explicit content
+2026-09-05T07:09:35.709Z rights ERROR (fault: timeout): TimeoutError: Video Intelligence operation timed out after 1 s (fault injected for run e-d5edbfdd-920f-4e93-9ab3-cbc7eb0eead6)
+```
+
+Reviewed at 07:13:16 (incident 31 resolved, annotation 85).
+
+(e) The PASS, once the 15-minute window held only successes (the ratio read 0.67 at 07:16 and 0 at
+07:25 UTC): Run airlock at 07:25:25 UTC, fault disarmed, run `e-4d63322c-a83c-4562-b9d4-43d78577e04f`,
+55 s, `No issues found: every gate healthy and calibrated`, annotation 86, escalation `no human needed:
+verdict PASS on content`. The investigator ran on it too, 3 tool calls, a DECISION NOTE
+(`t2/07-record-pass-decision-note.png`):
+
+```
+gemini-2.5-flash, 3 tool calls through mcp-grafana
+The 'rights' and 'provenance' gates passed for run e-4d63322c-a83c-4562-b9d4-43d78577e04f, as confirmed by Grafana logs at 2026-09-05T07:26:02.392Z. One Airlock alert rule, 'Airlock daily proof failed', is currently firing.
+DECISION NOTE All gates passed, but a daily proof alert is firing.
+2026-09-05T07:26:02.392Z rights PASS: cleared brand(s): Nimbus; no unreleased face, no explicit content
+2026-09-05T07:25:31.390Z provenance PASS: C2PA manifest verified and trusted; signed by Airlock (hackathon test); created by airlock-synthetic-asset
+```
+
+The investigator's cost on flash, from the events: 3 to 4 tool calls and 4 to 5 model turns per run,
+12 to 23 s, about 1.5k to 2.5k input tokens per turn; the run's cost line does not count it yet (the
+gates price themselves, the investigator does not: the follow-up is a usage field on its payload).
+
+Annotations of the day, in order: 72 (local smoke), 73 (CLI fault run), 74 (hosted fault run), 75
+(reviewed, incident 29), 76 (reviewed, incident 28), 77 (fault run), 78 (reviewed, incident 22), 79
+(fault run), 80 (needs-human fallback, the caption refusal), 81 (fault run, incident 30 opened), 82
+(fault run, joined 30), 83 (reviewed, incident 30), 84 (the majority-rule block, incident 31), 85
+(reviewed, incident 31), 86 (the PASS). Incidents touched: 27 (resolved as the shape probe), 29 (two
+runs joined, resolved), 28 (resolved), 22 (one run joined, resolved), 3, 4, 5, 11, 12, 14, 16, 18, 20
+(housekeeping), 30 (opened, one run joined, resolved), 31 (opened, resolved). Open Airlock incidents
+on the stack after this section: the content drills on the Crest and Nimbus test clips (2 to 26 minus
+the ones above); they close when a reviewer marks them from the console.
+
+### Known gaps, said
+
+- The console's routes (`/api/run`, `/api/incident/resolve`, `/api/incidents`) have no authentication,
+  like the console itself: anyone with the URL can run the pipeline or resolve an incident. The demo
+  posture of the whole console; a reviewer login is the follow-up.
+- The reviewer's role is a self-declared select, not an identity.
+- `airlock/engine_client.py`'s `describe()` prints the investigation payloads as raw JSON and the
+  attached escalation as `escalation: None` (T3 owns the file; the change is in the report).
+- The console's mock fixtures predate the investigator: in `AIRLOCK_MOCK=1` the investigation row says
+  "No investigation on this run (recorded before the investigator existed)" until Phase C re-records them.
