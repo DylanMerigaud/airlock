@@ -13,19 +13,34 @@ happened, so "no data" is OK, not an alert):
 One contact point (email, AIRLOCK_ALERT_EMAIL, default dylanmerigaud@gmail.com), the default policy
 routed to it. The investigator agent reads the rules' state through mcp-grafana's list_alert_rules.
 
-Environment: GRAFANA_URL, GRAFANA_SERVICE_ACCOUNT_TOKEN, optional AIRLOCK_ALERT_EMAIL.
+Logs to traces: the Loki datasource needs a derived field that turns the trace_id of an Airlock line into a
+link to the Tempo datasource. Grafana Cloud provisions its Loki datasource read-only (PUT answers 403) with
+such a field already (traceID, regex [tT]race_?[iI][dD]"?[:=]"?(\\w+)); the bootstrap checks that one of the
+datasource's fields matches an Airlock line and points at Tempo, adds ours when the datasource is writable
+and none does, and says so when it is read-only. Verified by GET either way.
+
+Environment: GRAFANA_URL, GRAFANA_SERVICE_ACCOUNT_TOKEN, optional AIRLOCK_ALERT_EMAIL, GRAFANA_LOKI_UID,
+GRAFANA_TEMPO_UID.
 """
 
 from __future__ import annotations
 
 import json
 import os
+import re
 import sys
+from typing import Any
 
 import httpx
 
 DASHBOARD_UID = "airlock-gates"
 GATES = ["rights", "claim", "brand", "provenance", "verdict", "spike"]
+LOKI_UID = os.environ.get("GRAFANA_LOKI_UID", "grafanacloud-logs")
+TEMPO_UID = os.environ.get("GRAFANA_TEMPO_UID", "grafanacloud-traces")
+# What airlock.telemetry.loki_line writes (compact JSON): the field must match this.
+SAMPLE_LOKI_LINE = '{"asset_id":"clip","run_id":"e-1","trace_id":"4bf92f3577b34da6a3ce929d0e0e4736","gate":"rights","status":"PASS"}'
+SAMPLE_TRACE_ID = "4bf92f3577b34da6a3ce929d0e0e4736"
+TRACE_FIELD = {"name": "trace_id", "matcherType": "regex", "matcherRegex": '"trace_id":"(\\w+)"', "url": "${__value.raw}", "datasourceUid": TEMPO_UID}
 
 
 def _client() -> httpx.Client:
@@ -271,9 +286,57 @@ def main() -> None:
     contact_uid = ensure_contact_point(c, os.environ.get("AIRLOCK_ALERT_EMAIL", DEFAULT_ALERT_EMAIL))
     policy = ensure_policy(c)
     rules = ensure_alert_rules(c, ds_uid)
+    trace_link = ensure_trace_link(c)
     print(json.dumps({"prometheus_uid": ds_uid, "dashboard_uid": body.get("uid"), "dashboard_url": base + body.get("url", ""), "version": body.get("version"),
                       "folder_uid": folder_uid, "contact_point": {"name": CONTACT_POINT, "uid": contact_uid}, "policy_receiver": policy.get("receiver"),
-                      "alert_rules": rules, "rule_group_interval_s": RULE_GROUP_INTERVAL_S}))
+                      "alert_rules": rules, "rule_group_interval_s": RULE_GROUP_INTERVAL_S, "loki_trace_link": trace_link}))
+
+
+def field_links_airlock_lines(field: dict[str, Any], tempo_uid: str = TEMPO_UID) -> bool:
+    """True when this derived field points at the Tempo datasource and its regex pulls the trace id out of an Airlock line."""
+    if field.get("datasourceUid") != tempo_uid or field.get("matcherType", "regex") != "regex":
+        return False
+    try:
+        m = re.search(str(field.get("matcherRegex") or ""), SAMPLE_LOKI_LINE)
+    except re.error:
+        return False
+    return bool(m and m.groups() and m.group(1) == SAMPLE_TRACE_ID)
+
+
+def trace_link_plan(datasource: dict[str, Any], tempo_uid: str = TEMPO_UID) -> dict[str, Any]:
+    """What to do about the Loki datasource's derived fields: nothing when one already links Airlock lines to Tempo, a PUT
+    with ours added when the datasource is writable, a report when it is read-only (Grafana Cloud's provisioned one)."""
+    fields = list((datasource.get("jsonData") or {}).get("derivedFields") or [])
+    matching = [f.get("name") for f in fields if field_links_airlock_lines(f, tempo_uid)]
+    if matching:
+        return {"action": "none", "linked_by": matching, "read_only": bool(datasource.get("readOnly"))}
+    if datasource.get("readOnly"):
+        return {"action": "cannot", "linked_by": [], "read_only": True,
+                "reason": "the Loki datasource is read-only and none of its derived fields links an Airlock line to Tempo"}
+    return {"action": "put", "linked_by": [TRACE_FIELD["name"]], "read_only": False, "fields": fields + [{**TRACE_FIELD, "datasourceUid": tempo_uid}]}
+
+
+def ensure_trace_link(c: httpx.Client, loki_uid: str = LOKI_UID, tempo_uid: str = TEMPO_UID) -> dict[str, Any]:
+    """Logs to traces on the Loki datasource, idempotent, verified by GET. Never raises on a refusal: the answer says what stands."""
+    r = c.get(f"/api/datasources/uid/{loki_uid}")
+    r.raise_for_status()
+    ds = r.json()
+    plan = trace_link_plan(ds, tempo_uid)
+    out: dict[str, Any] = {"loki_uid": loki_uid, "tempo_uid": tempo_uid, "action": plan["action"], "read_only": plan["read_only"]}
+    if plan["action"] == "put":
+        body = {k: ds[k] for k in ("name", "type", "url", "access", "basicAuth", "basicAuthUser", "isDefault") if k in ds}
+        body["jsonData"] = {**(ds.get("jsonData") or {}), "derivedFields": plan["fields"]}
+        put = c.put(f"/api/datasources/uid/{loki_uid}", json=body)
+        out["put_status"] = put.status_code
+        if put.status_code >= 300:
+            out.update(action="cannot", reason=put.text[:200])
+    elif plan["action"] == "cannot":
+        out["reason"] = plan["reason"]
+    after = c.get(f"/api/datasources/uid/{loki_uid}")
+    after.raise_for_status()
+    out["linked_by"] = trace_link_plan(after.json(), tempo_uid)["linked_by"]
+    out["verified"] = bool(out["linked_by"])
+    return out
 
 
 if __name__ == "__main__":

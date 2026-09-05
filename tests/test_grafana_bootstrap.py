@@ -56,3 +56,35 @@ def test_contact_point_and_policy_names_agree():
     assert bootstrap.CONTACT_POINT == "airlock-email"
     assert bootstrap.DEFAULT_ALERT_EMAIL == "dylanmerigaud@gmail.com"
     assert bootstrap.PROVISIONING_HEADERS == {"X-Disable-Provenance": "true"}
+
+
+# Logs to traces: the derived field on the Loki datasource. The two fields below are the ones Grafana Cloud provisions.
+STACK_DEFAULT_FIELD = {"datasourceUid": "grafanacloud-traces", "matcherRegex": '[tT]race_?[iI][dD]"?[:=]"?(\\w+)', "matcherType": "regex",
+                       "name": "traceID", "url": "${__value.raw}"}
+STACK_LABEL_FIELD = {"datasourceUid": "grafanacloud-traces", "matcherRegex": "[tT]race_?[iI][dD]", "matcherType": "label", "name": "traceID (field)",
+                     "url": "${__value.raw}"}
+
+
+def test_the_stack_default_derived_field_links_a_compact_airlock_line():
+    assert bootstrap.field_links_airlock_lines(STACK_DEFAULT_FIELD) is True
+    assert bootstrap.field_links_airlock_lines(STACK_LABEL_FIELD) is False  # a label matcher, and the Airlock stream has no trace label
+    assert bootstrap.field_links_airlock_lines({**STACK_DEFAULT_FIELD, "datasourceUid": "other-tempo"}) is False
+    assert bootstrap.field_links_airlock_lines({**STACK_DEFAULT_FIELD, "matcherRegex": "("}) is False  # a broken regex is not a link
+    assert bootstrap.field_links_airlock_lines(bootstrap.TRACE_FIELD) is True
+    assert bootstrap.SAMPLE_LOKI_LINE.count('"trace_id":"') == 1  # the compact form airlock.telemetry.loki_line writes
+
+
+def test_trace_link_plan_does_nothing_when_the_stack_links_already_and_reports_a_read_only_datasource():
+    ds = {"uid": "grafanacloud-logs", "readOnly": True, "jsonData": {"derivedFields": [STACK_DEFAULT_FIELD, STACK_LABEL_FIELD], "timeout": "300"}}
+    assert bootstrap.trace_link_plan(ds) == {"action": "none", "linked_by": ["traceID"], "read_only": True}
+    bare = {"uid": "grafanacloud-logs", "readOnly": True, "jsonData": {"derivedFields": [STACK_LABEL_FIELD]}}
+    plan = bootstrap.trace_link_plan(bare)
+    assert plan["action"] == "cannot" and plan["linked_by"] == [] and "read-only" in plan["reason"]
+
+
+def test_trace_link_plan_adds_our_field_to_a_writable_datasource_and_keeps_the_others():
+    ds = {"uid": "loki", "readOnly": False, "jsonData": {"derivedFields": [STACK_LABEL_FIELD], "timeout": "300"}}
+    plan = bootstrap.trace_link_plan(ds, tempo_uid="my-tempo")
+    assert plan["action"] == "put" and plan["linked_by"] == ["trace_id"]
+    assert plan["fields"][0] == STACK_LABEL_FIELD and plan["fields"][1]["datasourceUid"] == "my-tempo" and plan["fields"][1]["name"] == "trace_id"
+    assert bootstrap.field_links_airlock_lines(plan["fields"][1], tempo_uid="my-tempo")
