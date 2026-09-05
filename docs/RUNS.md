@@ -2880,7 +2880,7 @@ the ones above); they close when a reviewer marks them from the console.
 
 ## M5: v6, the final take (2026-09-05)
 
-Status: DONE 2026-09-05 (08:50 UTC). Commits bfd0a29, 40ce62c, a0a9fb2, dfecb82, 0a00c10, a2fce89 plus this section, on main.
+Status: DONE 2026-09-05 (08:50 UTC). Commits bfd0a29, 40ce62c, a0a9fb2, dfecb82, 0a00c10, 89a4fb6, a2fce89 plus this section, on main.
 
 The final demo video, from script v6: `video/out/airlock-v6-synthetic-voice.mp4`, 177.5 s, 55.2 MB,
 synthetic voice (Google Cloud Text to Speech, en-US-Neural2-D at 1.1, declared in the file name and in a

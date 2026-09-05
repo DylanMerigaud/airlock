@@ -171,8 +171,8 @@ cues the take actually produced.
    or "waiting for Grafana to draw, N s compressed" over the 2.5 s that run up to the cut, and
    every one of them is written into `assembly.json` under `compressions` with its kind. Half a
    second of every wait stays on the picture, which is what the caption is spoken over. The three
-   smaller kinds only earn a cut when they take out four seconds or more, because a caption costs
-   the picture more than three seconds of waiting does. The
+   smaller kinds only earn a cut when they take out two seconds or more (draft 5 asked four; script
+   v6 carries 160 s of voice under a 180 s limit and pays for every second of waiting kept). The
    subtitles are one cue per sentence rather than one per spoken line, each sentence taking its
    share of that line's wav duration, wrapped at about 60 characters over two rows at most, while
    the narration audio stays one wav per line. The claim
