@@ -7,7 +7,7 @@ scripts/fetch_assets.sh
 scripts/with_env.sh uv run python scripts/eval_gates.py
 ```
 
-Run: 2026-09-05T06:20:15.751853+00:00 to 2026-09-05T06:45:18.083892+00:00 (UTC), code `c3bc502`, ground truth `eval/manifest.yaml`. Bucket: `airlock-agentic-cinema-assets`.
+Run: 2026-09-05T09:30:56.310055+00:00 to 2026-09-05T09:59:40.472535+00:00 (UTC), code `4becdda`, ground truth `eval/manifest.yaml`. Bucket: `airlock-agentic-cinema-assets`.
 
 Every percentage is printed beside the count it is made of. BLOCK is the positive class: a
 gate exists to catch the case it should block. A rule fires when its gate BLOCKs citing it;
@@ -17,22 +17,22 @@ a forbidden rule that fires is a false positive even when the BLOCK itself was r
 
 | asset | kind | rights | claim | brand | provenance | wall | cost USD |
 |---|---|---|---|---|---|---|---|
-| Cheerios1960-0-30 | real | BLOCK (78169 ms) | BLOCK (20966 ms) | BLOCK (13607 ms) | BLOCK (52 ms) | 122.2 s | $0.5190 |
-| chevrolet-31-61 | real | BLOCK (58662 ms) | BLOCK (40599 ms) | BLOCK (22014 ms) | BLOCK (3 ms) | 132.1 s | $0.5206 |
-| ivory_soap-25-55 | real | BLOCK (58967 ms) | BLOCK (35822 ms) | BLOCK (14446 ms) | BLOCK (4 ms) | 119.0 s | $0.5208 |
-| kodak_instamatic-31-60 | real | BLOCK (26505 ms) | BLOCK (22388 ms) | BLOCK (15966 ms) | BLOCK (2 ms) | 74.6 s | $0.5192 |
-| folgers-26-56 | real | BLOCK (36082 ms) | BLOCK (20578 ms) | BLOCK (15849 ms) | BLOCK (4 ms) | 81.9 s | $0.5191 |
-| labatts_beer-0-20 | real | BLOCK (42554 ms) | BLOCK (35627 ms) | BLOCK (9256 ms) | BLOCK (2 ms) | 96.5 s | $0.5171 |
-| gilbert_slot_racers-0-30 | real | BLOCK (35271 ms) | BLOCK (20801 ms) | BLOCK (20953 ms) | BLOCK (2 ms) | 86.2 s | $0.5177 |
-| MacleansToot-0-29 | real | BLOCK (39673 ms) | BLOCK (22480 ms) | BLOCK (16247 ms) | BLOCK (2 ms) | 87.8 s | $0.5200 |
-| ScottiesTiss-0-30 | real | BLOCK (58010 ms) | BLOCK (25755 ms) | BLOCK (12782 ms) | BLOCK (2 ms) | 106.3 s | $0.5197 |
-| GE_blender-0-30 | real | BLOCK (47545 ms) | BLOCK (19615 ms) | BLOCK (14904 ms) | BLOCK (2 ms) | 91.5 s | $0.5189 |
-| nimbus-test-clip | synthetic | PASS (34299 ms) | BLOCK (12943 ms) | PASS (11399 ms) | PASS (33 ms) | 68.4 s | $0.5060 |
-| nimbus-clean-clip | synthetic | PASS (38224 ms) | PASS (13092 ms) | PASS (8476 ms) | PASS (8 ms) | 70.3 s | $0.5050 |
-| nimbus-defect-brand-red | synthetic | PASS (36811 ms) | PASS (14160 ms) | BLOCK (20367 ms) | BLOCK (2 ms) | 80.7 s | $0.5064 |
-| nimbus-defect-provenance-stripped | synthetic | PASS (94528 ms) | BLOCK (15666 ms) | PASS (11173 ms) | BLOCK (2 ms) | 130.8 s | $0.5059 |
-| nimbus-defect-provenance-broken | synthetic | PASS (34502 ms) | BLOCK (14435 ms) | PASS (9947 ms) | BLOCK (10 ms) | 68.2 s | $0.5059 |
-| veo-raw | synthetic | PASS (50047 ms) | PASS (9604 ms) | BLOCK (15662 ms) | BLOCK (17 ms) | 85.2 s | $0.5044 |
+| Cheerios1960-0-30 | real | BLOCK (52263 ms) | BLOCK (29560 ms) | BLOCK (15649 ms) | BLOCK (86 ms) | 106.0 s | $0.5207 |
+| chevrolet-31-61 | real | BLOCK (87814 ms) | PASS (24082 ms) | BLOCK (30772 ms) | BLOCK (8 ms) | 151.4 s | $0.5176 |
+| ivory_soap-25-55 | real | BLOCK (44564 ms) | BLOCK (37121 ms) | BLOCK (18408 ms) | BLOCK (4 ms) | 109.4 s | $0.5216 |
+| kodak_instamatic-31-60 | real | BLOCK (31171 ms) | BLOCK (22034 ms) | BLOCK (20482 ms) | BLOCK (16 ms) | 83.2 s | $0.5199 |
+| folgers-26-56 | real | BLOCK (40798 ms) | BLOCK (29170 ms) | BLOCK (16797 ms) | BLOCK (5 ms) | 95.3 s | $0.5196 |
+| labatts_beer-0-20 | real | BLOCK (28554 ms) | BLOCK (22012 ms) | BLOCK (25774 ms) | BLOCK (7 ms) | 84.8 s | $0.5161 |
+| gilbert_slot_racers-0-30 | real | BLOCK (40408 ms) | BLOCK (18290 ms) | BLOCK (16490 ms) | BLOCK (4 ms) | 83.7 s | $0.5172 |
+| MacleansToot-0-29 | real | BLOCK (42664 ms) | BLOCK (26951 ms) | BLOCK (16437 ms) | BLOCK (4 ms) | 94.8 s | $0.5197 |
+| ScottiesTiss-0-30 | real | BLOCK (65827 ms) | BLOCK (26077 ms) | BLOCK (13268 ms) | BLOCK (5 ms) | 113.6 s | $0.5206 |
+| GE_blender-0-30 | real | BLOCK (48022 ms) | ERROR (300500 ms) | BLOCK (15120 ms) | BLOCK (6 ms) | 372.4 s | $0.5031 |
+| nimbus-test-clip | synthetic | PASS (35363 ms) | BLOCK (14595 ms) | PASS (10746 ms) | PASS (31 ms) | 70.0 s | $0.5063 |
+| nimbus-clean-clip | synthetic | PASS (36887 ms) | PASS (13138 ms) | PASS (8875 ms) | PASS (10 ms) | 67.4 s | $0.5054 |
+| nimbus-defect-brand-red | synthetic | PASS (40277 ms) | PASS (15738 ms) | BLOCK (19869 ms) | BLOCK (3 ms) | 84.3 s | $0.5065 |
+| nimbus-defect-provenance-stripped | synthetic | PASS (22967 ms) | BLOCK (13145 ms) | PASS (12611 ms) | BLOCK (3 ms) | 56.6 s | $0.5061 |
+| nimbus-defect-provenance-broken | synthetic | PASS (42834 ms) | BLOCK (15078 ms) | PASS (11415 ms) | BLOCK (12 ms) | 78.3 s | $0.5064 |
+| veo-raw | synthetic | PASS (41620 ms) | PASS (10041 ms) | BLOCK (9304 ms) | BLOCK (21 ms) | 69.1 s | $0.5046 |
 
 ## Per gate: the status against the expected status
 
@@ -87,7 +87,7 @@ Brand named: 40% (4 of 10).
 | kodak_instamatic-31-60 | Kodak or Instamatic | Stanley Steemer, JanSport, Ichiran | no |
 | folgers-26-56 | Folgers | Folgers | yes |
 | labatts_beer-0-20 | Labatt | Peugeot | no |
-| gilbert_slot_racers-0-30 | Gilbert | Mitsubishi Fuso Truck and Bus Corporation, Vauxhall Motors | no |
+| gilbert_slot_racers-0-30 | Gilbert | Vauxhall Motors, Mitsubishi Fuso Truck and Bus Corporation | no |
 | MacleansToot-0-29 | Macleans | no brand | no |
 | ScottiesTiss-0-30 | Scotties | Lucid Motors, Green Bay Packers | no |
 | GE_blender-0-30 | General Electric or GE | General Electric, Target Corporation | yes |
@@ -96,18 +96,18 @@ Brand named: 40% (4 of 10).
 
 | gate | n | median | max |
 |---|---|---|---|
-| rights | 16 | 41113 ms | 94528 ms |
-| claim | 16 | 20689 ms | 40599 ms |
-| brand | 16 | 14675 ms | 22014 ms |
-| provenance | 16 | 2 ms | 52 ms |
+| rights | 16 | 41209 ms | 87814 ms |
+| claim | 16 | 22023 ms | 300500 ms |
+| brand | 16 | 16043 ms | 30772 ms |
+| provenance | 16 | 6 ms | 86 ms |
 
 ## Cost, at list price
 
 From `pricing.yaml`, read from the Cloud Billing Catalog on 2026-08-29; the free
 monthly quotas are not netted out.
 
-Median cost per asset: $0.5183 (n=16). Maximum cost per asset: $0.5208.
-Total cost of the whole evaluation: $8.2256, 16 Video Intelligence minute(s), 32 Gemini call(s).
+Median cost per asset: $0.5167 (n=16). Maximum cost per asset: $0.5216.
+Total cost of the whole evaluation: $8.2115, 16 Video Intelligence minute(s), 31 Gemini call(s).
 
 ## Surprises
 
@@ -115,7 +115,8 @@ What the status-level score would hide. This run:
 
 - `registry:brands:unknown` did not fire on `MacleansToot-0-29` where it must (gate status BLOCK)
 - `registry:explicit_content` fired on `kodak_instamatic-31-60` where it must not: "explicit content likelihood at or above LIKELY on 1 frame(s)"
-- Video Intelligence did not name the brand on 6 of 10 real spots: `chevrolet-31-61` expected Chevrolet or Chevy, got DeLorean Motor Company; `kodak_instamatic-31-60` expected Kodak or Instamatic, got Stanley Steemer, JanSport, Ichiran; `labatts_beer-0-20` expected Labatt, got Peugeot; `gilbert_slot_racers-0-30` expected Gilbert, got Mitsubishi Fuso Truck and Bus Corporation, Vauxhall Motors; `MacleansToot-0-29` expected Macleans, got no brand; `ScottiesTiss-0-30` expected Scotties, got Lucid Motors, Green Bay Packers
+- Video Intelligence did not name the brand on 6 of 10 real spots: `chevrolet-31-61` expected Chevrolet or Chevy, got DeLorean Motor Company; `kodak_instamatic-31-60` expected Kodak or Instamatic, got Stanley Steemer, JanSport, Ichiran; `labatts_beer-0-20` expected Labatt, got Peugeot; `gilbert_slot_racers-0-30` expected Gilbert, got Vauxhall Motors, Mitsubishi Fuso Truck and Bus Corporation; `MacleansToot-0-29` expected Macleans, got no brand; `ScottiesTiss-0-30` expected Scotties, got Lucid Motors, Green Bay Packers
+- `claim` on `GE_blender-0-30` ended in ERROR: "ReadTimeout: The read operation timed out"
 
 Seen in earlier runs of this eval, kept for the record:
 
@@ -127,14 +128,14 @@ Seen in earlier runs of this eval, kept for the record:
 These ten are real, unrelated commercials: there is no charter or substantiation
 file for them, so claim and brand cannot be right or wrong here, only informative.
 
-- `Cheerios1960-0-30` (brand on screen Cheerios): claim BLOCK, "3 regulated claim(s) with no substantiation on file; first at 9.8s: "that teams up V8 juice and Cheerios for flavor and energy." (efficacy, 16 CFR 255.1(a))"; brand BLOCK, "mandatory mention missing: the Nimbus wordmark is never seen"
-- `chevrolet-31-61` (brand on screen Chevrolet): claim BLOCK, "2 regulated claim(s) with no substantiation on file; first at 4.0s: "Oh, isn't it wonderful?" (superlative, 16 CFR 255.1(a))"; brand BLOCK, "mandatory mention missing: the Nimbus wordmark is never seen"
-- `ivory_soap-25-55` (brand on screen Ivory): claim BLOCK, "4 regulated claim(s) with no substantiation on file; first at 13.8s: "Ivory cleans gently" (efficacy, 16 CFR 255.1(a))"; brand BLOCK, "mandatory mention missing: the Nimbus wordmark is never seen"
-- `kodak_instamatic-31-60` (brand on screen Kodak): claim BLOCK, "5 regulated claim(s) with no substantiation on file; first at 6.4s: "Drop in the film." (efficacy, 16 CFR 255.1(a))"; brand BLOCK, "mandatory mention missing: the Nimbus wordmark is never seen"
-- `folgers-26-56` (brand on screen Folgers): claim BLOCK, "6 regulated claim(s) with no substantiation on file; first at 1.8s: "You just need the coffee with better flavor." (comparative, 16 CFR 255.1(a))"; brand BLOCK, "mandatory mention missing: the Nimbus wordmark is never seen"
-- `labatts_beer-0-20` (brand on screen Labatt's): claim BLOCK, "3 regulated claim(s) with no substantiation on file; first at 10.5s: "It's a great new taste in beer." (superlative, 16 CFR 255.1(a))"; brand BLOCK, "mandatory mention missing: the Nimbus wordmark is never seen"
-- `gilbert_slot_racers-0-30` (brand on screen Gilbert): claim BLOCK, "3 regulated claim(s) with no substantiation on file; first at 20.695s: "Gilbert makes cars rugged enough to take this kind of punishment." (efficacy, 16 CFR 255"; brand BLOCK, "mandatory mention missing: the Nimbus wordmark is never seen"
-- `MacleansToot-0-29` (brand on screen Macleans): claim BLOCK, "8 regulated claim(s) with no substantiation on file; first at 9.6s: "This is the security clean white teeth give." (efficacy, 16 CFR 255.1(a))"; brand BLOCK, "mandatory mention missing: the Nimbus wordmark is never seen"
-- `ScottiesTiss-0-30` (brand on screen Scotties): claim BLOCK, "5 regulated claim(s) with no substantiation on file; first at 5.5s: "There's no other box of facial tissues like this." (superlative, 16 CFR 255.1(a))"; brand BLOCK, "mandatory mention missing: the Nimbus wordmark is never seen"
-- `GE_blender-0-30` (brand on screen General Electric): claim BLOCK, "5 regulated claim(s) with no substantiation on file; first at 3.7s: "Here's the newest, most exciting sound in town." (superlative, 16 CFR 255.1(a))"; brand BLOCK, "mandatory mention missing: the Nimbus wordmark is never seen"
+- `Cheerios1960-0-30` (brand on screen Cheerios): claim BLOCK, "3 regulated claim(s) with no substantiation on file; first at 10s: "that teams up V8 juice and Cheerios for flavor and energy." (health, FTC Act section 5 (15 U"; brand BLOCK, "mandatory mention missing: the Nimbus wordmark is never seen"
+- `chevrolet-31-61` (brand on screen Chevrolet): claim PASS, "no regulated claim without substantiation (3 claim(s) read, 3 advisory)"; brand BLOCK, "mandatory mention missing: the Nimbus wordmark is never seen"
+- `ivory_soap-25-55` (brand on screen Ivory): claim BLOCK, "7 regulated claim(s) with no substantiation on file; first at 8.6s: "We use Ivory around this house." (consumer_testimonial, 16 CFR 255.2(a)): a testimonial mus"; brand BLOCK, "mandatory mention missing: the Nimbus wordmark is never seen"
+- `kodak_instamatic-31-60` (brand on screen Kodak): claim BLOCK, "5 regulated claim(s) with no substantiation on file; first at 6.4s: "Drop in the film." (efficacy, FTC Act section 5 (15 U.S.C. 45)): an efficacy claim needs a "; brand BLOCK, "mandatory mention missing: the Nimbus wordmark is never seen"
+- `folgers-26-56` (brand on screen Folgers): claim BLOCK, "3 regulated claim(s) with no substantiation on file; first at 2.0s: "You just need the coffee with better flavor." (comparative, FTC Act section 5 (15 U.S.C. 45"; brand BLOCK, "mandatory mention missing: the Nimbus wordmark is never seen"
+- `labatts_beer-0-20` (brand on screen Labatt's): claim BLOCK, "1 regulated claim(s) with no substantiation on file; first at 13.213s: "Enjoy import quality at USA prices." (comparative, FTC Act section 5 (15 U.S.C. 45)): a "; brand BLOCK, "mandatory mention missing: the Nimbus wordmark is never seen"
+- `gilbert_slot_racers-0-30` (brand on screen Gilbert): claim BLOCK, "2 regulated claim(s) with no substantiation on file; first at 20.5s: "Gilbert makes cars rugged enough to take this kind of punishment." (efficacy, FTC Act sect"; brand BLOCK, "mandatory mention missing: the Nimbus wordmark is never seen"
+- `MacleansToot-0-29` (brand on screen Macleans): claim BLOCK, "6 regulated claim(s) with no substantiation on file; first at 9.8s: "This is the security clean white teeth give." (efficacy, FTC Act section 5 (15 U.S.C. 45)):"; brand BLOCK, "mandatory mention missing: the Nimbus wordmark is never seen"
+- `ScottiesTiss-0-30` (brand on screen Scotties): claim BLOCK, "5 regulated claim(s) with no substantiation on file; first at 5.4s: "There's no other box of facial tissues like this." (comparative, FTC Act section 5 (15 U.S."; brand BLOCK, "mandatory mention missing: the Nimbus wordmark is never seen"
+- `GE_blender-0-30` (brand on screen General Electric): claim ERROR, "ReadTimeout: The read operation timed out"; brand BLOCK, "mandatory mention missing: the Nimbus wordmark is never seen"
 
