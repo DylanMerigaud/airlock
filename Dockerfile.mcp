@@ -14,6 +14,7 @@ COPY airlock_mcp ./airlock_mcp
 COPY rules ./rules
 COPY charter.yaml ./charter.yaml
 COPY rights-registry.yaml ./rights-registry.yaml
+COPY pricing.yaml ./pricing.yaml
 COPY trust ./trust
 
 RUN uv sync --frozen --no-dev

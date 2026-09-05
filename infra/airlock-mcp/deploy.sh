@@ -66,7 +66,7 @@ trap 'rm -rf "$BUILD_CTX"' EXIT
 cp "$REPO_ROOT/Dockerfile.mcp" "$BUILD_CTX/Dockerfile"
 cp "$REPO_ROOT/pyproject.toml" "$REPO_ROOT/uv.lock" "$BUILD_CTX/"
 cp -R "$REPO_ROOT/airlock" "$REPO_ROOT/airlock_mcp" "$REPO_ROOT/rules" "$REPO_ROOT/trust" "$BUILD_CTX/"
-cp "$REPO_ROOT/charter.yaml" "$REPO_ROOT/rights-registry.yaml" "$BUILD_CTX/"
+cp "$REPO_ROOT/charter.yaml" "$REPO_ROOT/rights-registry.yaml" "$REPO_ROOT/pricing.yaml" "$BUILD_CTX/"
 
 gcloud builds submit --project="$PROJECT" --tag="$IMAGE" "$BUILD_CTX"
 
