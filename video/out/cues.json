@@ -1,33 +1,33 @@
 {
-  "recorded_at": "2026-09-05T08:18:00.245Z",
+  "recorded_at": "2026-09-05T08:35:31.451Z",
   "console": "https://airlock-console-771466810465.us-central1.run.app",
   "mock": false,
   "script": "v6",
-  "duration_s": 262.987,
+  "duration_s": 289.404,
   "video": "raw/console.webm",
   "overlays": [
     {
       "cue": "alert_insert",
       "file": "alert_insert.webm",
-      "page_opened_at": 165.852,
+      "page_opened_at": 167.014,
       "ready_cue": "alert_ready",
-      "ready_at": 174.407,
-      "glide_from": 176.409,
-      "glide_to": 178.444,
+      "ready_at": 175.367,
+      "glide_from": 177.369,
+      "glide_to": 179.398,
       "glide_px": 132,
-      "closed_at": 178.737,
+      "closed_at": 179.709,
       "panel_seen": true
     },
     {
       "cue": "dashboard",
       "file": "dashboard.webm",
-      "page_opened_at": 237.13,
+      "page_opened_at": 263.746,
       "ready_cue": "dashboard_ready",
-      "ready_at": 240.044,
-      "glide_from": 242.047,
-      "glide_to": 246.727,
+      "ready_at": 266.57,
+      "glide_from": 268.572,
+      "glide_to": 273.253,
       "glide_px": 298,
-      "closed_at": 252.502,
+      "closed_at": 279.08,
       "panel_seen": true
     }
   ],
@@ -40,57 +40,57 @@
     },
     {
       "cue": "stake",
-      "t": 2.581,
+      "t": 2.318,
       "detail": "console idle, the clip on the stage, seven check rows"
     },
     {
       "cue": "console_idle",
-      "t": 8.156,
+      "t": 7.931,
       "detail": "the Crest clip on the stage, the gate rows read from Grafana"
     },
     {
       "cue": "crest_click",
-      "t": 23.25,
+      "t": 23.001,
       "detail": "Run airlock on the Crest commercial"
     },
     {
       "cue": "provenance_done",
-      "t": 26.626,
+      "t": 26.302,
       "status": "BLOCK",
       "detail": "BLOCK: 1 issue found: no C2PA manifest in the asset"
     },
     {
       "cue": "brand_done",
-      "t": 34.79,
+      "t": 45.563,
       "status": "BLOCK",
       "detail": "BLOCK: 6 issues found: mandatory mention missing: the Nimbus wordmark is never seen"
     },
     {
       "cue": "claim_done",
-      "t": 45.18,
+      "t": 59.503,
       "status": "BLOCK",
-      "detail": "BLOCK: 1 issue found: 7 regulated claim(s) with no substantiation on file; first at 7.0s: \"my side had 21% fewer cavities with "
+      "detail": "BLOCK: 1 issue found: 9 regulated claim(s) with no substantiation on file; first at 7.0s: \"my side had 21% fewer cavities with "
     },
     {
       "cue": "seek_claim",
-      "t": 45.234,
+      "t": 59.562,
       "detail": "clip seeked to Play the clip from 7s",
-      "clip_time_before": 21.04
+      "clip_time_before": 5.45
     },
     {
       "cue": "seek_done",
-      "t": 48.254,
+      "t": 62.586,
       "detail": "back on the Checks segment, the rights gate is still running"
     },
     {
       "cue": "rights_done",
-      "t": 87.272,
+      "t": 84.148,
       "status": "BLOCK",
       "detail": "BLOCK: 3 issues found: brand Crest (not_cleared, logo at 16.12s, confidence 0.853): Real registered trademark. No licence on fi"
     },
     {
       "cue": "verdict",
-      "t": 96.487,
+      "t": 93.056,
       "status": "BLOCK",
       "motive": "content",
       "needs_human": true,
@@ -98,68 +98,68 @@
       "detail": "BLOCK (content)"
     },
     {
-      "cue": "escalation_done",
-      "t": 113.76,
-      "incident": "25",
-      "attached": true,
-      "escalation": "Joined open incident 25: Airlock needs a human: content on CrestToothpa-18-48 (same asset, same motive) with the investigator's note",
-      "investigation": "DECISION NOTE: The asset is blocked because of missing rights licenses, unsubstantiated claims, a missing brand wordmark, and no C2PA manifest. The brand wordmark requires asset changes; other blocks can be lifted with paperwork.",
-      "detail": "incident 25 joined"
+      "cue": "record_open",
+      "t": 101.006,
+      "ids": "annotation 98",
+      "cost": "This check: $0.52 at list price (rights $0.50, claim $0.02, brand $0.004, provenance $0), 17,821 tokens in, 1,331 out, 1 min of video (Video Intelligence bills per started minute)",
+      "detail": "Record segment: annotation 98; This check: $0.52 at list price (rights $0.50, claim $0.02, brand $0.004, provenance $0), 17,821 tokens in, 1,331 out, 1 min of video (Video Intelligence bills per started minute)"
     },
     {
-      "cue": "record_open",
-      "t": 113.814,
-      "ids": "annotation 94, incident 25",
-      "cost": "This check: $0.52 at list price (rights $0.50, claim $0.02, brand $0.004, provenance $0), 17,821 tokens in, 1,194 out, 1 min of video (Video Intelligence bills per started minute)",
-      "detail": "Record segment: annotation 94, incident 25; This check: $0.52 at list price (rights $0.50, claim $0.02, brand $0.004, provenance $0), 17,821 tokens in, 1,194 out, 1 min of video (Video Intelligence bills per started minute)"
+      "cue": "escalation_done",
+      "t": 110.364,
+      "incident": "25",
+      "attached": null,
+      "escalation": null,
+      "investigation": null,
+      "detail": "incident 25 read off the Record header"
     },
     {
       "cue": "fault_on",
-      "t": 117.657,
+      "t": 112.052,
       "detail": "Inject a fault switched on for the rights gate"
     },
     {
       "cue": "fault_click",
-      "t": 121.096,
+      "t": 115.485,
       "detail": "Run airlock on the clean clip, a timeout fault injected into rights"
     },
     {
       "cue": "rights_done_2",
-      "t": 123.627,
+      "t": 118.014,
       "status": "ERROR",
-      "detail": "ERROR: Check failed: TimeoutError: Video Intelligence operation timed out after 1 s (fault injected for run e-161dc473-4bf2-47d"
+      "detail": "ERROR: Check failed: TimeoutError: Video Intelligence operation timed out after 1 s (fault injected for run e-15eda915-2933-4a9"
     },
     {
       "cue": "rights_error",
-      "t": 123.628,
-      "detail": "Check failed: TimeoutError: Video Intelligence operation timed out after 1 s (fault injected for run e-161dc473-4bf2-47d6-a34b-d20820b03e44)"
+      "t": 118.014,
+      "detail": "Check failed: TimeoutError: Video Intelligence operation timed out after 1 s (fault injected for run e-15eda915-2933-4a9a-886d-5d71288a6042)"
     },
     {
       "cue": "provenance_done_2",
-      "t": 124.133,
+      "t": 118.771,
       "status": "PASS",
       "detail": "PASS: No issues found"
     },
     {
       "cue": "brand_done_2",
-      "t": 132.238,
+      "t": 128.652,
       "status": "PASS",
       "detail": "PASS: No issues found"
     },
     {
       "cue": "claim_done_2",
-      "t": 139.332,
+      "t": 135.024,
       "status": "PASS",
       "detail": "PASS: No issues found"
     },
     {
       "cue": "gates_done_2",
-      "t": 139.332,
+      "t": 135.024,
       "detail": "brand, claim and provenance have landed: provenance PASS, brand PASS, claim PASS"
     },
     {
       "cue": "verdict_2",
-      "t": 147.19,
+      "t": 142.153,
       "status": "BLOCK",
       "motive": "control unavailable",
       "needs_human": true,
@@ -168,90 +168,90 @@
     },
     {
       "cue": "investigation",
-      "t": 151.535,
-      "detail": "Investigator calls query_loki_logs: {app=\"airlock\", gate=\"rights\"} |= \"e-161dc473-4bf2-47d6-a34b-d20820b03e44\""
+      "t": 147.499,
+      "detail": "Investigator calls query_loki_logs: {app=\"airlock\", gate=\"rights\", run_id=\"e-15eda915-2933-4a9a-886d-5d71288a6042\"}"
     },
     {
       "cue": "escalation_done_2",
-      "t": 163.316,
-      "incident": "32",
-      "attached": true,
-      "escalation": "Joined open incident 32: Airlock needs a human: control unavailable on nimbus-clean-clip (same asset, same motive) with the investigator's note",
-      "investigation": "ROOT CAUSE: The 'rights' gate failed due to a fault-injected timeout, which is a recurring injected defect.",
-      "detail": "incident 32 joined"
+      "t": 164.995,
+      "incident": "33",
+      "attached": false,
+      "escalation": "Incident 33 opened: Airlock needs a human: control unavailable on nimbus-clean-clip, routed to the platform owner",
+      "investigation": "ROOT CAUSE: The rights gate timed out due to an injected fault at 2026-09-05T08:37:28.645Z, causing the asset to be blocked.",
+      "detail": "incident 33 opened"
     },
     {
       "cue": "investigation_note",
-      "t": 163.349,
-      "ids": "annotation 95, incident 32",
-      "investigation": "INVESTIGATION gemini-2.5-flash, 3 tool calls through mcp-grafana The asset was blocked because the 'rights' gate encountered a TimeoutError at 2026-09-05T08:20:03.033Z. This was a fault injected timeout, a recurring event in the last 24 hours. The \"Airlock daily proof failed\" alert is currently firing. ROOT CAUSE The 'rights' gate failed due to a fault-injected timeout, which is a recurring injected defect. 2026-09-05T08:20:03.033Z rights ERROR (fault: timeout): TimeoutError: Video Intelligence operation timed out after 1 s (fault injected for run e-161dc473-4bf2-47d6-a34b-d20820b03e44)",
-      "incident": "32",
-      "detail": "annotation 95, incident 32; INVESTIGATION gemini-2.5-flash, 3 tool calls through mcp-grafana The asset was blocked because the 'rights' gate encountered a TimeoutError at 2026-09-05T08:20:"
+      "t": 165.011,
+      "ids": "annotation 99, incident 33",
+      "investigation": "INVESTIGATION gemini-2.5-flash, 5 tool calls through mcp-grafana The `rights` gate failed at 2026-09-05T08:37:28.645Z due to a fault-injected timeout. This type of error has been recurring in the `rights` gate over the last 24 hours, always as an injected fault. The \"Airlock daily proof failed\" alert is currently firing. ROOT CAUSE The rights gate timed out due to an injected fault at 2026-09-05T08:37:28.645Z, causing the asset to be blocked. 2026-09-05T08:37:28.645Z rights ERROR (fault: timeout): TimeoutError: Video Intelligence operation timed out after 1 s (fault injected for run e-15eda915-2933-4a9a-886d-5d71288a6042)",
+      "incident": "33",
+      "detail": "annotation 99, incident 33; INVESTIGATION gemini-2.5-flash, 5 tool calls through mcp-grafana The `rights` gate failed at 2026-09-05T08:37:28.645Z due to a fault-injected timeout. This type"
     },
     {
       "cue": "alert_ready",
-      "t": 174.407,
+      "t": 175.367,
       "url": "https://narrowsubmarine1895.grafana.net/public-dashboards/97860661238c4536a743e0d858aef845?from=now-1h&to=now",
-      "detail": "panels drawn 8.6 s after the page opened, the insert starts here"
+      "detail": "panels drawn 8.4 s after the page opened, the insert starts here"
     },
     {
       "cue": "alert_insert",
-      "t": 174.408,
+      "t": 175.367,
       "url": "https://narrowsubmarine1895.grafana.net/public-dashboards/97860661238c4536a743e0d858aef845?from=now-1h&to=now",
       "detail": "panel visible"
     },
     {
       "cue": "resolve",
-      "t": 179.876,
+      "t": 179.992,
       "detail": "Mark reviewed by a human, signing as platform on-call"
     },
     {
       "cue": "resolved",
-      "t": 181.142,
+      "t": 181.004,
       "reviewed": "Reviewed by a human (platform on-call).",
-      "line": "incident 32 resolved, annotation 96 written",
-      "incident": "32",
+      "line": "incident 33 resolved, annotation 100 written",
+      "incident": "33",
       "incident_status": "resolved",
-      "annotation": 96,
-      "detail": "Reviewed by a human (platform on-call). incident 32 resolved, annotation 96 written"
+      "annotation": 100,
+      "detail": "Reviewed by a human (platform on-call). incident 33 resolved, annotation 100 written"
     },
     {
       "cue": "fault_off",
-      "t": 185.722,
+      "t": 185.585,
       "detail": "Inject a fault switched off"
     },
     {
       "cue": "study_click",
-      "t": 189.073,
+      "t": 187.998,
       "detail": "Run airlock on the test clip with its study on file"
     },
     {
       "cue": "provenance_done_3",
-      "t": 192.624,
-      "status": "PASS",
-      "detail": "PASS: No issues found"
-    },
-    {
-      "cue": "claim_done_3",
-      "t": 202.239,
+      "t": 191.542,
       "status": "PASS",
       "detail": "PASS: No issues found"
     },
     {
       "cue": "brand_done_3",
-      "t": 204.008,
+      "t": 201.937,
+      "status": "PASS",
+      "detail": "PASS: No issues found"
+    },
+    {
+      "cue": "claim_done_3",
+      "t": 202.191,
       "status": "PASS",
       "detail": "PASS: No issues found"
     },
     {
       "cue": "rights_done_3",
-      "t": 221.984,
+      "t": 249.102,
       "status": "PASS",
       "detail": "PASS: No issues found"
     },
     {
       "cue": "verdict_3",
-      "t": 230.342,
+      "t": 256.454,
       "status": "PASS",
       "motive": null,
       "needs_human": false,
@@ -260,33 +260,33 @@
     },
     {
       "cue": "dashboard_ready",
-      "t": 240.044,
+      "t": 266.57,
       "url": "https://narrowsubmarine1895.grafana.net/public-dashboards/97860661238c4536a743e0d858aef845?from=now-1h&to=now",
-      "detail": "panels drawn 2.9 s after the page opened, the insert starts here"
+      "detail": "panels drawn 2.8 s after the page opened, the insert starts here"
     },
     {
       "cue": "dashboard",
-      "t": 240.044,
+      "t": 266.571,
       "url": "https://narrowsubmarine1895.grafana.net/public-dashboards/97860661238c4536a743e0d858aef845?from=now-1h&to=now",
       "detail": "panel visible"
     },
     {
       "cue": "escalation_done_3",
-      "t": 252.505,
+      "t": 279.082,
       "incident": null,
       "attached": false,
       "escalation": "no human needed: verdict PASS on content",
-      "investigation": "DECISION NOTE: The run passed, but system alerts indicate potential issues.",
+      "investigation": "DECISION NOTE: The verdict is PASS, but two alert rules are firing.",
       "detail": "no incident (no human needed: verdict PASS on content)"
     },
     {
       "cue": "landing",
-      "t": 252.508,
+      "t": 279.085,
       "detail": "holding on the PASS verdict"
     },
     {
       "cue": "end",
-      "t": 259.509,
+      "t": 286.086,
       "detail": "take finished"
     }
   ],
