@@ -62,7 +62,7 @@ def parse_sse_line(raw: str, t: float) -> Event | None:
     if not isinstance(ev, dict):
         return Event(author="", t=t, unparsed=raw)
     parts = (ev.get("content") or {}).get("parts") or []
-    texts = [p.get("text") for p in parts if isinstance(p, dict) and p.get("text")]
+    texts = [str(p["text"]) for p in parts if isinstance(p, dict) and p.get("text")]
     return Event(author=ev.get("author") or "?", t=t, texts=texts, error=ev.get("error_message"), raw=ev)
 
 
@@ -101,12 +101,14 @@ def describe(author: str, d: dict[str, Any], t: float) -> str:
         vals = {k: v.get("value") for k, v in (d.get("answers") or {}).items()}
         return f"[{t:6.1f}s] {author:<16} grafana  {d.get('gate'):<11} {d.get('health')}; {d.get('calibration')}  {vals}"
     if st == "verdict":
-        head = f"[{t:6.1f}s] {author:<16} VERDICT {d.get('status')} ({d.get('motive')}) needs_human={d.get('needs_human')} annotation={d.get('annotation_id')} {d.get('elapsed_ms')} ms"
+        head = (f"[{t:6.1f}s] {author:<16} VERDICT {d.get('status')} ({d.get('motive')}) needs_human={d.get('needs_human')} "
+                f"annotation={d.get('annotation_id')} {d.get('elapsed_ms')} ms")
         return head + "".join(f"\n{'':>26}{r[:200]}" for r in d.get("reasons", []))
     if st == "escalation":
         if d.get("opened"):
             return f"[{t:6.1f}s] {author:<16} INCIDENT {d.get('incident_id')} {d.get('incident_url')}"
         if d.get("fallback"):
-            return f"[{t:6.1f}s] {author:<16} FALLBACK needs-human annotation {d.get('fallback_annotation_id')} (incident API: {str(d.get('incident_raw'))[:120]})"
+            return (f"[{t:6.1f}s] {author:<16} FALLBACK needs-human annotation {d.get('fallback_annotation_id')} "
+                    f"(incident API: {str(d.get('incident_raw'))[:120]})")
         return f"[{t:6.1f}s] {author:<16} escalation: {d.get('reason') or d.get('error')}"
     return f"[{t:6.1f}s] {author:<16} {json.dumps(d)[:200]}"

@@ -71,7 +71,8 @@ def run_calibration() -> list[dict[str, Any]]:
     with ThreadPoolExecutor(max_workers=len(calibrate.DEFECTS)) as pool:
         rows = list(pool.map(calibrate.run_defect, calibrate.DEFECTS))
     for r in rows:
-        print(f"{r['gate']:<11} {'CAUGHT' if r['caught'] else 'MISSED':<7} {r['elapsed_ms']:>6} ms  {r['defect']}  ->  {r['got']} {r['rule_ids'][:2]}", flush=True)
+        print(f"{r['gate']:<11} {'CAUGHT' if r['caught'] else 'MISSED':<7} {r['elapsed_ms']:>6} ms  {r['defect']}  ->  {r['got']} {r['rule_ids'][:2]}",
+              flush=True)
     return rows
 
 

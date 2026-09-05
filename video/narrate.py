@@ -128,8 +128,6 @@ def wav_duration(path: Path) -> float:
 
 
 def pick_voice(client, wanted: str) -> str:
-    from google.cloud import texttospeech
-
     names = {v.name for v in client.list_voices(request={"language_code": LANGUAGE}).voices}
     if wanted in names:
         return wanted

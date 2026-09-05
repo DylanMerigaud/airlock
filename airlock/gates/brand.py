@@ -67,7 +67,8 @@ def decide(findings: dict[str, Any], charter: dict[str, Any]) -> GateResult:
         reasons.append(f"mandatory mention missing: the {brand} wordmark is never seen")
         rule_ids.append("charter:mandatory_mentions")
     for v in findings.get("exclusion_violations", []):
-        reasons.append(f"exclusion violated: {v.get('exclusion')} ({v.get('evidence')}" + (f", at {v.get('start_s')}s)" if v.get("start_s") is not None else ")"))
+        where = f", at {v.get('start_s')}s)" if v.get("start_s") is not None else ")"
+        reasons.append(f"exclusion violated: {v.get('exclusion')} ({v.get('evidence')}" + where)
         rule_ids.append("charter:exclusions")
     never = {w.lower() for w in (charter.get("tone", {}).get("never") or [])}
     hits = [w for w in findings.get("tone_words", []) if w.lower() in never]

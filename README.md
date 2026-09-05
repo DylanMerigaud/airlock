@@ -23,6 +23,10 @@ Four gates read the asset, each against a named source of truth:
 | brand | gemini-2.5-flash reads the asset against `charter.yaml` | a missing wordmark, an exclusion, a forbidden colour, the wrong tone |
 | provenance | c2pa-python verifies the C2PA manifest against `trust/trust-anchors.pem` | no manifest, a broken signature, an untrusted signer |
 
+The brand gate's palette check rests on the model's estimate of the dominant colours under a JSON
+schema, not on a measurement; a frame histogram (ffmpeg or PIL over sampled frames) is the follow-up,
+noted 2026-09-05, not in this submission.
+
 Then the verdict agent asks Grafana, through MCP, five questions about each gate before it rules:
 whether Loki holds this run's event of the gate (LogQL `{app="airlock", gate="rights"} |= "<run id>"`,
 retried while Loki ingests), then four PromQL questions: error ratio over 15 minutes and the runs it
@@ -165,9 +169,17 @@ a calibration miss (BLOCK, uncalibrated control, annotation 8), and the first PA
 
 ## Tests
 
-`uv run pytest -q`: the line-protocol formatter, the four gate decisions, the verdict rules (R1,
-R2, instrument error, paperwork escalation), the ledger's coverage of every gate. No test calls a
-model or a cloud API.
+Three commands, no cloud call in any of them:
+
+```
+uv run pytest -q                                       # the rules: gates, verdict (R1, R2, instrument error, paperwork), ledger, telemetry, the MCP server
+uv run ruff check .                                    # lint (E, F, B, BLE, UP at 160 columns; the ignores and their reasons are in pyproject.toml)
+uv run pyright airlock agents airlock_mcp scripts      # types, basic mode
+```
+
+The tests cover the line-protocol formatter, the four gate decisions, the verdict rules, the
+calibration ledger (one series per injected defect), the shared telemetry pushers, the settings
+module, and airlock-mcp (bearer, health route, tools that leave the event loop free).
 
 ## Synthetic inputs
 
@@ -177,7 +189,7 @@ certificate, the calibration variants. Everything else is real and named at its 
 ## Layout
 
 - `airlock/` gates, verdict rules, calibration ledger, telemetry push, the Grafana MCP toolset
-- `agents/pipeline/` the ADK pipeline; `agents/spike/` the M1 spike (one PromQL, one annotation)
+- `agents/pipeline/` the ADK pipeline (the M1 spike agent, `agents/spike/`, was deleted on 2026-09-05 with its engine; `docs/RUNS.md` M1 keeps its record)
 - `console/` the reviewer console (Next.js); `airlock_mcp/` the gates as MCP tools; `infra/` Google Cloud, Cloud Run and Secret Manager scripts
 - `rules/` 16 CFR 255 and the ASA rulings; `charter.yaml`, `rights-registry.yaml`, `trust/`
 - `scripts/` Grafana bootstrap, asset build, Agent Engine query; `tests/`; `docs/RUNS.md`

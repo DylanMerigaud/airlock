@@ -43,7 +43,8 @@ ERROR_RATIO_BLOCK = 0.5
 ERROR_RUNS_MIN = 2
 CALIBRATION_WINDOW = "7d"
 RUN_EVENT_WINDOW_MIN = 30
-PAPERWORK_RULE_PREFIXES = ("16 CFR", "ASA ", "registry:brands:not_cleared", "registry:brands:unknown", "registry:faces:no_release", "airlock:provenance:signer-trusted")
+PAPERWORK_RULE_PREFIXES = ("16 CFR", "ASA ", "registry:brands:not_cleared", "registry:brands:unknown", "registry:faces:no_release",
+                           "airlock:provenance:signer-trusted")
 
 
 def needs_paperwork(rule_ids: list[str]) -> bool:
@@ -57,7 +58,8 @@ Motive = Literal["content", "control unavailable", "uncalibrated control", "inst
 def promql_questions(gate: str) -> dict[str, str]:
     """The PromQL questions asked about one gate, keyed by the name the health line uses."""
     return {
-        "error_rate_15m": f'sum(sum_over_time(airlock_gate_errors_total{{gate="{gate}"}}[{ERROR_WINDOW}])) / clamp_min(sum(sum_over_time(airlock_gate_runs_total{{gate="{gate}"}}[{ERROR_WINDOW}])), 1)',
+        "error_rate_15m": (f'sum(sum_over_time(airlock_gate_errors_total{{gate="{gate}"}}[{ERROR_WINDOW}])) '
+                           f'/ clamp_min(sum(sum_over_time(airlock_gate_runs_total{{gate="{gate}"}}[{ERROR_WINDOW}])), 1)'),
         "runs_15m": f'sum(sum_over_time(airlock_gate_runs_total{{gate="{gate}"}}[{ERROR_WINDOW}]))',
         "seconds_since_success": f'time() - max(max_over_time(airlock_gate_last_success_ts{{gate="{gate}"}}[{CALIBRATION_WINDOW}]))',
         "calibration_catches_7d": f'sum(sum_over_time(airlock_calibration_catches_total{{gate="{gate}"}}[{CALIBRATION_WINDOW}]))',
@@ -108,8 +110,8 @@ class GateHealth:
         if (self.calibration_catches_7d or 0) <= 0:
             return f"no injected defect caught in {CALIBRATION_WINDOW}"
         if self.last_calibration_caught is not None and self.last_calibration_caught <= 0:
-            return f"last calibration run MISSED its defect ({int(self.calibration_catches_7d)} caught earlier in {CALIBRATION_WINDOW})"
-        return f"caught {int(self.calibration_catches_7d)} injected defect(s) in {CALIBRATION_WINDOW}"
+            return f"last calibration run MISSED its defect ({int(self.calibration_catches_7d or 0)} caught earlier in {CALIBRATION_WINDOW})"
+        return f"caught {int(self.calibration_catches_7d or 0)} injected defect(s) in {CALIBRATION_WINDOW}"
 
     def describe(self) -> str:
         if self.seen_this_run is None:
@@ -191,4 +193,5 @@ def decide(gate_results: dict[str, dict[str, Any]], health: dict[str, GateHealth
         return Verdict("BLOCK", "control unavailable", True, reasons, lines, sorted(set(rule_ids)))
     if advisory_pass:
         return Verdict("BLOCK", "uncalibrated control", True, reasons, lines, sorted(set(rule_ids)))
-    return Verdict("PASS", "content", False, [f"all {len(GATES)} gates PASS, seen by Grafana, healthy and calibrated"], lines, ["airlock:verdict:all-gates-pass"])
+    return Verdict("PASS", "content", False, [f"all {len(GATES)} gates PASS, seen by Grafana, healthy and calibrated"], lines,
+                   ["airlock:verdict:all-gates-pass"])

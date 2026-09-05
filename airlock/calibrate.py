@@ -114,7 +114,8 @@ def main() -> None:
     for r in rows:
         print(f"{r['gate']:<11} {'CAUGHT' if r['caught'] else 'MISSED':<7} {r['elapsed_ms']:>6} ms  {r['defect']}  ->  {r['got']} {r['rule_ids'][:2]}")
     caught = sum(1 for r in rows if r["caught"])
-    print(json.dumps({"defects": len(rows), "caught": caught, "missed": len(rows) - caught, "elapsed_s": round(time.time() - t0, 1), "pushed": not args.no_push}))
+    print(json.dumps({"defects": len(rows), "caught": caught, "missed": len(rows) - caught, "elapsed_s": round(time.time() - t0, 1),
+                      "pushed": not args.no_push}))
 
 
 if __name__ == "__main__":

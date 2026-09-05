@@ -22,7 +22,8 @@ def enum(name: str):
 def test_ask_json_names_the_safety_block(monkeypatch):
     rating = SimpleNamespace(category=enum("HARM_CATEGORY_SEXUALLY_EXPLICIT"), probability=enum("HIGH"), blocked=True)
     candidate = SimpleNamespace(finish_reason=enum("SAFETY"), finish_message=None, safety_ratings=[rating])
-    resp = SimpleNamespace(text=None, candidates=[candidate], prompt_feedback=None, usage_metadata=SimpleNamespace(prompt_token_count=10, candidates_token_count=0))
+    usage = SimpleNamespace(prompt_token_count=10, candidates_token_count=0)
+    resp = SimpleNamespace(text=None, candidates=[candidate], prompt_feedback=None, usage_metadata=usage)
     monkeypatch.setattr(gemini, "client", lambda: SimpleNamespace(models=FakeModels(resp)))
     with pytest.raises(RuntimeError) as exc:
         gemini.ask_json("gemini-2.5-flash", [], {"type": "object"})
@@ -41,7 +42,8 @@ def test_ask_json_names_a_blocked_prompt(monkeypatch):
 
 
 def test_ask_json_parses_a_normal_answer(monkeypatch):
-    resp = SimpleNamespace(text='{"claims": []}', candidates=[], prompt_feedback=None, usage_metadata=SimpleNamespace(prompt_token_count=5, candidates_token_count=3))
+    usage = SimpleNamespace(prompt_token_count=5, candidates_token_count=3)
+    resp = SimpleNamespace(text='{"claims": []}', candidates=[], prompt_feedback=None, usage_metadata=usage)
     monkeypatch.setattr(gemini, "client", lambda: SimpleNamespace(models=FakeModels(resp)))
     answer, usage = gemini.ask_json("gemini-2.5-pro", [], {"type": "object"})
     assert answer == {"claims": []} and usage == {"model": "gemini-2.5-pro", "prompt_tokens": 5, "output_tokens": 3}

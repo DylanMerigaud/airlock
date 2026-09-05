@@ -73,7 +73,8 @@ def refusal(resp: Any) -> str:
     parts: list[str] = []
     feedback = getattr(resp, "prompt_feedback", None)
     if feedback is not None and getattr(feedback, "block_reason", None):
-        parts.append(f"prompt blocked: {feedback.block_reason}" + (f" ({feedback.block_reason_message})" if getattr(feedback, "block_reason_message", None) else ""))
+        message = getattr(feedback, "block_reason_message", None)
+        parts.append(f"prompt blocked: {feedback.block_reason}" + (f" ({message})" if message else ""))
     candidates = getattr(resp, "candidates", None) or []
     for c in candidates[:1]:
         reason = getattr(c, "finish_reason", None)

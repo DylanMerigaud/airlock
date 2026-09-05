@@ -29,9 +29,7 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import re
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -500,10 +498,10 @@ def build_windows(at: dict, lines: list[dict], inserts: list[dict] | None = None
         The last pair of a run is the rights gate's own wait, which `rights_wait` already names
         after the call it is blocked on, so it is not repeated here.
         """
-        landed = sorted(((at[f"{g}_done{suffix}"], g) for g in GATE_ORDER
-                         if f"{g}_done{suffix}" in at))
+        landed = sorted((at[f"{g}_done{suffix}"], g) for g in GATE_ORDER
+                        if f"{g}_done{suffix}" in at)
         out = []
-        for (t_prev, prev), (t_next, gate) in zip(landed, landed[1:]):
+        for (t_prev, prev), (t_next, gate) in zip(landed, landed[1:], strict=False):
             if gate == "rights":
                 continue
             a = max(quiet_from(f"{prev}_done{suffix}"), t_prev)
@@ -909,7 +907,7 @@ def main() -> int:
     # the same place, at the same size, for the second it takes to read either. The later one waits
     # for the earlier to have said what it says.
     labels.sort(key=lambda label: label["to"])
-    for previous, label in zip(labels, labels[1:]):
+    for previous, label in zip(labels, labels[1:], strict=False):
         if label["from"] < previous["to"]:
             label["from"] = min(previous["to"], label["to"] - 0.5)
     held_back = sum(b - a for a, b, _, kind in plan.cuts if kind not in WAIT_LABEL)

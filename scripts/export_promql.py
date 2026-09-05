@@ -77,7 +77,7 @@ def shown(path: Path) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
     parser.add_argument("--check", action="store_true", help="compare the committed file to a fresh export, exit 1 on a difference")
     parser.add_argument("--output", type=Path, default=OUTPUT, help=f"where to write (default {shown(OUTPUT)})")
     args = parser.parse_args(argv)
