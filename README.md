@@ -35,25 +35,47 @@ days, and whether the last calibration run caught its defect. Two rules, both pl
 
 The verdict is written back to Grafana as an annotation. When only a human can lift the BLOCK (a
 control in a bad state, or missing paperwork such as a substantiation, a licence, a release), the
-escalation agent opens a Grafana incident.
+escalation agent opens a Grafana incident. On the free stack the incidents are opened as drills
+(`AIRLOCK_INCIDENT_DRILL`, `true` unless set to `false` in the Agent Engine env): they are real
+Grafana Incident objects, flagged so a judge's runs do not pile up as production incidents.
 
-Every decision is a plain function under pytest; the models only read. ADK is the runtime
-envelope; Grafana is asked before every verdict.
+Where the decisions live: the verdict rules, the escalation rule, the rights rule and the provenance
+rule are plain functions under pytest on inputs a service measured (Video Intelligence annotations,
+a C2PA validation). The claim and brand gates decide on labels the model produced under a JSON
+schema (the kind of each claim and its quote; whether the wordmark was seen, the dominant colours,
+the tone words): the rule that turns those labels into a BLOCK is a plain function, the labels are
+the model's, so a wrong label is a wrong decision. ADK is the runtime envelope; Grafana is asked
+before every verdict.
 
 ## Run it
 
 ```
 uv sync                                                  # Python 3.12, google-adk, c2pa-python, Video Intelligence, google-genai
-scripts/fetch_assets.sh                                  # the Prelinger commercial (public domain), hash checked
-uv run pytest -q                                         # the rules, 64 tests, no cloud needed
+scripts/fetch_assets.sh                                  # the Prelinger commercial and the ten eval excerpts (public domain), hash checked
+uv run pytest -q                                         # the rules and the eval scoring, no cloud needed
 scripts/with_env.sh uv run python -m airlock.run assets/real/CrestToothpa-18-48.mp4      # the four gates, locally
 scripts/with_env.sh uv run adk run agents/pipeline "gs://<your bucket>/asset.mp4"         # the whole pipeline, verdict through Grafana
 ```
 
-`scripts/with_env.sh` loads `.env.local` (copy `.env.example`) and pulls the secrets from the macOS
-keychain; in the cloud they come from Secret Manager. The cloud side, in order:
-`infra/gcp/bootstrap.sh`, `infra/gcp/secrets.sh`, `infra/mcp-grafana/deploy.sh`,
-`scripts/grafana_bootstrap.py`, then `uv run adk deploy agent_engine --project <p> --region us-central1 --display_name airlock agents/pipeline`.
+`scripts/with_env.sh` loads `.env.local` (copy `.env.example`) and pulls the four secrets from the
+macOS keychain of the author's account. On another machine skip it and export them yourself before
+the command: `GRAFANA_SERVICE_ACCOUNT_TOKEN` (a Grafana service account token with editor rights),
+`GRAFANA_INFLUX_TOKEN` and `GRAFANA_LOKI_TOKEN` (the stack's write token, the same value for both
+on Grafana Cloud) and `AIRLOCK_MCP_TOKEN` (the bearer you give mcp-grafana). In the cloud they come
+from Secret Manager (`infra/gcp/secrets.sh`).
+
+What a judge changes to run it on their own project, all read from env with the author's values as
+defaults: the project (`GOOGLE_CLOUD_PROJECT` in `.env.local`, `AIRLOCK_PROJECT` for the scripts
+and in `agents/pipeline/.agent_engine_config.json`; `infra/gcp/bootstrap.sh` also takes
+`AIRLOCK_BILLING` and `AIRLOCK_ACCOUNT`), the assets bucket (`AIRLOCK_ASSETS_BUCKET`, default
+`airlock-agentic-cinema-assets`), the deployed engine (`AGENT_ENGINE_RESOURCE`, the resource name
+`adk deploy` prints), the Grafana stack (`GRAFANA_URL`; `GRAFANA_INFLUX_URL` and
+`GRAFANA_INFLUX_USER`, `GRAFANA_LOKI_URL` and `GRAFANA_LOKI_USER`: the push URLs and numeric
+instance ids from the stack's Prometheus and Loki "Details" pages, in `.env.local` and in the same
+config file) and the mcp-grafana URL (`AIRLOCK_MCP_URL`, printed by `infra/mcp-grafana/deploy.sh`).
+The cloud side, in order: `infra/gcp/bootstrap.sh`, `infra/gcp/secrets.sh`,
+`infra/mcp-grafana/deploy.sh`, `scripts/grafana_bootstrap.py`, then
+`uv run adk deploy agent_engine --project <p> --region us-central1 --display_name airlock agents/pipeline`.
 Every step and its output is in `docs/RUNS.md`.
 
 ## Architecture
@@ -75,6 +97,11 @@ Every step and its output is in `docs/RUNS.md`.
 
 Inputs: a Prelinger commercial (real, public domain, `assets/real/SOURCE.md`), a Veo clip with an
 injected claim and a real C2PA manifest (synthetic, labelled, `SYNTHETIC.md`), or a short upload.
+
+ADK note: `SequentialAgent` and `ParallelAgent` are marked deprecated in google-adk 2.8.0 in favour
+of `Workflow` (pytest prints the two warnings). `Workflow` is a graph node, not a `BaseAgent`, and
+Agent Engine's `AdkApp` takes a `BaseAgent` as its root, so the pipeline stays on the two agents
+until `Workflow` can be deployed as the root.
 
 ## Calibration
 
@@ -122,26 +149,52 @@ read the rules the verdict will apply. Client, connection snippets and deploy: `
 
 `scripts/eval_gates.py` runs the four gates on 16 assets, one at a time: 10 more Prelinger
 commercials (Cheerios, Chevrolet, Ivory, Kodak, Folgers, Labatt's, Gilbert, Macleans, Scotties,
-General Electric; `assets/real/eval/SOURCE.md`) and the 6 synthetic clips. `eval/EVAL.md`,
-2026-08-29:
+General Electric; `assets/real/eval/SOURCE.md`, fetched and cut by `scripts/fetch_assets.sh`) and
+the 6 synthetic clips. The ground truth is `eval/manifest.yaml`: the expected status per gate, the
+rule ids that must fire and must not fire on each asset, and for the real spots the brand on screen
+and whether a person is on screen (hand-labelled from contact sheets). A percentage never travels
+without its count. `eval/EVAL.md`, run of 2026-09-05:
 
 | gate | n | precision | recall | median latency | max |
 |---|---|---|---|---|---|
-| rights | 13 | 100% | 100% | 47.7 s | 457.9 s |
-| claim | 3 | 100% | 100% | 18.9 s | 39.9 s |
-| brand | 4 | 100% | 100% | 17.0 s | 31.1 s |
-| provenance | 15 | 100% | 100% | 2 ms | 34 ms |
+| rights | 16 | 100% (10 of 10) | 100% (10 of 10) | 41.1 s | 94.5 s |
+| claim | 5 | 100% (3 of 3) | 100% (3 of 3) | 20.7 s | 40.6 s |
+| brand | 6 | 100% (2 of 2) | 100% (2 of 2) | 14.7 s | 22.0 s |
+| provenance | 16 | 100% (14 of 14) | 100% (14 of 14) | 2 ms | 52 ms |
+
+That is the status. Scored per rule, where a forbidden rule that fires is a false positive even when
+the BLOCK was right, the same run reads:
+
+| rule | gate | n | precision | recall |
+|---|---|---|---|---|
+| `registry:brands:unknown` | rights | 16 | 100% (9 of 9) | 90% (9 of 10) |
+| `registry:faces:no_release` | rights | 16 | 100% (7 of 7) | 100% (7 of 7) |
+| `registry:explicit_content` | rights | 16 | 0% (0 of 1) | n/a (0 of 0) |
+| `16 CFR 255.3` | claim | 4 | 100% (3 of 3) | 100% (3 of 3) |
+| `charter:mandatory_mentions` | brand | 6 | 100% (1 of 1) | 100% (1 of 1) |
+| `charter:exclusions`, `charter:palette` | brand | 5 | 100% (1 of 1) | 100% (1 of 1) |
+| `airlock:provenance:manifest-required` | provenance | 16 | 100% (12 of 12) | 100% (12 of 12) |
+| `airlock:provenance:signature-valid` | provenance | 4 | 100% (1 of 1) | 100% (1 of 1) |
+| `airlock:provenance:signer-trusted` | provenance | 3 | 100% (1 of 1) | 100% (1 of 1) |
+
+Brand identification, scored apart from the BLOCK: the rights gate named the brand on screen on 4 of
+10 real spots (40%). The BLOCK held on all ten because the policy blocks any brand the registry does
+not know; a rights desk would still need the name.
 
 Cost at list price (`pricing.yaml`, Billing Catalog SKUs read 2026-08-29): median 0.52 USD per
-30 s spot, 8.23 USD for the whole run (16 Video Intelligence minutes, 32 Gemini calls); the
+30 s spot (n=16), 8.23 USD for the whole run (16 Video Intelligence minutes, 32 Gemini calls); the
 Video Intelligence started minute is most of it, so an 8 s clip costs the same as a 30 s one.
 
-Two limits the evaluation exposed, kept on purpose: Video Intelligence named the wrong company on
-6 of the 10 real spots at high confidence (a 1955 Chevrolet read as "DeLorean Motor Company"); the
-verdict held because the policy blocks any brand the registry does not clear, so the gate's reason
-now says "a logo the registry does not know" and quotes the API's guess as a guess. And the raw
-Veo output is not unsigned: it carries a Google-issued C2PA manifest, which the gate blocks as an
-untrusted signer until the studio puts Google's certificate on its trust list.
+What the status score hid, kept in `eval/EVAL.md` under "Surprises": Video Intelligence named the
+wrong company on 6 of the 10 real spots at high confidence (a 1955 Chevrolet read as "DeLorean Motor
+Company", Kodak as "Stanley Steemer"), so the gate's reason says "a logo the registry does not know"
+and quotes the API's guess as a guess; on Macleans it found no logo at all and the BLOCK rests on
+the ten unreleased face tracks alone (the brand rule's recall, 9 of 10); it flags the 1963 Kodak
+Instamatic family party as explicit content (VERY_LIKELY on 1 frame of 28, the policy blocks at
+LIKELY), a false positive a status-only score would count as a correct BLOCK, reproduced on both
+runs (2026-08-29 and 2026-09-05). And the raw Veo output is not unsigned: it carries a Google-issued
+C2PA manifest, which the gate blocks as an untrusted signer until the studio puts Google's
+certificate on its trust list.
 
 ## What is proven, and where
 

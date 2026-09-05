@@ -1764,3 +1764,25 @@ tracks alone (the brand rule's recall is 9 of 10, the gate blocks by ignorance t
 recognition); and the brand on screen is named on 4 of 10 real spots (Cheerios as "Honey Nut
 Cheerios", Ivory, Folgers, General Electric), the same six misnamed as on 2026-08-29. Rights median
 41.1 s (max 94.5 s, n=16), claim 20.7 s, brand 14.7 s, provenance 2 ms.
+
+### README: the claims the panel marked misleading or stale
+
+- "Every decision is a plain function under pytest; the models only read" was misleading (the claim
+  gate's decision is the model's `kind` label, the brand gate's is the model's `wordmark_seen`,
+  colours and tone words; the rule over those labels is the plain function). It now says which
+  decisions rest on measured inputs (verdict, escalation, rights, provenance) and which on
+  schema-bound model labels (claim, brand), and that a wrong label is a wrong decision.
+- The incident paragraph says the incidents are opened as drills on the free stack
+  (`AIRLOCK_INCIDENT_DRILL`, `true` unless set to `false`; `agents/pipeline/agent.py`).
+- An ADK note records that `SequentialAgent` and `ParallelAgent` are deprecated in google-adk 2.8.0
+  in favour of `Workflow` (`google/adk/agents/sequential_agent.py:78`, pytest prints both warnings);
+  `Workflow` is a `BaseNode` (`google/adk/workflow/_workflow.py:145`), not a `BaseAgent`, and Agent
+  Engine's `AdkApp` takes a `BaseAgent` root (`vertexai/agent_engines/templates/adk.py:724`), so the
+  pipeline stays on them.
+- "Run it" names the values a judge changes (project, billing account, bucket, engine resource,
+  Grafana URLs and instance ids, mcp-grafana URL, each by its env variable) and says that
+  `scripts/with_env.sh` reads the author's macOS keychain: on another machine export
+  `GRAFANA_SERVICE_ACCOUNT_TOKEN`, `GRAFANA_INFLUX_TOKEN`, `GRAFANA_LOKI_TOKEN` and `AIRLOCK_MCP_TOKEN`
+  instead. The test count left the command comment (it changes with every task; `pytest` prints it).
+- The evaluation section carries the 2026-09-05 run with n beside every percentage, the per-rule
+  table, the brand identification score (4 of 10) and the surprises above.
