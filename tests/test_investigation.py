@@ -333,6 +333,17 @@ def test_incident_body_carries_the_routing_the_note_and_the_loki_lines():
     assert clearance.startswith("Route to the clearance owner (legal or agency): a licence, a release or a study lifts this block.")
 
 
+def test_incident_url_is_absolute_from_the_relative_overview_url(monkeypatch):
+    from agents.pipeline.agent import incident_url
+
+    monkeypatch.setenv("GRAFANA_URL", "https://stack.grafana.net/")
+    assert incident_url("30", "/a/grafana-irm-app/incidents/30/airlock-needs-a-human") == "https://stack.grafana.net/a/grafana-irm-app/incidents/30/airlock-needs-a-human"
+    assert incident_url("30") == "https://stack.grafana.net/a/grafana-irm-app/incidents/30"
+    assert incident_url("30", "https://elsewhere/x") == "https://elsewhere/x"
+    monkeypatch.delenv("GRAFANA_URL")
+    assert incident_url("30", "/a/grafana-irm-app/incidents/30") is None
+
+
 def test_incident_caption_stays_under_the_api_limit_and_carries_the_conclusion():
     from agents.pipeline.agent import INCIDENT_CAPTION_MAX, incident_caption
 

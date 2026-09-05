@@ -758,6 +758,17 @@ def incident_title(verdict: dict[str, Any], asset_id: str) -> str:
     return f"Airlock needs a human: {verdict.get('motive')} on {asset_id}"[:120]
 
 
+def incident_url(incident_id: str, path: str | None = None) -> str | None:
+    """The incident's page on the stack: Grafana Incident answers a relative overviewURL, the console
+    needs an absolute one; None when GRAFANA_URL is not set (a local run without it)."""
+    base = os.environ.get("GRAFANA_URL", "").rstrip("/")
+    if path and path.startswith("http"):
+        return path
+    if not base:
+        return None
+    return base + (path if path and path.startswith("/") else f"/a/grafana-irm-app/incidents/{incident_id}")
+
+
 def find_open_incident(list_text: str, title: str) -> dict[str, Any] | None:
     """The newest active incident of a list_incidents answer whose title is exactly this one (same asset, same motive)."""
     try:
@@ -835,8 +846,7 @@ class EscalationAgent(BaseAgent):
                 incident_id = str(existing.get("incidentId") or existing.get("incidentID"))
                 act = tool_text(await tools["add_activity_to_incident"].run_async(args={"incidentId": incident_id, "body": body}, tool_context=tool_ctx))
                 payload.update({"attached": True, "incident_id": incident_id, "incident_title": existing.get("title"),
-                                "incident_url": f"{os.environ.get('GRAFANA_URL', '').rstrip('/')}/a/grafana-irm-app/incidents/{incident_id}" if os.environ.get("GRAFANA_URL") else None,
-                                "activity_raw": act[:300]})
+                                "incident_url": incident_url(incident_id), "activity_raw": act[:300]})
                 try:
                     payload["activity_id"] = json.loads(act).get("activityItemID")
                 except (json.JSONDecodeError, AttributeError):
@@ -855,7 +865,7 @@ class EscalationAgent(BaseAgent):
                     d = json.loads(inc)
                     incident = d.get("incident") or d
                     payload["incident_id"] = incident.get("incidentID") or incident.get("id")
-                    payload["incident_url"] = incident.get("incidentURL") or incident.get("url")
+                    payload["incident_url"] = incident_url(str(payload["incident_id"]), incident.get("overviewURL") or incident.get("incidentURL") or incident.get("url"))
                     payload["incident_title"] = incident.get("title")
                 except (json.JSONDecodeError, AttributeError):
                     pass
