@@ -12,6 +12,8 @@
   "env_vars": {
     "AIRLOCK_MCP_URL": "https://airlock-mcp-grafana-771466810465.us-central1.run.app/mcp",
     "AIRLOCK_DASHBOARD_UID": "airlock-gates",
+    "GRAFANA_PROM_UID": "grafanacloud-prom",
+    "GRAFANA_LOKI_UID": "grafanacloud-logs",
     "AIRLOCK_RUNTIME": "agent-engine",
     "AIRLOCK_ASSETS_BUCKET": "airlock-agentic-cinema-assets",
     "GRAFANA_INFLUX_URL": "https://prometheus-prod-67-prod-us-west-0.grafana.net/api/v1/push/influx/write",
