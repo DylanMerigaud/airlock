@@ -9,8 +9,12 @@ This reads those lines, places each one where the picture actually is (the cue t
 wrote into video/out/cues.json, the script timecode as the fallback), synthesises it with Google
 Cloud Text to Speech, and writes video/out/narration.json for assemble.py.
 
-The voice here is synthetic and the draft says so in its file name. The final voice is Dylan's,
-recorded separately from the same script.
+The voice is synthetic (Google Cloud Text to Speech, en-US-Neural2-D at speaking rate 1.1) and the
+render says so on screen and in its file name.
+
+Before anything is synthesised, every cue the script names is checked against the recorder's own
+list (CUE_NAMES in video/record.mjs): a beat placed on a cue the recorder never writes fails here,
+not after a render.
 
     uv run --group video python video/narrate.py
     uv run --group video python video/narrate.py --voice en-US-Neural2-D --out video/out
@@ -27,6 +31,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = ROOT / "docs" / "VIDEO-SCRIPT.md"
+RECORDER = ROOT / "video" / "record.mjs"
 
 PREFERRED_VOICE = "en-US-Neural2-D"
 FALLBACK_VOICE = "en-US-Neural2-D"
@@ -91,6 +96,49 @@ def parse_script(path: Path) -> list[dict]:
     return beats
 
 
+# The recorder keeps the names of every cue it can write in one array, and refuses at runtime to
+# write any other; this reads that array so the two files cannot drift apart unnoticed.
+CUE_NAMES_BLOCK = re.compile(r"const CUE_NAMES = \[(.*?)\];", re.S)
+QUOTED = re.compile(r'"([a-z0-9_]+)"')
+GATE_LANDING = re.compile(r"^(rights|claim|brand|provenance)_done(_\d+)?$")
+
+
+def recorder_cues(path: Path = RECORDER) -> set[str]:
+    """The cue names video/record.mjs declares in CUE_NAMES."""
+    source = path.read_text(encoding="utf-8")
+    block = CUE_NAMES_BLOCK.search(source)
+    if not block:
+        raise SystemExit(f"{path} has no CUE_NAMES array to check the script against")
+    return set(QUOTED.findall(block.group(1)))
+
+
+def check_cues(beats: list[dict], recorder: Path = RECORDER) -> list[str]:
+    """Every cue the script names must be one the recorder declares, and every name the recorder
+    declares must be written somewhere in its code: a literal cue("name") call, a name handed to
+    visitGrafana, or a template on the run suffix (`verdict${suffix}`, `${gate}_done${suffix}`).
+    Returns the problems, empty when the two agree."""
+    declared = recorder_cues(recorder)
+    problems: list[str] = []
+    for beat in beats:
+        if beat["cue"] and beat["cue"] not in declared:
+            problems.append(f"the script names cue {beat['cue']} at {beat['timecode_s']:.0f}s, "
+                            f"which {recorder.name} never writes")
+    source = recorder.read_text(encoding="utf-8")
+    body = source[CUE_NAMES_BLOCK.search(source).end():]
+
+    def written(name: str) -> bool:
+        if f'"{name}"' in body:
+            return True
+        stem = re.sub(r"_\d+$", "", name)
+        if f"`{stem}${{suffix}}`" in body:
+            return True
+        return bool(GATE_LANDING.match(name)) and "`${gate}_done${suffix}`" in body
+
+    problems += [f"{recorder.name} declares cue {name} but never writes it"
+                 for name in sorted(declared) if not written(name)]
+    return problems
+
+
 def trim_silence(path: Path) -> float:
     """Cut the silence off both ends of a synthesised line, leaving a short tail.
 
@@ -149,6 +197,13 @@ def main() -> int:
     voice_dir.mkdir(parents=True, exist_ok=True)
 
     beats = parse_script(Path(args.script))
+    problems = check_cues(beats)
+    if problems:
+        for problem in problems:
+            print(f"  {problem}")
+        raise SystemExit("the script and the recorder disagree on the cues; nothing synthesised")
+    named = sorted({beat["cue"] for beat in beats if beat["cue"]})
+    print(f"{len(named)} cues named by the script, all written by {RECORDER.name}")
     cues_path = out / "cues.json"
     cue_times: dict[str, float] = {}
     take = {}

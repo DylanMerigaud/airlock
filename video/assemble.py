@@ -5,7 +5,7 @@ Reads video/out/cues.json and video/out/narration.json, converts the Playwright 
 1920x1080 at 30 fps constant, lays the Grafana pages the recorder opened on a second tab over the
 console take for the windows they were open, burns the Article 50 overlay and the subtitles, mixes
 the narration at its cue times over a room tone, and writes
-video/out/airlock-draft-<n>-synthetic-voice.mp4.
+video/out/airlock-draft-<n>-synthetic-voice.mp4 (or the name given with --output).
 
 The take is longer than the video, because a real run takes as long as it takes. The only thing
 the cut plan is allowed to remove is waiting, and every stretch of it says so on the picture before
@@ -28,6 +28,7 @@ render with neither a change of picture nor a line playing.
 
     uv run python video/assemble.py
     uv run python video/assemble.py --draft 2 --max 175
+    uv run python video/assemble.py --output airlock-v6-synthetic-voice.mp4
 """
 
 from __future__ import annotations
@@ -103,14 +104,22 @@ SUBTITLE_ROWS = 2
 # Script v5 cuts for pace, so two more kinds of waiting come out, both of them the same thing seen
 # on another row: the seconds after the line about one gate has been said and before the next gate
 # lands, and the seconds the verdict agent spends asking Grafana about each gate before the card
-# fills. Nothing else changed: what is removed is still nothing but waiting, and it still says so
-# on the picture, in the same words, in the same place.
+# fills. Script v6 adds the investigator: after the verdict card has filled and its line has been
+# said, the language model agent is still reading Loki and the escalation has not landed yet.
+# Nothing else changed: what is removed is still nothing but waiting, and it still says so on the
+# picture, in the same words, in the same place.
 WAIT_LABEL = {
     "run_wait": "waiting for Video Intelligence, {n} s compressed",
     "grafana_wait": "waiting for Grafana to draw, {n} s compressed",
     "gate_wait": "waiting for the {gate} gate, {n} s compressed",
     "verdict_wait": "waiting for the verdict agent, {n} s compressed",
+    "investigation_wait": "waiting for the investigator, {n} s compressed",
 }
+# The voice is synthetic and the picture says so, top right, over the open and over the landing;
+# the words come from narration.json so the caption cannot name a voice the mix does not carry.
+VOICE_CAPTION_S = 8.0
+VOICE_CAPTION_END_S = 6.0
+VOICE_CAPTION_FONT_SIZE = 22
 MONO_FONT = "/System/Library/Fonts/Supplemental/Courier New Bold.ttf"
 COMPRESSION_LABEL_S = 2.5
 COMPRESSION_FONT_SIZE = 28
@@ -272,6 +281,9 @@ def punch_target(cue: str) -> str | None:
         return "verdict"
     if cue == "seek_claim":
         return "stage"
+    if cue == "resolved":
+        # The incident reads resolved on the Record segment, in the right column.
+        return "checks"
     if LANDING_CUE.match(cue):
         return "checks"
     return None
@@ -533,6 +545,18 @@ def build_windows(at: dict, lines: list[dict], inserts: list[dict] | None = None
                         "gate": gate})
         return out
 
+    def investigation_wait(suffix: str) -> dict | None:
+        """After the verdict line has been said and before the escalation lands: the investigator
+        is still reading Loki, the row under the card names its tool calls, nothing else moves."""
+        start, end = at.get(f"verdict{suffix}"), at.get(f"escalation_done{suffix}")
+        if start is None or end is None:
+            return None
+        a = max(quiet_from(f"verdict{suffix}"), start)
+        if end - a <= wait_keep + SMALL_WAIT_S:
+            return None
+        return {"name": f"waiting for the investigator{suffix}", "a": a, "b": end,
+                "keep": wait_keep, "max": (end - a) - wait_keep, "kind": "investigation_wait"}
+
     def verdict_wait(suffix: str) -> dict | None:
         """The seconds between the last gate landing and the verdict card: the verdict agent
         asking Grafana about each gate before it rules."""
@@ -555,14 +579,18 @@ def build_windows(at: dict, lines: list[dict], inserts: list[dict] | None = None
         # asking Grafana, a Grafana insert drawing. The holds below are the overflow, in that
         # order, and only when the waits alone cannot bring the render under the maximum.
         rights_wait("", "Crest run, waiting for Video Intelligence"),
-        rights_wait("_2", "muted clean run, waiting for Video Intelligence"),
-        rights_wait("_3", "clean run, waiting for Video Intelligence"),
+        rights_wait("_2", "fault run, waiting for Video Intelligence"),
+        rights_wait("_3", "study run, waiting for Video Intelligence"),
         *gate_waits(""),
         *gate_waits("_2"),
         *gate_waits("_3"),
         verdict_wait(""),
         verdict_wait("_2"),
         verdict_wait("_3"),
+        # The third run's investigator works under the dashboard insert, which is not waiting, so
+        # only the first two runs carry this window.
+        investigation_wait(""),
+        investigation_wait("_2"),
         *(grafana_wait(insert) for insert in (inserts or [])),
         span("dashboard", "landing", 5.0, "dashboard hold"),
         span("landing", "end", 8.0, "landing hold"),
@@ -680,7 +708,7 @@ def write_srt(lines: list[dict], path: Path) -> list[dict]:
 def build_video(
     console: Path, overlays: list[dict], plan: CutPlan, total: float, raw_len: float,
     out_dir: Path, srt: Path, audio: Path, target: Path, subtitle_size: int,
-    labels: list[dict], punch: str | None = None,
+    labels: list[dict], punch: str | None = None, voice_caption: str | None = None,
 ) -> None:
     a50 = out_dir / "article-50.txt"
     a50.write_text("\n".join(wrap(ARTICLE_50, 58)) + "\n", encoding="utf-8")
@@ -729,6 +757,15 @@ def build_video(
             ":boxborderw=16:x=(w-text_w)/2:y=42"
             f":enable='between(t,{label['from']:.3f},{label['to']:.3f})'"
         )
+    if voice_caption:
+        caption = out_dir / "voice-caption.txt"
+        caption.write_text(voice_caption, encoding="utf-8")
+        windows = f"between(t,0,{VOICE_CAPTION_S:.1f})+between(t,{total - VOICE_CAPTION_END_S:.3f},{total:.3f})"
+        chain.append(
+            f"drawtext=fontfile={MONO_FONT}:textfile={caption}"
+            f":fontsize={VOICE_CAPTION_FONT_SIZE}:fontcolor=white:box=1:boxcolor=black@0.78"
+            f":boxborderw=12:x=w-text_w-24:y=12:enable='{windows}'"
+        )
     chain.append(
         f"subtitles={srt}:force_style='FontName=Arial,FontSize={subtitle_size},"
         "PrimaryColour=&H00FFFFFF,BackColour=&HB4000000,BorderStyle=4,Outline=0,Shadow=0,"
@@ -763,6 +800,8 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--out", default=str(ROOT / "video" / "out"))
     ap.add_argument("--draft", type=int, default=None)
+    ap.add_argument("--output", default=None,
+                    help="file name of the render inside --out (default: airlock-draft-<n>-synthetic-voice.mp4)")
     # The cut aims at nothing: it removes all the waiting and reports where that lands. --min is
     # the length the render is expected to reach and only ever prints a warning; --max is the one
     # number with teeth, because past it a hold gets shortened.
@@ -976,14 +1015,19 @@ def main() -> int:
     print(f"{len(subtitles)} subtitle cues over {len(placed)} spoken lines")
 
     number = args.draft if args.draft is not None else next_draft(out_dir)
-    target = out_dir / f"airlock-draft-{number}-synthetic-voice.mp4"
+    target = out_dir / (args.output or f"airlock-draft-{number}-synthetic-voice.mp4")
+    voice_caption = None
+    if narration.get("synthetic"):
+        voice_caption = (f"synthetic voice: Google Cloud Text to Speech, {narration.get('voice', 'unknown voice')}"
+                         f" at {narration.get('speaking_rate', 1.0)}x")
+        print(f"voice caption over the first {VOICE_CAPTION_S:.0f} s and the last {VOICE_CAPTION_END_S:.0f} s: {voice_caption}")
 
     tone = args.tone_dbfs
     verdict_lines: list[str] = []
     for attempt in range(1, 4):
         audio = build_audio(placed, out_dir, total, tone)
         build_video(console, overlays, plan, total, raw_len, out_dir, srt, audio, target,
-                    args.subtitle_size, labels, punch)
+                    args.subtitle_size, labels, punch, voice_caption)
         size_mb = target.stat().st_size / 1024 / 1024
         print(f"\nwrote {target} ({size_mb:.1f} MB)")
         if args.no_check:
@@ -1005,7 +1049,9 @@ def main() -> int:
         break
 
     summary = {
-        "draft": number,
+        "draft": None if args.output else number,
+        "output": target.name,
+        "voice_caption": voice_caption,
         "mp4": str(target),
         "duration_s": round(total, 3),
         "take_s": round(raw_len, 3),

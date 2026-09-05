@@ -1,38 +1,44 @@
 #!/usr/bin/env node
 /**
- * record.mjs: drives the live Airlock reviewer console (v3) through the beats of section 2 of
- * docs/VIDEO-SCRIPT.md while Playwright records the browser context at 1920x1080, and writes
+ * record.mjs: drives the live Airlock reviewer console through the beats of docs/VIDEO-SCRIPT.md
+ * (script v6) while Playwright records the browser context at 1920x1080, and writes
  * video/out/cues.json so the narration can be placed where the picture actually is.
  *
  * Runs vary from 30 to 110 s, so nothing here is on a fixed clock: every beat waits on the DOM
  * and logs the wall time it landed at. Every wait is bounded and names the cue it gave up on.
  *
  *   node record.mjs                       # the real take against the live console
- *   node record.mjs --prep                # the recording day preparation, through the API
- *   node record.mjs --url http://127.0.0.1:3111 --mock --skip-asa
+ *   node record.mjs --url http://127.0.0.1:3111 --mock
  *
  * Flags:
  *   --url <url>          console to drive (default: the hosted console)
- *   --mock               the url is a mock server: no telemetry age wait, fixed verdicts
- *   --asa                visit the external ASA ruling page (script v4 and earlier; off by default)
- *   --skip-asa           kept for compatibility, and now the default
- *   --prep               preparation only, no browser: one clean run, then one with rights muted
- *   --no-wait            do not wait for the rights telemetry to go stale before the take
- *   --min-mute-age <s>   how stale the rights telemetry must be before the take (default 990)
- *   --gap-min <m>        minutes between the two preparation runs (default 13)
+ *   --mock               the url is a mock server: fixed verdicts, no expectation notes
+ *   --dashboard <url>    the Grafana page for the two inserts (default: the "Open in Grafana" href
+ *                        read off the Record segment during the first run)
  *   --out <dir>          output directory (default: video/out)
  *   --headed             show the browser
  *
- * The console v3 DOM this drives, so a future change to the console has one place to look:
+ * Script v6 needs no preparation: the control beat is a fault injected on camera (the "Inject a
+ * fault" switch on the rights row), which fails the gate in a millisecond, so there is no muted run
+ * before the take and no staleness to wait for. Three runs: the Crest commercial (BLOCK on its
+ * content), the clean clip with the fault (BLOCK, control unavailable, the investigator names the
+ * cause, a human resolves the incident from the console), the test clip with its study on file
+ * (PASS).
+ *
+ * The console DOM this drives, so a future change to the console has one place to look:
  *   - the asset strip: one `button[aria-pressed]` per preset, matched on its visible name
  *   - the run: the `Run airlock` button in the top bar, disabled while a run is in flight
- *   - the checks: six `button[aria-controls="check-<name>"]` rows, each carrying a status line
- *     ("Waiting to run", "Checking: ...", "No issues found", "N issues found: ...") and a
- *     calibration line; the chevron expands the row and the rights row holds the mute switch
+ *   - the checks: seven `button[aria-controls="check-<name>"]` rows (the four gates, verdict,
+ *     investigation, escalation), each carrying a status line ("Waiting to run", "Checking: ...",
+ *     "No issues found", "N issues found: ...", "Check failed: ...") and a calibration line; the
+ *     chevron expands the row and the rights row holds the "Mute telemetry" and "Inject a fault"
+ *     switches (`button[role="switch"]`, named by their text)
  *   - the verdict: `section[aria-label="Verdict"]`, its `p[aria-live="polite"]` summary reading
  *     "Checks complete: BLOCK, content, needs a human."
  *   - the segments: `[aria-label="What to read about this run"]` with Checks, Findings, Record;
- *     Findings carries the time chips that seek the clip, Record the "Open in Grafana" link
+ *     Findings carries the time chips that seek the clip, Record the "Open in Grafana" link, the
+ *     annotation and incident ids, the Investigation section and the "Mark reviewed by a human"
+ *     button under a "Signing as" select
  */
 
 import { chromium } from "playwright";
@@ -42,27 +48,74 @@ import { fileURLToPath } from "node:url";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_CONSOLE = "https://airlock-console-771466810465.us-central1.run.app";
-const ASA_URL = "https://www.asa.org.uk/rulings/nutri-paw-ltd.html";
+// The alert list (https://narrowsubmarine1895.grafana.net/alerting/list) redirects a fresh browser
+// to /login, so the alert insert shows the public dashboard instead, on its "Gate errors" panel:
+// the series the "Airlock gate errors" rule fires on.
+const PUBLIC_DASHBOARD =
+  "https://narrowsubmarine1895.grafana.net/public-dashboards/97860661238c4536a743e0d858aef845";
 const GATES = ["rights", "claim", "brand", "provenance"];
 const STEP_TIMEOUT_MS = 200_000;
-const ASA_SCROLL_MS = 6_000;
 const SEEK_HOLD_MS = 3_000;
 // The stake: the Article 50 overlay assemble.py burns over the open lasts 5 s, and the console
 // is alone on the picture for the rest of this hold before the reviewer's first gesture.
 const STAKE_HOLD_MS = 5_500;
-// The verdict card is held for as long as the line spoken over it, which is measured and not
-// assumed: video/out/narration.json from the previous narration carries that wav's duration. The
-// fallback is for a first run, before any narration exists.
-const VERDICT_HOLD_FALLBACK_MS = 12_000;
-const VERDICT_HOLD_MARGIN_MS = 1_000;
-const VERDICT_HOLD_MAX_MS = 16_000;
-const GRAFANA_INSERT_MS = 5_000;
+// A beat is held for as long as the line spoken over it, which is measured and not assumed:
+// video/out/narration.json from the previous narration carries every wav's duration. The
+// fallbacks are for a first run, before any narration exists.
+const LINE_MARGIN_MS = 1_000;
+const HOLD_MAX_MS = 20_000;
+const ALERT_INSERT_MS = 4_000;
 const DASHBOARD_INSERT_MS = 9_500;
 const LANDING_HOLD_MS = 6_500;
+const RECORD_HOLD_MIN_MS = 3_000;
+// How long the run may keep working after the verdict (the investigator, then the escalation)
+// before the recorder moves on without the incident id.
+const SETTLE_TIMEOUT_MS = 120_000;
 // An insert holds still while the line names what is on it, then glides down the panels for the
 // rest of its window, so no insert is ever a still picture with nothing being said over it.
 const DASHBOARD_STILL_MS = 2_000;
 const DASHBOARD_GLIDE_STEP_MS = 60;
+const REVIEWER_ROLE = "platform on-call";
+
+/**
+ * Every cue this recorder can write. narrate.py reads this list and refuses to synthesise a
+ * script that names a cue which is not in it, so a renamed beat fails before a render and not
+ * after one. A `<gate>_done<suffix>` entry is written by watchGates for each of the four gates.
+ */
+const CUE_NAMES = [
+  "record_start",
+  "stake",
+  "console_idle",
+  "crest_click",
+  "rights_done", "claim_done", "brand_done", "provenance_done",
+  "seek_claim",
+  "seek_done",
+  "verdict",
+  "escalation_done",
+  "record_open",
+  "fault_on",
+  "fault_click",
+  "rights_error",
+  "rights_done_2", "claim_done_2", "brand_done_2", "provenance_done_2",
+  "gates_done_2",
+  "verdict_2",
+  "investigation",
+  "escalation_done_2",
+  "investigation_note",
+  "alert_ready",
+  "alert_insert",
+  "resolve",
+  "resolved",
+  "fault_off",
+  "study_click",
+  "rights_done_3", "claim_done_3", "brand_done_3", "provenance_done_3",
+  "verdict_3",
+  "escalation_done_3",
+  "dashboard_ready",
+  "dashboard",
+  "landing",
+  "end",
+];
 
 function arg(name, fallback) {
   const i = process.argv.indexOf(name);
@@ -73,13 +126,7 @@ const has = (name) => process.argv.includes(name);
 const OPTS = {
   url: (arg("--url", DEFAULT_CONSOLE) || DEFAULT_CONSOLE).replace(/\/$/, ""),
   mock: has("--mock"),
-  // Script v5 has no ASA beat: the ruling was a picture the video could not afford. --skip-asa is
-  // still accepted so an older command line still runs, and --asa brings the beat back.
-  skipAsa: !has("--asa"),
-  prep: has("--prep"),
-  wait: !has("--no-wait"),
-  minMuteAge: Number(arg("--min-mute-age", "990")),
-  gapMinutes: Number(arg("--gap-min", "13")),
+  dashboard: arg("--dashboard", null),
   out: path.resolve(arg("--out", path.join(HERE, "out"))),
   headed: has("--headed"),
 };
@@ -94,10 +141,10 @@ const overlays = [];
 
 const now = () => Number(((Date.now() - t0) / 1000).toFixed(3));
 function log(msg) {
-  const stamp = OPTS.prep ? new Date().toISOString().slice(11, 19) : `t+${now().toFixed(1).padStart(6)}s`;
-  console.log(`[${stamp}] ${msg}`);
+  console.log(`[t+${now().toFixed(1).padStart(6)}s] ${msg}`);
 }
 function cue(id, extra = {}) {
+  if (!CUE_NAMES.includes(id)) throw new Error(`cue ${id} is not in CUE_NAMES; add it there first`);
   const entry = { cue: id, t: now(), ...extra };
   cues.push(entry);
   log(`CUE ${id}${extra.detail ? `  ${extra.detail}` : ""}`);
@@ -108,6 +155,11 @@ function note(text) {
   log(`NOTE ${text}`);
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+/** Sleep until the recorder's clock reads `t` seconds, or not at all when it already does. */
+async function holdUntil(t) {
+  const ms = Math.round((t - now()) * 1000);
+  if (ms > 0) await sleep(ms);
+}
 
 /** A condition the poll below must not sit through, such as a run whose event stream died. */
 class Fatal extends Error {}
@@ -115,8 +167,7 @@ class Fatal extends Error {}
 /**
  * Poll a predicate every 250 ms. On a timeout it says which cue it was working towards, so a
  * failed take reads as "gave up on rights_done_2" and not as a stack trace. A Fatal thrown by
- * the predicate comes straight back out: waiting the full bound on it would only burn the one
- * telemetry window the take has.
+ * the predicate comes straight back out.
  */
 async function until(what, predicate, { timeoutMs = STEP_TIMEOUT_MS, cue: cueId = null } = {}) {
   const deadline = Date.now() + timeoutMs;
@@ -153,10 +204,21 @@ function statusFromLine(line) {
   return null;
 }
 
+/** The escalation row's line, once it has landed: which incident, opened or joined. */
+function escalationFromLine(line) {
+  if (!line) return null;
+  let m = /^Incident (\S+) opened/.exec(line);
+  if (m) return { incident: m[1], attached: false };
+  m = /^Joined open incident (\S+)/.exec(line);
+  if (m) return { incident: m[1], attached: true };
+  if (/^no human needed/i.test(line)) return { incident: null, attached: false };
+  return null;
+}
+
 /**
- * One DOM read per poll: the six check rows with their status and calibration lines, the verdict
- * summary, the mute switch when the rights row is expanded, which segment is on screen, and
- * whether the clip is actually playing on the stage.
+ * One DOM read per poll: the seven check rows with their status and calibration lines, the
+ * verdict summary, the two switches when the rights row is expanded, which segment is on screen,
+ * and whether the clip is actually playing on the stage.
  */
 async function snapshot(page) {
   return page.evaluate((gates) => {
@@ -164,12 +226,12 @@ async function snapshot(page) {
     const out = {
       rows: {},
       rightsMute: null,
+      rightsFault: null,
       verdict: null,
       motive: null,
       needsHuman: false,
       word: null,
       summary: null,
-      incident: null,
       busy: false,
       lost: false,
       ready: false,
@@ -185,9 +247,11 @@ async function snapshot(page) {
       if (!box) continue;
       const parts = Array.from(box.children).map(clean);
       out.rows[name] = {
+        head: parts[0] || "",
         line: parts[1] || "",
         calibration: parts[2] || null,
         muted: /\bmuted\b/.test(parts[0] || ""),
+        fault: /fault injected/.test(parts[0] || ""),
         open: button.getAttribute("aria-expanded") === "true",
       };
     }
@@ -196,12 +260,13 @@ async function snapshot(page) {
       return Boolean(row && row.calibration && !/^reading Grafana/i.test(row.calibration));
     });
 
-    // Only in the DOM while the rights row is expanded, which is where the switch lives.
-    const sw = document.querySelector('#check-rights [role="switch"]');
-    out.rightsMute = sw ? sw.getAttribute("aria-checked") === "true" : null;
-
-    const incident = /Incident (\S+) opened/.exec(out.rows.escalation?.line || "");
-    out.incident = incident ? incident[1] : null;
+    // Only in the DOM while the rights row is expanded, which is where the switches live.
+    for (const sw of document.querySelectorAll('#check-rights [role="switch"]')) {
+      const label = clean(sw);
+      const on = sw.getAttribute("aria-checked") === "true";
+      if (/mute telemetry/i.test(label)) out.rightsMute = on;
+      if (/inject a fault/i.test(label)) out.rightsFault = on;
+    }
 
     const verdict = document.querySelector('section[aria-label="Verdict"]');
     if (verdict) {
@@ -248,6 +313,32 @@ async function snapshot(page) {
   }, GATES);
 }
 
+/**
+ * What the Record segment shows, read only while it is on screen: the annotation and incident
+ * ids, the cost line, the Investigation section and the review state.
+ */
+async function recordSnapshot(page) {
+  return page.evaluate(() => {
+    const clean = (node) => (node?.textContent || "").replace(/\s+/g, " ").trim();
+    const paragraphs = Array.from(document.querySelectorAll("p, span, h3"));
+    const find = (re) => {
+      const node = paragraphs.find((p) => re.test(clean(p)));
+      return node ? clean(node) : null;
+    };
+    const link = Array.from(document.querySelectorAll("a")).find((a) => /^Open in Grafana$/.test(clean(a)));
+    const investigationHeader = paragraphs.find((p) => /^Investigation$/.test(clean(p)));
+    const section = investigationHeader ? investigationHeader.closest("section") : null;
+    return {
+      ids: find(/^(annotation \S+|no annotation id)(, incident \S+)?$/),
+      cost: find(/^This check:/),
+      href: link ? link.getAttribute("href") : null,
+      investigation: section ? clean(section) : null,
+      reviewed: find(/^Reviewed by a human/),
+      reviewLine: find(/^(incident \S+ \S+|no incident to close)/),
+    };
+  });
+}
+
 /** Pick a preset by the name printed on its card in the asset strip. */
 async function clickAsset(page, label) {
   const card = page.locator("button[aria-pressed]").filter({ hasText: label }).first();
@@ -285,41 +376,44 @@ async function segment(page, name) {
   );
 }
 
-async function setRightsRowOpen(page, open) {
-  const header = page.locator('button[aria-controls="check-rights"]').first();
+async function setRowOpen(page, row, open) {
+  const header = page.locator(`button[aria-controls="check-${row}"]`).first();
   const state = (await header.getAttribute("aria-expanded")) === "true";
   if (state === open) return;
   await header.click({ timeout: 20_000 });
   await until(
-    `the rights row to be ${open ? "expanded" : "collapsed"}`,
-    async () => Boolean((await snapshot(page)).rows.rights?.open) === open,
+    `the ${row} row to be ${open ? "expanded" : "collapsed"}`,
+    async () => Boolean((await snapshot(page)).rows[row]?.open) === open,
     { timeoutMs: 20_000 },
   );
 }
 
 /**
- * The mute switch lives inside the expanded rights row, so the row is opened, the switch thrown
- * and the row closed again: the reviewer's own gesture, and the row's "muted" badge is what stays
- * on screen afterwards.
+ * The "Inject a fault" switch lives inside the expanded rights row, so the row is opened, the
+ * switch thrown, held a moment so the gesture reads, and the row closed again. The console keeps
+ * the switch armed between runs, which is why the third run switches it off first.
  */
-async function setMute(page, on) {
+async function setFault(page, on) {
   await segment(page, "Checks");
-  await setRightsRowOpen(page, true);
-  const sw = page.locator('#check-rights [role="switch"]').first();
+  await setRowOpen(page, "rights", true);
+  const sw = page.locator('#check-rights [role="switch"]').filter({ hasText: /inject a fault/i }).first();
   const state = (await sw.getAttribute("aria-checked")) === "true";
   let toggled = false;
   if (state !== on) {
     await sw.click({ timeout: 20_000 });
     await until(
-      `the rights mute switch to read ${on}`,
-      async () => (await snapshot(page)).rightsMute === on,
+      `the rights fault switch to read ${on}`,
+      async () => (await snapshot(page)).rightsFault === on,
       { timeoutMs: 20_000 },
     );
     toggled = true;
   }
-  await sleep(500);
-  await setRightsRowOpen(page, false);
-  return toggled;
+  return {
+    toggled,
+    close: async () => {
+      await setRowOpen(page, "rights", false);
+    },
+  };
 }
 
 /**
@@ -341,8 +435,8 @@ async function watchGates(page, suffix, onGate = null) {
         const status = statusFromLine(s.rows[gate]?.line);
         if (!status) continue;
         landed.set(gate, status);
-        cue(`${gate}_done${suffix}`, { status, detail: status });
-        if (onGate) await onGate(gate, status);
+        cue(`${gate}_done${suffix}`, { status, detail: `${status}: ${s.rows[gate].line.slice(0, 120)}` });
+        if (onGate) await onGate(gate, status, s);
       }
       return landed.size === GATES.length;
     },
@@ -358,12 +452,16 @@ async function watchGates(page, suffix, onGate = null) {
   return Object.fromEntries(landed);
 }
 
+/**
+ * The verdict card fills when the summary reads "Checks complete"; the run keeps working after
+ * it (the investigator, then the escalation), which waitSettled watches separately.
+ */
 async function watchVerdict(page, suffix) {
   const settled = await until(
     `the verdict summary${suffix ? ` (${suffix})` : ""}`,
     async () => {
       const s = await snapshot(page);
-      return s.verdict && !s.busy ? s : null;
+      return s.verdict ? s : null;
     },
     { cue: `verdict${suffix}` },
   );
@@ -371,12 +469,68 @@ async function watchVerdict(page, suffix) {
     status: settled.verdict,
     motive: settled.motive,
     needs_human: settled.needsHuman,
-    incident: settled.incident,
     summary: settled.summary,
-    detail: `${settled.verdict}${settled.motive ? ` (${settled.motive})` : ""}${
-      settled.incident ? ` incident ${settled.incident}` : ""
-    }`,
+    detail: `${settled.verdict}${settled.motive ? ` (${settled.motive})` : ""}`,
   });
+}
+
+/**
+ * The end of the run: the investigator has written its note and the escalation has opened or
+ * joined an incident (or said no human is needed). The Run button is enabled again at that point.
+ */
+async function waitSettled(page, suffix) {
+  let s = null;
+  try {
+    s = await until(
+      `the run to settle${suffix ? ` (${suffix})` : ""}`,
+      async () => {
+        const snap = await snapshot(page);
+        if (snap.lost) throw new Fatal(`the event stream was lost after the verdict${suffix}`);
+        return snap.busy ? null : snap;
+      },
+      { timeoutMs: SETTLE_TIMEOUT_MS, cue: `escalation_done${suffix}` },
+    );
+  } catch (error) {
+    if (error instanceof Fatal) throw error;
+    note(`the run${suffix} did not settle in ${SETTLE_TIMEOUT_MS / 1000} s, moving on without the incident id`);
+    s = await snapshot(page);
+  }
+  const escalation = escalationFromLine(s.rows.escalation?.line) || { incident: null, attached: false };
+  const investigationLine = s.rows.investigation?.line || null;
+  return cue(`escalation_done${suffix}`, {
+    incident: escalation.incident,
+    attached: escalation.attached,
+    escalation: s.rows.escalation?.line || null,
+    investigation: investigationLine,
+    detail: escalation.incident
+      ? `incident ${escalation.incident} ${escalation.attached ? "joined" : "opened"}`
+      : `no incident (${(s.rows.escalation?.line || "no escalation line").slice(0, 80)})`,
+  });
+}
+
+/**
+ * The investigation row while it works: its line names the tool being called. The row is
+ * expanded so the list of tool calls grows on camera under the verdict.
+ */
+async function watchInvestigation(page) {
+  let s = null;
+  try {
+    s = await until(
+      "the investigator's first tool call",
+      async () => {
+        const snap = await snapshot(page);
+        const line = snap.rows.investigation?.line || "";
+        return /Investigator calls|answered/.test(line) || !snap.busy ? snap : null;
+      },
+      { timeoutMs: 40_000, cue: "investigation" },
+    );
+  } catch {
+    s = await snapshot(page);
+  }
+  await setRowOpen(page, "investigation", true).catch((error) =>
+    note(`the investigation row did not expand: ${error.message}`),
+  );
+  return cue("investigation", { detail: (s.rows.investigation?.line || "no investigation line").slice(0, 140) });
 }
 
 /**
@@ -413,64 +567,52 @@ async function seekClaim(page) {
 }
 
 /**
- * The Grafana link lives in the Record segment; the camera goes there and comes straight back.
- * The record also carries the run's cost line ("This check: $0.50 at list price, ..."), which is
- * on camera for this second and a half, so the recorder reads it and writes it into the cue log:
- * a draft can then be checked for a cost that says $0 without anyone squinting at the frame.
+ * The Record segment on camera after the first verdict: the run's cost line ("This check: $0.50
+ * at list price, ..."), the annotation and incident ids, and the Grafana href the inserts use.
+ * The recorder reads the cost into the cue log so a take that says $0 says so there too.
  */
-async function grafanaHref(page) {
+async function openRecord(page) {
   await segment(page, "Record");
-  const link = page.locator("a").filter({ hasText: /^Open in Grafana$/ }).first();
-  const href = await link.getAttribute("href", { timeout: 20_000 });
-  const cost = await page
-    .evaluate(() => {
-      const node = Array.from(document.querySelectorAll("p")).find((p) =>
-        /^This check:/.test((p.textContent || "").trim()),
-      );
-      return node ? node.textContent.replace(/\s+/g, " ").trim() : null;
-    })
-    .catch(() => null);
-  cue("record_open", { detail: cost ? `Record segment: ${cost}` : "Record segment: no cost line" });
-  if (!cost) note("the Record segment showed no cost line");
-  await sleep(1_500);
-  await segment(page, "Checks");
-  return href;
+  const record = await recordSnapshot(page).catch(() => ({}));
+  cue("record_open", {
+    ids: record.ids,
+    cost: record.cost,
+    detail: `Record segment: ${record.ids || "no ids"}; ${record.cost || "no cost line"}`,
+  });
+  if (!record.cost) note("the Record segment showed no cost line");
+  return record;
 }
 
 /**
- * How long the verdict card is held: the length of the line spoken over it. narration.json is the
- * previous narration, synthesised from the same script at the same speaking rate, so its wav
- * duration is the measurement. A missing file, or a narration with no verdict line, falls back.
+ * How long a line lasts: narration.json from the previous narration, synthesised from the same
+ * script at the same speaking rate, carries every wav's duration. A missing file or a line the
+ * narration does not have falls back to the number given.
  */
-function verdictHoldMs() {
-  const path_ = path.join(OPTS.out, "narration.json");
-  try {
-    const narration = JSON.parse(fs.readFileSync(path_, "utf8"));
-    const line = (narration.lines || []).find((entry) => entry.cue === "verdict");
-    if (line && line.duration_s) {
-      const ms = Math.min(VERDICT_HOLD_MAX_MS, line.duration_s * 1000 + VERDICT_HOLD_MARGIN_MS);
-      log(`the verdict line lasts ${line.duration_s.toFixed(1)} s, holding the card ${(ms / 1000).toFixed(1)} s`);
-      return ms;
+let narrationLines = null;
+function lineSeconds(cueId, fallbackS) {
+  if (narrationLines === null) {
+    try {
+      const narration = JSON.parse(fs.readFileSync(path.join(OPTS.out, "narration.json"), "utf8"));
+      narrationLines = narration.lines || [];
+    } catch {
+      narrationLines = [];
     }
-  } catch {
-    // No narration yet, or one this script cannot read: the fallback is the whole point of it.
   }
-  log(`no verdict line in narration.json, holding the card ${VERDICT_HOLD_FALLBACK_MS / 1000} s`);
-  return VERDICT_HOLD_FALLBACK_MS;
+  const line = narrationLines.find((entry) => entry.cue === cueId);
+  if (line && line.duration_s) return line.duration_s;
+  log(`no line for cue ${cueId} in narration.json, assuming ${fallbackS} s`);
+  return fallbackS;
 }
 
-/**
- * The console keeps the finished run in React state only, so navigating the recorded tab to
- * Grafana would throw the verdict away and the take could never come back to it. Grafana is
- * therefore visited on a second page of the same context, which Playwright records to its own
- * file; assemble.py lays that file over the console take.
- *
- * Playwright records that page from the moment it is created, so its first seconds are a blank
- * tab and then a dashboard drawing itself. None of that belongs in the video: the recorder logs
- * `<name>_ready` the moment the panels have drawn and writes the same instant into the overlay
- * entry as `ready_at`, and assemble.py starts the insert there. The console take, with the
- * verdict on it, keeps playing underneath until then.
- */
+/** Hold the picture for the line spoken over `cueId`, from the moment that cue was written. */
+async function holdForLine(cueId, fallbackS, minS = 0) {
+  const from = cues.find((entry) => entry.cue === cueId)?.t ?? now();
+  const seconds = Math.max(minS, lineSeconds(cueId, fallbackS) + LINE_MARGIN_MS / 1000);
+  const end = from + Math.min(HOLD_MAX_MS / 1000, seconds);
+  log(`holding for the ${cueId} line until t+${end.toFixed(1)}s`);
+  await holdUntil(end);
+}
+
 /**
  * Hold on a drawn dashboard: still at first, so the annotation the voice is pointing at is read
  * where it landed, then a slow glide down the panels for the rest of the insert.
@@ -517,6 +659,18 @@ async function holdOnDashboard(page, holdMs, cueId) {
   return { from: glideFrom, to: movedAt, pixels: moved };
 }
 
+/**
+ * The console keeps the finished run in React state only, so navigating the recorded tab to
+ * Grafana would throw the verdict away and the take could never come back to it. Grafana is
+ * therefore visited on a second page of the same context, which Playwright records to its own
+ * file; assemble.py lays that file over the console take.
+ *
+ * Playwright records that page from the moment it is created, so its first seconds are a blank
+ * tab and then a dashboard drawing itself. None of that belongs in the video: the recorder logs
+ * `<name>_ready` the moment the panels have drawn and writes the same instant into the overlay
+ * entry as `ready_at`, and assemble.py starts the insert there. The console take keeps playing
+ * underneath until then.
+ */
 async function visitGrafana(context, url, waitForText, holdMs, cueId, readyCueId) {
   const openedAt = now();
   const page = await context.newPage();
@@ -524,7 +678,7 @@ async function visitGrafana(context, url, waitForText, holdMs, cueId, readyCueId
   try {
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 90_000 });
     // The panel titles render about 1.5 s before the queries come back, so waiting on the title
-    // alone puts an empty dashboard on camera. Measured on this stack: the eight panels draw 21
+    // alone puts an empty dashboard on camera. Measured on this stack: the panels draw their
     // canvases once their data lands, and none before.
     await until(
       `the Grafana panel "${waitForText}" and its data`,
@@ -570,36 +724,62 @@ async function visitGrafana(context, url, waitForText, holdMs, cueId, readyCueId
   return { video, file };
 }
 
-async function waitForStaleTelemetry(minAge) {
-  if (!OPTS.wait || OPTS.mock) {
-    log(`skipping the telemetry age wait (${OPTS.mock ? "mock" : "--no-wait"})`);
+/**
+ * The reviewer closes the loop from the Record segment: signs as the platform on-call (a control
+ * incident is the platform owner's), clicks "Mark reviewed by a human", and the console answers
+ * with the incident's resolved status and the reviewed annotation id.
+ */
+async function markReviewed(page) {
+  let select = page.getByLabel(/signing as/i).first();
+  if (!(await select.count())) select = page.locator("select").first();
+  if (await select.count()) {
+    await select.selectOption({ label: REVIEWER_ROLE }).catch((error) =>
+      note(`could not sign as ${REVIEWER_ROLE}: ${error.message}`),
+    );
+    await sleep(600);
+  } else {
+    note("no Signing as select on the Record segment");
+  }
+  const button = page.getByRole("button", { name: /^mark reviewed by a human$/i }).first();
+  if (!(await button.count())) {
+    note("no Mark reviewed by a human button on the Record segment");
+    cue("resolve", { detail: "button not found" });
     return null;
   }
-  const deadline = Date.now() + 40 * 60_000;
-  let age = null;
-  while (Date.now() < deadline) {
-    try {
-      const health = await fetch(`${OPTS.url}/api/health`, { cache: "no-store" }).then((r) => r.json());
-      const rights = (health.gates || []).find((g) => g.gate === "rights");
-      age = rights ? rights.seconds_since_success : null;
-      if (age === null || age >= minAge) {
-        log(`rights telemetry is ${age === null ? "not visible at all" : `${Math.round(age)} s`} old, the take can start`);
-        return age;
-      }
-      log(`rights telemetry ${Math.round(age)} s old, waiting for ${minAge} s`);
-    } catch (error) {
-      log(`health read failed: ${error.message}`);
-    }
-    await sleep(20_000);
+  await button.click({ timeout: 20_000 });
+  cue("resolve", { detail: `Mark reviewed by a human, signing as ${REVIEWER_ROLE}` });
+  let record = null;
+  try {
+    record = await until(
+      "the review to be written",
+      async () => {
+        const r = await recordSnapshot(page);
+        return r.reviewed ? r : null;
+      },
+      { timeoutMs: 30_000, cue: "resolved" },
+    );
+  } catch {
+    record = await recordSnapshot(page).catch(() => ({}));
   }
-  throw new Error(`the rights telemetry never got older than ${minAge} s`);
+  const line = record?.reviewLine || "no review line";
+  const incident = /incident (\S+) (\S+)/.exec(line);
+  const annotation = /annotation (\d+) written/.exec(line);
+  cue("resolved", {
+    reviewed: record?.reviewed || null,
+    line,
+    incident: incident ? incident[1] : null,
+    incident_status: incident ? incident[2].replace(/,$/, "") : null,
+    annotation: annotation ? Number(annotation[1]) : null,
+    detail: `${record?.reviewed || "not reviewed"} ${line}`,
+  });
+  return record;
 }
 
 async function openConsole(context) {
   const page = await context.newPage();
   await page.goto(OPTS.url, { waitUntil: "domcontentloaded", timeout: 90_000 });
   await until(
-    "the console to render its six check rows",
+    "the console to render its check rows",
     async () => Object.keys((await snapshot(page)).rows).length >= 6,
     { cue: "console_open" },
   );
@@ -609,92 +789,15 @@ async function openConsole(context) {
   return page;
 }
 
-/**
- * The preparation, through the API and with no browser: one clean run with nothing muted, so
- * every gate has a fresh success, then a second one 13 minutes later with the rights telemetry
- * muted. The take then waits until the rights gate is past `--min-mute-age` and starts, which is
- * the only moment the console reads "17 min ago" on rights and healthy on the other three.
- */
-async function apiRun(asset, mute) {
-  const started = Date.now();
-  const response = await fetch(`${OPTS.url}/api/run`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(mute.length ? { asset, mute } : { asset }),
-  });
-  if (!response.ok || !response.body) {
-    throw new Error(`/api/run answered ${response.status}`);
-  }
-  const decoder = new TextDecoder();
-  let buffer = "";
-  let verdict = null;
-  let motive = null;
-  let failure = null;
-  for await (const chunk of response.body) {
-    buffer += decoder.decode(chunk, { stream: true });
-    let cut;
-    while ((cut = buffer.indexOf("\n\n")) !== -1) {
-      const frame = buffer.slice(0, cut);
-      buffer = buffer.slice(cut + 2);
-      const data = frame
-        .split("\n")
-        .filter((line) => line.startsWith("data:"))
-        .map((line) => line.slice(5).trim())
-        .join("");
-      if (!data) continue;
-      let event;
-      try {
-        event = JSON.parse(data);
-      } catch {
-        continue;
-      }
-      if (event.message) failure = event.message;
-      if (typeof event.text !== "string") continue;
-      try {
-        const payload = JSON.parse(event.text);
-        if (payload.stage === "verdict" || (payload.status && payload.motive !== undefined)) {
-          verdict = payload.status ?? verdict;
-          motive = payload.motive ?? motive;
-        }
-      } catch {
-        // Not every relayed event is a JSON payload; the ones that are not say nothing here.
-      }
-    }
-  }
-  const seconds = Number(((Date.now() - started) / 1000).toFixed(1));
-  if (failure) throw new Error(`the run failed: ${failure}`);
-  return { asset, mute, seconds, verdict, motive, at: new Date(started).toISOString() };
-}
-
-async function runPrep() {
-  log(`preparation against ${OPTS.url}`);
-  log("run 1 of 2: the clean clip, nothing muted, so every gate gets a fresh success");
-  const first = await apiRun("clean", []);
-  log(`run 1 done in ${first.seconds} s: ${first.verdict ?? "no verdict parsed"}`);
-
-  const gapMs = OPTS.gapMinutes * 60_000;
-  log(`waiting ${OPTS.gapMinutes} minutes before the muted run`);
-  await sleep(gapMs);
-
-  log("run 2 of 2: the clean clip with the rights telemetry muted");
-  const second = await apiRun("clean", ["rights"]);
-  log(`run 2 done in ${second.seconds} s: ${second.verdict ?? "no verdict parsed"}`);
-
-  const payload = {
-    at: new Date().toISOString(),
-    console: OPTS.url,
-    gap_minutes: OPTS.gapMinutes,
-    min_mute_age_s: OPTS.minMuteAge,
-    runs: [first, second],
-  };
-  fs.writeFileSync(path.join(OPTS.out, "prep.json"), `${JSON.stringify(payload, null, 2)}\n`);
-  log(`preparation written to ${path.join(OPTS.out, "prep.json")}`);
-  log(`now: node video/record.mjs (it waits until the rights gate is past ${OPTS.minMuteAge} s)`);
+function dashboardUrl(href) {
+  const base = OPTS.dashboard || href || PUBLIC_DASHBOARD;
+  const url = new URL(base);
+  url.searchParams.set("from", "now-1h");
+  url.searchParams.set("to", "now");
+  return url.toString();
 }
 
 async function runTake() {
-  await waitForStaleTelemetry(OPTS.minMuteAge);
-
   const browser = await chromium.launch({ headless: !OPTS.headed, args: ["--hide-scrollbars"] });
   const context = await browser.newContext({
     viewport: { width: 1920, height: 1080 },
@@ -713,57 +816,18 @@ async function runTake() {
     cue("record_start", { t: 0, detail: "the context video starts here" });
 
     // 1. The stake. The Article 50 overlay is laid over the first 5 s of it in assemble.py.
-    cue("stake", { detail: "console idle, the clip on the stage, six check rows" });
+    cue("stake", { detail: "console idle, the clip on the stage, seven check rows" });
     await sleep(STAKE_HOLD_MS);
 
-    // 2. The reviewer's job today: a real ASA ruling, scrolled for 6 s. Off since script v5.
-    if (OPTS.skipAsa) {
-      // Script v5 dropped the beat: the take goes straight from the stake to the reviewer's first
-      // gesture, and nothing waits here. --asa brings the page back.
-      note("no ASA beat: the take goes from the stake straight to the console");
-    } else {
-      try {
-        await page.goto(ASA_URL, { waitUntil: "domcontentloaded", timeout: 90_000 });
-        for (const label of [/accept all/i, /accept/i, /agree/i]) {
-          const button = page.getByRole("button", { name: label }).first();
-          if (await button.count().catch(() => 0)) {
-            await button.click({ timeout: 3_000 }).catch(() => {});
-            break;
-          }
-        }
-        await page
-          .getByText(/assessment/i)
-          .first()
-          .scrollIntoViewIfNeeded({ timeout: 10_000 })
-          .catch(() => note("ASA: no Assessment heading found, scrolling from the top"));
-        cue("asa", { url: ASA_URL, detail: "scrolling the assessment" });
-        // The scroll is bounded by the wall clock, not by a step count: the voice line for this
-        // beat is short and the assembler never cuts here, so the picture lasts exactly as long
-        // as the beat is worth. Small steps, so the page glides instead of jumping.
-        const scrollUntil = Date.now() + ASA_SCROLL_MS;
-        while (Date.now() < scrollUntil) {
-          await page.evaluate(() => window.scrollBy(0, 16));
-          await sleep(90);
-        }
-      } catch (error) {
-        note(`ASA beat failed: ${error.message}`);
-        cue("asa", { detail: "failed" });
-      }
-      await page.goto(OPTS.url, { waitUntil: "domcontentloaded", timeout: 90_000 });
-      await until("the console to come back up", async () => (await snapshot(page)).ready, {
-        cue: "console_idle",
-      });
-    }
-
-    // 3. The console idle, with the rights telemetry muted for the whole take. The mute is on
-    //    from here so the Crest run does not refresh the control the script wants dark.
-    const toggled = await setMute(page, true);
-    cue("mute_on", { detail: toggled ? "switched on by the recorder" : "already on" });
+    // 2. The console idle with the Crest clip on the stage, held until the stake line and the
+    //    console line have both been said, so the first run starts on its own line.
     await clickAsset(page, "Crest Toothpaste Commercial");
-    cue("console_idle", { detail: "the Crest clip on the stage, the rights row amber" });
-    await sleep(9_000);
+    const idle = cue("console_idle", { detail: "the Crest clip on the stage, the gate rows read from Grafana" });
+    const stakeAt = cues.find((entry) => entry.cue === "stake").t;
+    const linesEnd = stakeAt + lineSeconds("stake", 11) + 0.4 + lineSeconds("console_idle", 7) + 0.4;
+    await holdUntil(Math.min(idle.t + HOLD_MAX_MS / 1000, Math.max(linesEnd, idle.t + 4)));
 
-    // 4. The Crest commercial: four blocks on the asset itself, and the claim beat seeks the clip.
+    // 3. The Crest commercial: four blocks on the asset itself, and the claim beat seeks the clip.
     await clickRun(page);
     cue("crest_click", { detail: "Run airlock on the Crest commercial" });
     await watchGates(page, "", async (gate) => {
@@ -773,52 +837,101 @@ async function runTake() {
     if (!OPTS.mock && (verdict1.status !== "BLOCK" || verdict1.motive !== "content")) {
       note(`verdict expected BLOCK (content), got ${verdict1.status} (${verdict1.motive})`);
     }
-    // The card stays on the picture for the whole line spoken about it, and only then does the
-    // camera leave for the dashboard. This hold is the one beat of the take nothing may compress.
-    await sleep(verdictHoldMs());
+    // The verdict line runs while the investigator and the escalation land under the card; the
+    // Record segment then shows the cost line and the incident id for the end of that line.
+    const settled1 = await waitSettled(page, "");
+    const verdictLine = lineSeconds("verdict", 16);
+    await holdUntil(verdict1.t + verdictLine * 0.55);
+    const record = await openRecord(page);
+    if (settled1.incident && record.ids && !record.ids.includes(settled1.incident)) {
+      note(`the Record ids (${record.ids}) do not name incident ${settled1.incident}`);
+    }
+    await holdUntil(Math.max(verdict1.t + verdictLine + LINE_MARGIN_MS / 1000, now() + RECORD_HOLD_MIN_MS / 1000));
+    const grafana = dashboardUrl(record.href);
+    log(`Grafana inserts will show ${grafana}`);
+    await segment(page, "Checks");
 
-    // 5. Grafana, on a second page so the console keeps the verdict on screen.
-    const href = await grafanaHref(page);
-    log(`open in Grafana: ${href}`);
-    grafanaVideos.push(
-      await visitGrafana(context, href, "Verdicts (7d)", GRAFANA_INSERT_MS, "grafana_open",
-        "grafana_ready"),
-    );
-    await sleep(700);
-
-    // 6. The clean clip with the rights control still dark.
+    // 4. The clean clip with a fault injected into the rights gate, on camera.
     await clickAsset(page, "Nimbus clean clip");
     await sleep(700);
+    const fault = await setFault(page, true);
+    cue("fault_on", { detail: fault.toggled ? "Inject a fault switched on for the rights gate" : "already on" });
+    await sleep(1_800);
+    await fault.close();
+    await holdUntil(cues.find((entry) => entry.cue === "fault_on").t + Math.max(3, lineSeconds("fault_on", 7) * 0.5));
     await clickRun(page);
-    cue("clean_muted_click", { detail: "Run airlock on the clean clip, rights telemetry muted" });
-    await watchGates(page, "_2");
+    cue("fault_click", { detail: "Run airlock on the clean clip, a timeout fault injected into rights" });
+    const landed2 = new Set();
+    await watchGates(page, "_2", async (gate, status, s) => {
+      if (gate === "rights") {
+        if (status === "ERROR") {
+          cue("rights_error", { detail: (s.rows.rights?.line || "").slice(0, 140) });
+        } else {
+          note(`rights expected ERROR with the fault injected, got ${status}`);
+          cue("rights_error", { detail: `rights landed ${status}, not ERROR` });
+        }
+        return;
+      }
+      landed2.add(gate);
+      if (landed2.size === 3) {
+        cue("gates_done_2", {
+          detail: `brand, claim and provenance have landed: ${["provenance", "brand", "claim"]
+            .map((g) => `${g} ${statusFromLine(s.rows[g]?.line) || "?"}`)
+            .join(", ")}`,
+        });
+      }
+    });
     const verdict2 = await watchVerdict(page, "_2");
     if (!OPTS.mock && (verdict2.status !== "BLOCK" || verdict2.motive !== "control unavailable")) {
       note(`verdict_2 expected BLOCK (control unavailable), got ${verdict2.status} (${verdict2.motive})`);
     }
-    await sleep(3_500);
+    await watchInvestigation(page);
+    const settled2 = await waitSettled(page, "_2");
+    await holdForLine("verdict_2", 13);
 
-    // 7. The control back on, the same clip again.
-    const off = await setMute(page, false);
-    cue("unmute", { detail: off ? "rights mute telemetry switched off" : "already off" });
-    await sleep(1_000);
+    // 5. The Record: the investigator's note with the Loki line it cites, the incident id; then
+    //    the Grafana insert on the gate errors panel, then the human resolves the incident.
+    await segment(page, "Record");
+    const record2 = await recordSnapshot(page).catch(() => ({}));
+    cue("investigation_note", {
+      ids: record2.ids,
+      investigation: record2.investigation,
+      incident: settled2.incident,
+      detail: `${record2.ids || "no ids"}; ${(record2.investigation || "no investigation section").slice(0, 160)}`,
+    });
+    await sleep(2_500);
+    grafanaVideos.push(
+      await visitGrafana(context, grafana, "Gate errors (per 5 min)", ALERT_INSERT_MS, "alert_insert",
+        "alert_ready"),
+    );
+    await sleep(500);
+    await markReviewed(page);
+    await holdForLine("resolve", 8, 3);
+
+    // 6. The test clip with its study on file: the fault off first (the console keeps the switch
+    //    armed between runs), then the fourth preset.
+    const off = await setFault(page, false);
+    cue("fault_off", { detail: off.toggled ? "Inject a fault switched off" : "already off" });
+    await sleep(600);
+    await off.close();
+    await clickAsset(page, "Nimbus test clip, study on file");
+    await sleep(700);
     await clickRun(page);
-    cue("clean_click_2", { detail: "Run airlock on the clean clip again" });
+    cue("study_click", { detail: "Run airlock on the test clip with its study on file" });
     await watchGates(page, "_3");
     const verdict3 = await watchVerdict(page, "_3");
     if (!OPTS.mock && verdict3.status !== "PASS") {
       note(`verdict_3 expected PASS, got ${verdict3.status} (${verdict3.motive})`);
     }
-    await sleep(2_500);
+    // The line about the PASS starts on the rights landing and runs over the card filling.
+    const rightsAt = cues.find((entry) => entry.cue === "rights_done_3")?.t ?? verdict3.t;
+    await holdUntil(Math.max(rightsAt + lineSeconds("rights_done_3", 15) + LINE_MARGIN_MS / 1000, verdict3.t + 3));
 
-    // 8. The public dashboard, then the PASS verdict held.
-    const dashboard = new URL(href);
-    dashboard.searchParams.set("from", "now-1h");
-    dashboard.searchParams.set("to", "now");
+    // 7. The public dashboard, then the PASS verdict held.
     grafanaVideos.push(
-      await visitGrafana(context, dashboard.toString(), "Verdicts (7d)", DASHBOARD_INSERT_MS,
-        "dashboard", "dashboard_ready"),
+      await visitGrafana(context, grafana, "Verdicts (7d)", DASHBOARD_INSERT_MS, "dashboard", "dashboard_ready"),
     );
+    await waitSettled(page, "_3");
     const landed = await snapshot(page);
     if (landed.verdict !== "PASS") {
       note(`landing: the console no longer shows the PASS verdict (verdict=${landed.verdict})`);
@@ -853,6 +966,7 @@ async function runTake() {
     recorded_at: new Date(t0).toISOString(),
     console: OPTS.url,
     mock: OPTS.mock,
+    script: "v6",
     duration_s: now(),
     video: path.relative(OPTS.out, files.console ?? ""),
     overlays,
@@ -870,4 +984,4 @@ async function runTake() {
   if (failure) process.exitCode = 1;
 }
 
-await (OPTS.prep ? runPrep() : runTake());
+await runTake();
