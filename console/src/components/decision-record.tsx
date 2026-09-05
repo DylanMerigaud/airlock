@@ -99,6 +99,22 @@ export function DecisionRecord({
               ? `annotation ${verdict.annotation_id}`
               : "no annotation id"}
             {escalation?.incident_id ? `, incident ${escalation.incident_id}` : ""}
+            {verdict.trace_id && verdict.trace_url ? (
+              <>
+                ,{" "}
+                <a
+                  href={verdict.trace_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-accent underline underline-offset-[3px]"
+                  title={`trace ${verdict.trace_id} in Tempo`}
+                >
+                  trace {verdict.trace_id.slice(0, 8)}
+                </a>
+              </>
+            ) : (
+              ""
+            )}
           </span>
         </div>
         {(assetLabel || verdict.asset_id) && (
