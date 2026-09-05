@@ -253,10 +253,20 @@ function scalar(value: unknown): string {
   return JSON.stringify(value);
 }
 
-/** One object on one line, "key: value, key: value"; anything deeper stays JSON. */
+/**
+ * One object on one line, "key: value, key: value"; a list of scalars inside it
+ * is a comma list too, anything deeper stays JSON.
+ */
 function compact(record: Record<string, unknown>): string {
   return Object.entries(record)
-    .map(([key, value]) => `${key}: ${isRecord(value) || Array.isArray(value) ? JSON.stringify(value) : scalar(value)}`)
+    .map(([key, value]) => {
+      if (isRecord(value)) return `${key}: ${JSON.stringify(value)}`;
+      if (Array.isArray(value)) {
+        if (value.length === 0) return `${key}: none`;
+        return `${key}: ${value.map((item) => (isRecord(item) || Array.isArray(item) ? JSON.stringify(item) : scalar(item))).join(", ")}`;
+      }
+      return `${key}: ${scalar(value)}`;
+    })
     .join(", ");
 }
 
@@ -285,6 +295,19 @@ function flatten(record: Record<string, unknown>): EvidenceRow[] {
   return rows;
 }
 
+/** A flattened key breaks after its dot ("parent." then "child"), never mid-word. */
+function KeyLabel({ value }: { value: string }) {
+  const dot = value.indexOf(".");
+  if (dot < 0) return <>{value}</>;
+  return (
+    <>
+      {value.slice(0, dot + 1)}
+      <wbr />
+      {value.slice(dot + 1)}
+    </>
+  );
+}
+
 function EvidenceTable({ record }: { record: Record<string, unknown> }) {
   const rows = flatten(record);
   if (rows.length === 0) return <p className="px-2.5 py-1.5 font-mono text-[11px] text-ink-soft">empty</p>;
@@ -294,7 +317,7 @@ function EvidenceTable({ record }: { record: Record<string, unknown> }) {
         {rows.map((row) => (
           <tr key={row.key} className="border-b border-line last:border-b-0 align-top">
             <th scope="row" className="w-[38%] max-w-[180px] break-words py-1 pl-2.5 pr-3 text-left font-normal text-ink-soft">
-              {row.key}
+              <KeyLabel value={row.key} />
             </th>
             <td className="whitespace-pre-line break-words py-1 pr-2.5 text-ink">{row.value}</td>
           </tr>
