@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import pathlib
+import os
 import threading
 from typing import Any
 
@@ -36,7 +37,11 @@ def client() -> genai.Client:
     global _client
     with _client_lock:
         if _client is None:
-            _client = genai.Client(vertexai=True, project=settings.project(), location=settings.region())
+            # google-genai builds its httpx client with timeout=None: a dead connection never returns
+            # (measured 2026-09-05, an eval run hung 32 minutes inside one Gemini call). The timeout is
+            # per request, in milliseconds; a 30 s clip through gemini-2.5-pro answers well under it.
+            _client = genai.Client(vertexai=True, project=settings.project(), location=settings.region(),
+                                   http_options=types.HttpOptions(timeout=int(os.environ.get("AIRLOCK_GEMINI_TIMEOUT_MS", "300000"))))
         return _client
 
 
