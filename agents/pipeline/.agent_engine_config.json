@@ -1,6 +1,6 @@
 {
   "display_name": "airlock",
-  "description": "Airlock: four gates in parallel, then a verdict that asks Grafana before it rules and writes back an annotation and an incident",
+  "description": "Airlock: four gates in parallel, a verdict that asks Grafana before it rules, an investigator (gemini-2.5-flash) that reads Loki and the alert rules and names the cause, an escalation that opens or joins the incident",
   "extra_packages": [
     "../../airlock",
     "../../charter.yaml",
@@ -12,6 +12,7 @@
   "env_vars": {
     "AIRLOCK_MCP_URL": "https://airlock-mcp-grafana-771466810465.us-central1.run.app/mcp",
     "AIRLOCK_DASHBOARD_UID": "airlock-gates",
+    "GRAFANA_URL": "https://narrowsubmarine1895.grafana.net",
     "GRAFANA_PROM_UID": "grafanacloud-prom",
     "GRAFANA_LOKI_UID": "grafanacloud-logs",
     "AIRLOCK_RUNTIME": "agent-engine",
