@@ -15,8 +15,11 @@ through MCP, five questions about each gate before it is allowed to rule: whethe
 run's event of the gate, then four PromQL questions (error ratio over 15 minutes and the runs behind
 it, seconds since the gate last succeeded, injected defects caught over 7 days, and whether the last
 calibration run caught its defect). A gate whose run Grafana did not see forces a BLOCK "control
-unavailable"; a gate that never caught a real defect is advisory and cannot contribute to a PASS. The verdict is written back to the Grafana dashboard as an annotation, and when only a
-human can lift the BLOCK, an incident is opened in Grafana IRM. On the demo assets it takes 48 s
+unavailable"; a gate that never caught a real defect is advisory and cannot contribute to a PASS. The verdict is written back to the Grafana dashboard as an annotation; then an investigator agent
+(gemini-2.5-flash, the same Grafana MCP tools) reads this run's Loki lines, the previous runs and the
+alert rules and names the root cause with the timestamp it rests on, and when only a human can lift
+the BLOCK, an incident is opened in Grafana IRM (or the open one for the same asset joined) carrying
+that note, which the reviewer closes from the console. On the demo assets it takes 48 s
 from upload to verdict for an 8 s clip and 119 s for a 30 s commercial, and every check reports
 what it cost at list price (tokens, video minutes, dollars), pushed to Grafana beside the verdict.
 The control also proves itself twice a day: a scheduled job re-runs every injected defect and one

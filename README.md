@@ -44,9 +44,19 @@ endpoint. The input may also inject a fault (`{"fault": {"rights": "timeout"}}`)
 before it spends anything, the error lands in Loki and in the counters like a real one, and the
 verdict must catch it through Grafana.
 
-The verdict is written back to Grafana as an annotation. When only a human can lift the BLOCK (a
-control in a bad state, or missing paperwork such as a substantiation, a licence, a release), the
-escalation agent opens a Grafana incident.
+The verdict is written back to Grafana as an annotation. Then the investigator, the one LLM agent of
+the pipeline (an ADK `LlmAgent` on gemini-2.5-flash with the same mcp-grafana toolset), reads this
+run's Loki lines, the previous runs of the failing gate, the counters and the state of the Airlock
+alert rules, in at most six tool calls, and writes a note of at most sixty words that names the cause
+with the timestamp of the log line it rests on (`ROOT CAUSE:` on a control motive, `DECISION NOTE:` on
+a content verdict or a PASS); the verdict never depends on it, and any failure becomes a fallback note.
+When only a human can lift the BLOCK (a control in a bad state, or missing paperwork such as a
+substantiation, a licence, a release), the escalation agent opens a Grafana incident labelled
+`owner:platform` or `owner:clearance`, or joins the open incident of the same asset and motive, with
+the note and the Loki lines it cites; the reviewer closes it from the console, which writes an
+annotation tagged `reviewed`. Three alert rules provisioned by `scripts/grafana_bootstrap.py` tell
+someone when the control itself fails ("Airlock daily proof failed", "Airlock gate errors",
+"Airlock calibration missed"), routed to an email contact point.
 
 Every decision is a plain function under pytest; the models only read. ADK is the runtime
 envelope; Grafana is asked before every verdict.
@@ -78,10 +88,11 @@ Every step and its output is in `docs/RUNS.md`.
                                                                  brand       gemini-2.5-flash + charter
                                                                  provenance  c2pa-python + trust list
                                                                verdict   --McpToolset (streamable HTTP)-->  mcp-grafana on Cloud Run
+                                                               investigation (LlmAgent, gemini-2.5-flash)     |
                                                                escalation                                     |
                                                                                                               v
   gates push counters (Influx line protocol) and events (Loki)  ---->  Grafana Cloud: dashboard "Airlock gates",
-                                                                        annotations, incidents
+                                                                        annotations, incidents, alert rules
 ```
 
 Inputs: a Prelinger commercial (real, public domain, `assets/real/SOURCE.md`), a Veo clip with an
