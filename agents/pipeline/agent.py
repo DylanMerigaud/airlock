@@ -774,6 +774,17 @@ def find_open_incident(list_text: str, title: str) -> dict[str, Any] | None:
     return matches[0]
 
 
+INCIDENT_CAPTION_MAX = 500  # Grafana Incident refuses an attachCaption over 512 characters (measured 2026-09-05: "oto: validation: AttachCaption is too long (max 512)")
+
+
+def incident_caption(verdict: dict[str, Any], investigation: dict[str, Any], owner: str) -> str:
+    """The short caption on the incident: the routing line and the investigator's conclusion (or the
+    verdict's first reason); the full note and the Loki lines go in the incident's first timeline note."""
+    routing = CLEARANCE_ROUTING if owner == OWNER_CLEARANCE else PLATFORM_ROUTING
+    conclusion = investigation.get("conclusion") or (verdict.get("reasons") or ["no reason recorded"])[0]
+    return f"{routing}. {conclusion}"[:INCIDENT_CAPTION_MAX]
+
+
 def incident_body(verdict: dict[str, Any], investigation: dict[str, Any], owner: str) -> str:
     """What the incident carries: the routing line, the investigator's note, the Loki lines it cites, the verdict's reasons."""
     routing = CLEARANCE_ROUTING if owner == OWNER_CLEARANCE else PLATFORM_ROUTING
@@ -838,7 +849,7 @@ class EscalationAgent(BaseAgent):
                     "status": "active",
                     "isDrill": drill,
                     "labels": [{"key": "airlock", "label": motive_label}, {"key": "owner", "label": owner}],
-                    "attachCaption": body[:1000]}, tool_context=tool_ctx))
+                    "attachCaption": incident_caption(verdict, investigation, owner)}, tool_context=tool_ctx))
                 payload.update({"opened": True, "incident_raw": inc[:500]})
                 try:
                     d = json.loads(inc)

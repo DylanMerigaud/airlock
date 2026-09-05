@@ -333,6 +333,18 @@ def test_incident_body_carries_the_routing_the_note_and_the_loki_lines():
     assert clearance.startswith("Route to the clearance owner (legal or agency): a licence, a release or a study lifts this block.")
 
 
+def test_incident_caption_stays_under_the_api_limit_and_carries_the_conclusion():
+    from agents.pipeline.agent import INCIDENT_CAPTION_MAX, incident_caption
+
+    inv = {"note": "x", "conclusion": "ROOT CAUSE: injected timeout on rights at 2026-09-05T00:08:33.325Z."}
+    caption = incident_caption(verdict_payload(), inv, "platform")
+    assert caption == "Route to the platform owner: a control was unavailable, uncalibrated or in error; the asset was not judged. ROOT CAUSE: injected timeout on rights at 2026-09-05T00:08:33.325Z."
+    long = verdict_payload()
+    long["reasons"] = ["r" * 900]
+    assert len(incident_caption(long, {}, "clearance")) == INCIDENT_CAPTION_MAX <= 512
+    assert incident_caption(long, {}, "clearance").startswith("Route to the clearance owner")
+
+
 def test_verdict_sample_no_longer_carries_incidents_total(monkeypatch):
     pushed = []
 
