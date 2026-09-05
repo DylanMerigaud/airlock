@@ -372,11 +372,16 @@ class VerdictAgent(BaseAgent):
                 yield _text_event(ctx, self.name, json.dumps({"stage": "grafana", "gate": gate, "run_id": run_id, "answers": answers,
                                                               "health": health[gate].describe(),
                                                               "seen_this_run": bool(event), "calibrated": health[gate].calibrated,
+                                                              "unavailable": health[gate].unavailable,
                                                               "calibration": health[gate].calibration_note()}))
             verdict = decide(gate_results, health)
             payload = verdict.to_dict()
             payload["asset_id"] = asset.asset_id
             payload["run_id"] = run_id
+            # The uids this run actually resolved (a pin, or a live list_datasources answer): the
+            # investigator reads this run's own resolution instead of hardcoding a fallback that could
+            # name a datasource absent on another judge's stack (found by the third panel, 2026-09-05).
+            payload["datasources"] = {"loki_uid": loki_uid, "prom_uid": prom_uid}
             payload.update(trace_fields(trace_id))
             if waiter.waited_s > 0:
                 payload["note"] = f"Grafana Cloud was starting, waited {int(waiter.waited_s)} s"
@@ -471,7 +476,11 @@ def investigator_instruction(ctx: ReadonlyContext) -> str:
     asset_id = verdict.get("asset_id") or asset.get("asset_id") or "unknown-asset"
     kind = investigation_kind(verdict)
     focus = gates_to_investigate(verdict)
-    loki_uid, prom_uid = pinned_loki_uid() or "grafanacloud-logs", pinned_prometheus_uid() or "grafanacloud-prom"
+    # This run's own resolution first (what the verdict actually asked Grafana with); the pins next;
+    # a bare default only if the verdict never got that far (an early instrument error).
+    resolved = verdict.get("datasources") or {}
+    loki_uid = resolved.get("loki_uid") or pinned_loki_uid() or "grafanacloud-logs"
+    prom_uid = resolved.get("prom_uid") or pinned_prometheus_uid() or "grafanacloud-prom"
     gate_lines = []
     for g in verdict.get("gates") or []:
         seen = g.get("seen_this_run")
@@ -521,9 +530,9 @@ TOOLS, at most {INVESTIGATION_TOOL_BUDGET} calls in total, never the same call t
   the errors of a gate:          {{app="airlock", gate="rights", status="ERROR"}} with startRfc3339="now-24h"
 - query_prometheus(datasourceUid="{prom_uid}", expr=<PromQL>, queryType="instant", endTime="now"): the counters the gates push, e.g.
   sum(sum_over_time(airlock_gate_errors_total{{gate="rights"}}[15m])) and sum(sum_over_time(airlock_gate_runs_total{{gate="rights"}}[15m])).
-- alerting_manage_rules(operation="list", label_selectors=['{{app="airlock"}}']): the Airlock alert rules ("Airlock gate errors",
-  "Airlock daily proof failed", "Airlock calibration missed") with their state (firing, pending, normal, unknown). Read only: never
-  another operation.
+- alerting_manage_rules(operation="list", label_selectors=['{{app="airlock"}}']): the five Airlock alert rules, "Airlock gate errors",
+  "Airlock daily proof failed", "Airlock calibration missed", "Airlock verdict could not reach Grafana", "Airlock daily proof did not run",
+  with their state (firing, pending, normal, unknown). Read only: never another operation.
 
 TASK
 {task}

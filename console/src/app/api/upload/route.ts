@@ -1,11 +1,16 @@
 import { NextResponse } from "next/server";
 import { createHash } from "node:crypto";
 
+import { mp4DurationSeconds } from "@/lib/mp4-duration";
+import { callerKey, RUN_LIMIT_PER_HOUR, takeRunToken } from "@/lib/run-limit";
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 const MAX_BYTES = 50 * 1024 * 1024;
+/** The same 30 s the browser enforces, read on the server from the movie header. */
+const MAX_SECONDS = 30;
 
 export async function POST(request: Request) {
   const bucketName = process.env.AIRLOCK_ASSETS_BUCKET;
@@ -13,6 +18,15 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: "AIRLOCK_ASSETS_BUCKET is not set, so the console has nowhere to put the clip." },
       { status: 503 },
+    );
+  }
+
+  // Uploads are metered like runs: every upload is a candidate for a Video Intelligence call.
+  const allowed = takeRunToken(callerKey(request), Date.now(), "upload");
+  if (!allowed.ok) {
+    return NextResponse.json(
+      { error: `Too many uploads from this address: ${RUN_LIMIT_PER_HOUR} per hour. Try again in ${allowed.retryAfterS} s.` },
+      { status: 429, headers: { "Retry-After": String(allowed.retryAfterS) } },
     );
   }
 
@@ -43,6 +57,16 @@ export async function POST(request: Request) {
   }
 
   const bytes = Buffer.from(await file.arrayBuffer());
+  const seconds = mp4DurationSeconds(bytes);
+  if (seconds === null) {
+    return NextResponse.json({ error: "This file has no readable MP4 movie header, so its length cannot be checked." }, { status: 415 });
+  }
+  if (seconds > MAX_SECONDS + 0.5) {  // half a second of container rounding: the 30 s Crest excerpt reads 30.019
+    return NextResponse.json(
+      { error: `This clip is ${seconds.toFixed(1)} s long. The limit is ${MAX_SECONDS} s (Video Intelligence bills per started minute).` },
+      { status: 413 },
+    );
+  }
   const digest = createHash("sha256").update(bytes).digest("hex").slice(0, 12);
   const safeName = (file.name || "clip.mp4").replace(/[^a-zA-Z0-9._-]/g, "-").slice(-80);
   const objectPath = `uploads/${digest}-${safeName}`;

@@ -16,6 +16,9 @@ export type GateHealth = {
   calibration_catches_7d: number | null;
   /** 1 when the last calibration run caught its defect, 0 when it missed, null never calibrated. */
   last_calibration_caught: number | null;
+  /** The number of runs the error rate was computed over in the last 15 minutes (the verdict's own
+   *  majority clause needs this alongside the ratio: one error out of one run is not a block). */
+  runs_15m: number | null;
   /** Every expression asked, keyed as in promql.json (the verdict's own keys). */
   exprs: Record<string, string>;
   note?: string;
@@ -44,12 +47,13 @@ type Readings = {
   seconds_since_success: number | null;
   calibration_catches_7d: number | null;
   last_calibration_caught: number | null;
+  runs_15m: number | null;
 };
 
 function toGateHealth(gate: GateName, r: Readings, note?: string): GateHealth {
   return {
     gate,
-    state: deriveState(r.error_rate_15m, r.seconds_since_success, r.calibration_catches_7d, r.last_calibration_caught),
+    state: deriveState(r.error_rate_15m, r.seconds_since_success, r.calibration_catches_7d, r.last_calibration_caught, r.runs_15m),
     calibrated: isCalibrated(r.calibration_catches_7d, r.last_calibration_caught),
     ...r,
     exprs: exprs(gate),
@@ -61,11 +65,11 @@ function toGateHealth(gate: GateName, r: Readings, note?: string): GateHealth {
  * Mirrors console/fixtures/run-nimbus-block.jsonl so mock mode is coherent:
  * error rate, seconds since success, catches in 7 d, last calibration caught.
  */
-const MOCK_READINGS: Record<GateName, [number, number, number, number]> = {
-  rights: [0, 10.4, 1, 1],
-  claim: [0.3333, 33.1, 1, 1],
-  brand: [0, 46.0, 1, 1],
-  provenance: [0, 56.8, 2, 1],
+const MOCK_READINGS: Record<GateName, [number, number, number, number, number]> = {
+  rights: [0, 10.4, 1, 1, 3],
+  claim: [0.3333, 33.1, 1, 1, 3],
+  brand: [0, 46.0, 1, 1, 2],
+  provenance: [0, 56.8, 2, 1, 4],
 };
 
 export async function readHealth(): Promise<HealthPayload> {
@@ -78,13 +82,14 @@ export async function readHealth(): Promise<HealthPayload> {
       read_at,
       error: null,
       gates: GATE_ORDER.map((gate) => {
-        const [error_rate_15m, seconds_since_success, calibration_catches_7d, last_calibration_caught] =
+        const [error_rate_15m, seconds_since_success, calibration_catches_7d, last_calibration_caught, runs_15m] =
           MOCK_READINGS[gate];
         return toGateHealth(gate, {
           error_rate_15m,
           seconds_since_success,
           calibration_catches_7d,
           last_calibration_caught,
+          runs_15m,
         });
       }),
     };
@@ -117,6 +122,7 @@ export async function readHealth(): Promise<HealthPayload> {
           seconds_since_success: value("seconds_since_success"),
           calibration_catches_7d: value("calibration_catches_7d"),
           last_calibration_caught: value("last_calibration_caught"),
+          runs_15m: value("runs_15m"),
         },
         note || undefined,
       );

@@ -4,7 +4,9 @@ it, the budget, the fallback, the incident routing. No cloud call: the LlmAgent 
 from __future__ import annotations
 
 import asyncio
+import importlib.util
 import json
+import pathlib
 from types import MappingProxyType, SimpleNamespace
 
 import pytest
@@ -101,6 +103,30 @@ def test_instruction_carries_the_run_the_logql_and_the_kind():
     assert "rights" in text and "TimeoutError: fault injected" in text
     assert f"at most {INVESTIGATION_TOOL_BUDGET} calls" in text
     assert "alerting_manage_rules(operation=\"list\"" in text and "query_prometheus" in text and "grafanacloud-logs" in text
+
+
+def test_instruction_names_every_alert_rule_the_bootstrap_provisions():
+    """The investigator's alert_manage_rules hint hardcodes rule titles for the model to read; a
+    provisioned rule the instruction never names is invisible to it (third panel, 2026-09-05: the
+    instruction and the README both said "three" against five actually provisioned)."""
+    spec = importlib.util.spec_from_file_location(
+        "grafana_bootstrap", pathlib.Path(__file__).resolve().parents[1] / "scripts" / "grafana_bootstrap.py"
+    )
+    bootstrap = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(bootstrap)
+    titles = [r["title"] for r in bootstrap.alert_rules("grafanacloud-prom")]
+    text = investigator_instruction(fake_readonly_ctx({STATE_VERDICT: verdict_payload()}))
+    for title in titles:
+        assert title in text, f"alert rule {title!r} is provisioned but not named in the investigator's instruction"
+
+
+def test_instruction_uses_this_runs_own_resolved_datasources_not_a_hardcoded_default():
+    """The verdict may have resolved a different uid than the pin (a fresh stack, list_datasources); the
+    investigator must use exactly what this run asked with, not its own guess (third panel, 2026-09-05)."""
+    payload = {**verdict_payload(), "datasources": {"loki_uid": "some-other-loki-uid", "prom_uid": "some-other-prom-uid"}}
+    text = investigator_instruction(fake_readonly_ctx({STATE_VERDICT: payload}))
+    assert "some-other-loki-uid" in text and "some-other-prom-uid" in text
+    assert "grafanacloud-logs" not in text and "grafanacloud-prom" not in text
 
 
 def test_instruction_on_a_pass_asks_for_a_decision_note():

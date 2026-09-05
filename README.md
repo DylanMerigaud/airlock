@@ -67,9 +67,11 @@ substantiation, a licence, a release), the escalation agent opens a Grafana inci
 the note and the Loki lines it cites; the reviewer closes it from the console, which writes an
 annotation tagged `reviewed`. On the free stack the incidents are opened as drills
 (`AIRLOCK_INCIDENT_DRILL`, `true` unless set to `false` in the Agent Engine env): real Grafana
-Incident objects, flagged so a judge's runs do not pile up as production incidents. Three alert rules provisioned by `scripts/grafana_bootstrap.py` tell
+Incident objects, flagged so a judge's runs do not pile up as production incidents. Five alert rules provisioned by `scripts/grafana_bootstrap.py` tell
 someone when the control itself fails ("Airlock daily proof failed", "Airlock gate errors",
-"Airlock calibration missed"), routed to an email contact point.
+"Airlock calibration missed", "Airlock verdict could not reach Grafana", and the dead man's switch
+"Airlock daily proof did not run", which fires on the ABSENCE of a proof sample rather than on a
+value), routed to an email contact point.
 
 Where the decisions live: the verdict rules, the escalation rule, the rights rule and the provenance
 rule are plain functions under pytest on inputs a service measured (Video Intelligence annotations,

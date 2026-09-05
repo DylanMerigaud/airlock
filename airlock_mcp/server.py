@@ -16,6 +16,7 @@ initialize) waited for the first tool to return.
 from __future__ import annotations
 
 import asyncio
+import hmac
 import json
 import os
 import pathlib
@@ -155,7 +156,10 @@ class BearerAuthMiddleware:
             return
         headers = dict(scope.get("headers") or [])
         auth = headers.get(b"authorization", b"").decode("latin-1")
-        if auth != f"Bearer {self.token}":
+        # A `!=` comparison on a bearer string returns as soon as it finds a differing byte, so how long the
+        # 401 takes leaks how many characters of the guess were right (a timing side channel; third panel,
+        # 2026-09-05). hmac.compare_digest always looks at the whole string.
+        if not hmac.compare_digest(auth, f"Bearer {self.token}"):
             await JSONResponse({"error": "unauthorized"}, status_code=401)(scope, receive, send)
             return
         await self.app(scope, receive, send)

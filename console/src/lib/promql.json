@@ -9,6 +9,8 @@
   ],
   "health_only_keys": [],
   "stale_after_s": 900,
+  "error_ratio_block": 0.5,
+  "error_runs_min": 2,
   "gates": {
     "rights": {
       "error_rate_15m": "sum(sum_over_time(airlock_gate_errors_total{gate=\"rights\"}[15m])) / clamp_min(sum(sum_over_time(airlock_gate_runs_total{gate=\"rights\"}[15m])), 1)",

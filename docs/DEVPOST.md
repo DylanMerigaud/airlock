@@ -36,7 +36,7 @@ clean clip, and a gate whose defect slipped through loses its right to PASS unti
 
 ## How I built it
 
-All decision logic is plain, unit-tested Python (202 tests, none of them calls a model): the four
+All decision logic is plain, unit-tested Python (209 tests, none of them calls a model): the four
 gate decisions, the two verdict rules, the escalation rule. Google ADK is the runtime envelope: a
 SequentialAgent whose first step is a ParallelAgent of the four gates (each a BaseAgent around a
 plain function, run in a thread so they really overlap), then a verdict BaseAgent, then the one
@@ -86,7 +86,7 @@ precision and recall on every gate (rights 10 of 10 on n=16, claim 3 of 3 on n=5
 n=6, provenance 14 of 14 on n=16); per rule, every expected rule fired except the unknown-brand rule
 on one spot where Video Intelligence found no logo (9 of 10), and one forbidden rule fired (explicit
 content on a 1963 family party, 0 of 1); the brand on screen was named on 4 of 10 real spots. A
-median of 0.52 USD per 30 s spot at list price (n=16), 41.1 s median for the rights gate and 2 ms
+median of 0.52 USD per 30 s spot at list price (n=16), 41.2 s median for the rights gate and 6 ms
 for provenance (`eval/EVAL.md`, run of 2026-09-05, the misses in its "Surprises" section). And
 annotations and incidents on the Grafana stack from the first day, each one a verdict a judge can
 read back: the real 1960s commercial blocked on four gates, the run with the rights telemetry dark

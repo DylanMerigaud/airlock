@@ -59,3 +59,13 @@ def test_check_mode_exits_one_on_a_stale_file(tmp_path, capsys):
     stale.write_text("{}\n")
     assert exporter.main(["--check", "--output", str(stale)]) == 1
     assert "stale" in capsys.readouterr().err
+
+
+def test_export_carries_the_verdicts_own_majority_thresholds():
+    """The console must not paint a gate degraded on one error where the verdict itself calls it
+    healthy (found by the third panel, 2026-09-05): both read the same numbers."""
+    from airlock import verdict as verdict_module
+
+    payload = load_exporter().build()
+    assert payload["error_ratio_block"] == verdict_module.ERROR_RATIO_BLOCK
+    assert payload["error_runs_min"] == verdict_module.ERROR_RUNS_MIN

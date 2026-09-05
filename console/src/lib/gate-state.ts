@@ -1,5 +1,5 @@
 /**
- * What the console says about a gate from Grafana's four numbers, before a run.
+ * What the console says about a gate from Grafana's five numbers, before a run.
  * Shared by the health route (server) and the instrument lines (client).
  *
  * The numbers are the answers to the PromQL in promql.json, which is exported
@@ -8,11 +8,13 @@
  * on the Python side exactly: catches in 7 d, AND the last calibration run
  * caught its defect.
  *
- * degraded: errors in the last 15 minutes. unproven: no success sample in 7 days.
- * uncalibrated: no injected defect caught in 7 days, or the last calibration run
- * missed its defect. idle: no error, but the last success is older than
- * STALE_AFTER_S; the gates run before the verdict asks Grafana, so a run
- * re-proves an idle gate on its own. healthy: none of the above.
+ * degraded: a majority of the last few runs erred (the same ERROR_RATIO_BLOCK and
+ * ERROR_RUNS_MIN the verdict itself blocks on; one error alone reads healthy, as it
+ * does in the verdict). unproven: no success sample in 7 days. uncalibrated: no
+ * injected defect caught in 7 days, or the last calibration run missed its defect.
+ * idle: no error, but the last success is older than STALE_AFTER_S; the gates run
+ * before the verdict asks Grafana, so a run re-proves an idle gate on its own.
+ * healthy: none of the above.
  */
 import promql from "@/lib/promql.json";
 
@@ -20,6 +22,16 @@ export type GateState = "healthy" | "idle" | "degraded" | "unproven" | "uncalibr
 
 /** The staleness bound in seconds, from the same export as the PromQL. */
 export const STALE_AFTER_S: number = promql.stale_after_s;
+
+/** R1's majority clause (airlock/verdict.py GateHealth.errors_are_majority), from the same export. */
+export const ERROR_RATIO_BLOCK: number = promql.error_ratio_block;
+export const ERROR_RUNS_MIN: number = promql.error_runs_min;
+
+/** airlock/verdict.py GateHealth.errors_are_majority, line for line: a single error is not a block, a
+ *  majority of recent runs failing is. */
+export function errorsAreMajority(errorRate: number | null, runs: number | null): boolean {
+  return errorRate !== null && errorRate >= ERROR_RATIO_BLOCK && (runs ?? 0) >= ERROR_RUNS_MIN;
+}
 
 /** The window the calibration questions read, as written in the expressions. */
 export const CALIBRATION_WINDOW = "7d";
@@ -54,8 +66,9 @@ export function deriveState(
   sinceSuccess: number | null,
   catches: number | null,
   lastCaught: number | null = null,
+  runs: number | null = null,
 ): GateState {
-  if (errorRate !== null && errorRate > 0) return "degraded";
+  if (errorsAreMajority(errorRate, runs)) return "degraded";
   if (sinceSuccess === null) return "unproven";
   if (!isCalibrated(catches, lastCaught)) return "uncalibrated";
   if (sinceSuccess > STALE_AFTER_S) return "idle";

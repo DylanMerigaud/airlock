@@ -164,6 +164,7 @@ def decide(gate_results: dict[str, dict[str, Any]], health: dict[str, GateHealth
                 "calibration": h.calibration_note() if h else "no calibration data",
                 "calibration_catches_7d": h.calibration_catches_7d if h else None,
                 "seen_this_run": h.seen_this_run if h else None,
+                "unavailable": bool(h is None or h.unavailable or status == "ERROR"),  # the R1 fact itself, for consumers that must not parse prose
                 "rule_ids": r.get("rule_ids", [])}
         lines.append(line)
         if status == "ERROR":

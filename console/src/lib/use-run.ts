@@ -369,7 +369,9 @@ export function useRun(): RunHandle {
             reported: {
               health: parsed.payload.health,
               calibrated: parsed.payload.calibrated,
+              unavailable: parsed.payload.unavailable,
               calibration: parsed.payload.calibration,
+              answers: parsed.payload.answers,
             },
           };
           verdictStatus = "RUNNING";
@@ -387,7 +389,7 @@ export function useRun(): RunHandle {
                 parsed.payload.calibrated ? "" : `, ${parsed.payload.calibration ?? "not calibrated"}`
               }${probeNote ? `. ${probeNote}` : ""}`,
               tone:
-                parsed.payload.calibrated && !unseen && !/NOT seen|could not be read|error rate .* \(/i.test(parsed.payload.health)
+                parsed.payload.calibrated && !unseen && !(parsed.payload.unavailable ?? /NOT seen|could not be read|error rate .* \(/i.test(parsed.payload.health))
                   ? "neutral"
                   : "amber",
               raw: pretty(text),
@@ -405,7 +407,9 @@ export function useRun(): RunHandle {
               reported: {
                 health: line.health ?? card.reported?.health,
                 calibrated: line.calibrated ?? card.reported?.calibrated,
+                unavailable: line.unavailable ?? card.reported?.unavailable,
                 calibration: line.calibration ?? card.reported?.calibration,
+                answers: card.reported?.answers,
               },
             };
           }

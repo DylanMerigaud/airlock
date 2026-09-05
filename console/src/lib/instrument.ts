@@ -21,6 +21,8 @@ export type GateHealthView = {
   calibration_catches_7d: number | null;
   /** 1 caught, 0 missed, null never calibrated. Absent from payloads recorded before it was asked. */
   last_calibration_caught?: number | null;
+  /** Runs behind error_rate_15m in the last 15 minutes; needed with the ratio for the majority rule. */
+  runs_15m?: number | null;
   exprs: Record<string, string>;
 };
 
@@ -30,7 +32,7 @@ export type GateHealthView = {
  * expanded row.
  */
 export const CALIBRATION_HELP =
-  "Calibration: twice a day Airlock injects a known defect into each gate and checks the gate catches it. This line counts the catches over the last 7 days and says whether the latest one caught its defect.";
+  "Calibration: every six hours Airlock injects a known defect into each gate and checks the gate catches it. This line counts the catches over the last 7 days and says whether the latest one caught its defect.";
 
 export const CALIBRATION_CLAUSE =
   "(calibration: the gate caught the defects injected into it over the last 7 days)";
@@ -118,6 +120,7 @@ function localCalibration(reading: InstrumentReading, gate: GateName): Calibrati
   const lastCaught = entry.last_calibration_caught ?? null;
   const detail = [
     `error_rate_15m ${entry.error_rate_15m === null ? "no sample" : entry.error_rate_15m.toFixed(2)}`,
+    `runs_15m ${entry.runs_15m === null ? "no sample" : entry.runs_15m}`,
     `seconds_since_success ${entry.seconds_since_success === null ? "no sample" : entry.seconds_since_success.toFixed(1)}`,
     `calibration_catches_7d ${entry.calibration_catches_7d === null ? "no sample" : entry.calibration_catches_7d}`,
     `last_calibration_caught ${lastCaught === null ? "no sample" : lastCaught > 0 ? "1 (caught)" : "0 (missed)"}`,
@@ -125,7 +128,7 @@ function localCalibration(reading: InstrumentReading, gate: GateName): Calibrati
 
   if (entry.state === "degraded") {
     return {
-      text: `degraded: error rate ${percent(entry.error_rate_15m)}`,
+      text: `degraded: error rate ${percent(entry.error_rate_15m)} over ${entry.runs_15m ?? 0} run${entry.runs_15m === 1 ? "" : "s"} (a majority)`,
       tone: "amber",
       detail,
     };
@@ -180,14 +183,30 @@ export function calibrationFor(
 
   // Amber only when the verdict itself saw a problem: not calibrated, this run's event not seen, the
   // reading unavailable, or the error ratio at the block line (the majority clause prints the run count).
+  // The verdict's own boolean when it sent one (every run since 2026-09-05); the prose test only for
+  // recordings that predate it.
   const degraded =
     reported.calibrated === false ||
-    (reported.health !== undefined && /NOT seen|could not be read|error rate .* \(/i.test(reported.health));
+    (reported.unavailable ?? (reported.health !== undefined && /NOT seen|could not be read|error rate .* \(/i.test(reported.health)));
+
+  // The tooltip must never present the console's own background poll as what the verdict read: that
+  // is a different query at a different second and the numbers disagree (found by the third panel,
+  // 2026-09-05). Show the verdict's own PromQL answers when the probe stage sent them; only fall back
+  // to the console's recomputed numbers, clearly labelled as such, when it did not.
+  const verdictAnswers = reported.answers
+    ? Object.entries(reported.answers)
+        .map(([key, a]) => `${key} ${a.value === null ? "no sample" : a.value.toFixed(2)}`)
+        .join("\n")
+    : null;
+  const detail = verdictAnswers
+    ? `Read from Grafana by the verdict agent during this run.\n${verdictAnswers}`
+    : `Read from Grafana by the verdict agent during this run: ${reported.health ?? reported.calibration}.\n` +
+      `The console's own reading of the same gate, taken separately, for comparison:\n${local.detail}`;
 
   return {
     text: reported.health ? `${reported.calibration}, ${reported.health}` : reported.calibration,
     tone: degraded ? "amber" : "quiet",
-    detail: `Read from Grafana by the verdict agent during this run.\n${local.detail}`,
+    detail,
     help: /injected defect|calibration/i.test(reported.calibration) ? CALIBRATION_HELP : local.help,
   };
 }

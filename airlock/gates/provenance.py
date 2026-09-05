@@ -143,6 +143,16 @@ def decide(store: dict[str, Any] | None) -> GateResult:
 
 
 def check(asset: Asset) -> GateResult:
-    from airlock.assets import ensure_local
+    import pathlib
+    import tempfile
 
-    return decide(read_manifest_store(ensure_local(asset).path))
+    from airlock.assets import download
+
+    if asset.path and pathlib.Path(asset.path).exists():
+        return decide(read_manifest_store(asset.path))
+    if not asset.gcs_uri:
+        raise FileNotFoundError(f"asset {asset.asset_id} has neither a local file nor a GCS URI")
+    # The manifest read needs the bytes on disk; the copy lives for the read and no longer (a run on a
+    # long-lived Agent Engine container left one file per run behind before 2026-09-05).
+    with tempfile.TemporaryDirectory(prefix="airlock-") as tmp:
+        return decide(read_manifest_store(download(asset.gcs_uri, tmp)))

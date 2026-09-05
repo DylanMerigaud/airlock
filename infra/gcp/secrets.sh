@@ -84,7 +84,7 @@ upsert() {  # $1 name, value on stdin
   gcloud secrets versions add "$name" --project="$PROJECT" --data-file=- >/dev/null
 }
 
-for name in grafana-sa-token grafana-influx-token airlock-mcp-token; do
+for name in grafana-sa-token grafana-influx-token grafana-traces-token airlock-mcp-token; do
   value="$(value_of "$name")"
   printf '%s' "$value" | upsert "$name"
   echo "secret $name: new version added (length ${#value})"

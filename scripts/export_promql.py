@@ -60,6 +60,11 @@ def build() -> dict:
         "keys": keys,
         "health_only_keys": [HEALTH_ONLY_KEY] if all(HEALTH_ONLY_KEY not in verdict_module.promql_questions(g) for g in GATES) else [],
         "stale_after_s": int(getattr(verdict_module, "STALE_AFTER_S", 900)),
+        # R1's majority clause (GateHealth.errors_are_majority): the console must not paint a gate
+        # amber on any error rate above zero when the verdict itself calls that "healthy, under the
+        # block line" (found by the third panel, 2026-09-05).
+        "error_ratio_block": float(getattr(verdict_module, "ERROR_RATIO_BLOCK", 0.5)),
+        "error_runs_min": int(getattr(verdict_module, "ERROR_RUNS_MIN", 2)),
         "gates": gates,
     }
 

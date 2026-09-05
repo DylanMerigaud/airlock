@@ -104,6 +104,8 @@ export type ProbePayload = {
   calibration?: string;
   /** Whether Loki holds this run's event for the gate; absent on older recordings. */
   seen_this_run?: boolean | null;
+  /** The R1 fact as the verdict computed it (not seen, unreadable, or the error ratio at the block line). */
+  unavailable?: boolean;
   /** A remark the verdict attached to this probe, when it sent one. */
   note?: string;
 };
@@ -127,6 +129,8 @@ export type VerdictGate = {
   calibrated?: boolean;
   calibration?: string;
   calibration_catches_7d?: number | null;
+  seen_this_run?: boolean | null;
+  unavailable?: boolean;
   rule_ids?: string[];
 };
 
@@ -134,7 +138,12 @@ export type VerdictGate = {
 export type ReportedInstrument = {
   health?: string;
   calibrated?: boolean;
+  /** The verdict's own R1 boolean; when present the console keys its tone on it, never on the prose. */
+  unavailable?: boolean;
   calibration?: string;
+  /** The verdict's own PromQL answers for this gate, when the probe stage sent them: the real numbers
+   *  the decision rested on, never the console's own independent background poll. */
+  answers?: Record<string, GrafanaAnswer>;
 };
 
 /** What the whole run spent, at list price, and how it splits across gates. */
