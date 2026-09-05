@@ -15,6 +15,7 @@ import {
   MOTIVE_COPY,
   motiveTone,
   type ChipStatus,
+  type FaultMap,
   type GateName,
 } from "@/lib/events";
 import { calibrationFor, GATE_DOT, type InstrumentReading } from "@/lib/instrument";
@@ -44,6 +45,12 @@ function elapsedLine(card: GateCardState, now: number): string | null {
 
 const MUTE_HELP =
   "The gate still runs but pushes nothing to Grafana. The verdict has to notice through Grafana that the control went dark.";
+
+const FAULT_HELP =
+  "The gate fails on purpose before it spends anything; the verdict must notice through Grafana.";
+
+/** The gates a fault can be injected into from this panel: rights only for now. */
+const FAULT_GATES: GateName[] = ["rights"];
 
 const TONE_CLASS = {
   quiet: "text-ink-soft",
@@ -400,13 +407,18 @@ export function ChecksList({
   reading,
   mute,
   onToggleMute,
-  muteDisabled,
+  faults,
+  onToggleFault,
+  controlsDisabled,
 }: {
   state: RunState;
   reading: InstrumentReading;
   mute: GateName[];
   onToggleMute: (gate: GateName) => void;
-  muteDisabled: boolean;
+  faults: FaultMap;
+  onToggleFault: (gate: GateName) => void;
+  /** Both switches lock while a run is in flight: they describe the next run. */
+  controlsDisabled: boolean;
 }) {
   const verdict = state.verdict;
   const probed = GATE_ORDER.filter((g) => state.gates[g].probe !== null).length;
@@ -431,11 +443,18 @@ export function ChecksList({
             underPending={calibration.pending}
             counter={elapsedLine(card, now)}
             badges={
-              card.muted ? (
-                <Badge tone="neutral" size="xs" title={MUTE_HELP}>
-                  muted
-                </Badge>
-              ) : null
+              <>
+                {card.muted && (
+                  <Badge tone="neutral" size="xs" title={MUTE_HELP}>
+                    muted
+                  </Badge>
+                )}
+                {card.fault && (
+                  <Badge tone="amber" size="xs" title={FAULT_HELP}>
+                    {card.fault} fault injected
+                  </Badge>
+                )}
+              </>
             }
           >
             <dl className="space-y-2 text-[12.5px] leading-[1.5]">
@@ -476,7 +495,7 @@ export function ChecksList({
                   <Switch
                     checked={mute.includes(gate)}
                     onCheckedChange={() => onToggleMute(gate)}
-                    disabled={muteDisabled}
+                    disabled={controlsDisabled}
                     aria-describedby={`mute-help-${gate}`}
                   >
                     Mute telemetry
@@ -490,6 +509,29 @@ export function ChecksList({
                 {MUTE_HELP}
               </p>
             </div>
+
+            {FAULT_GATES.includes(gate) && (
+              <div className="mt-3 border-t border-line pt-3">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Switch
+                      checked={Boolean(faults[gate])}
+                      onCheckedChange={() => onToggleFault(gate)}
+                      disabled={controlsDisabled}
+                      aria-describedby={`fault-help-${gate}`}
+                    >
+                      Inject a fault
+                    </Switch>
+                  </TooltipTrigger>
+                  <TooltipContent side="left">
+                    <span className="block max-w-[34ch]">{FAULT_HELP}</span>
+                  </TooltipContent>
+                </Tooltip>
+                <p id={`fault-help-${gate}`} className="mt-1.5 text-[11.5px] leading-[1.45] text-ink-soft">
+                  {FAULT_HELP}
+                </p>
+              </div>
+            )}
 
             {card.done?.evidence !== undefined && (
               <div className="mt-3 border-t border-line pt-3">

@@ -21,7 +21,7 @@ import { buildFindings, verdictNotes } from "@/lib/findings";
 import { collectMarkers } from "@/lib/timecodes";
 import { loadQueue, saveQueue, type BlockEntry } from "@/lib/block-queue";
 import { labelForTarget, presetById } from "@/lib/assets";
-import type { GateName } from "@/lib/events";
+import type { FaultMap, GateName } from "@/lib/events";
 
 const SOURCES_LINE =
   "Every clip is read against the Nimbus brand book (charter.yaml), the rights registry, 16 CFR 255 with two ASA rulings, and its C2PA manifest.";
@@ -57,6 +57,8 @@ export function ConsoleShell({ dashboardUrl, environment, mock }: ShellProps) {
   const [queue, setQueue] = React.useState<BlockEntry[]>([]);
   // Per run, and kept between runs until the reviewer switches it back off.
   const [muted, setMuted] = React.useState<GateName[]>([]);
+  // The faults to inject, gate by gate; travels in the run body beside mute.
+  const [faults, setFaults] = React.useState<FaultMap>({});
 
   // Grafana's readings: one refresh on mount, one per settled run, and its own
   // retries while a route answers ok: false (a paused Grafana Cloud stack waking).
@@ -132,13 +134,26 @@ export function ConsoleShell({ dashboardUrl, environment, mock }: ShellProps) {
       setTarget(asset);
       setStageNote(null);
       setActiveSecond(null);
-      start(asset, muted);
+      start(asset, muted, faults);
     },
-    [start, muted],
+    [start, muted, faults],
   );
 
   const toggleMute = React.useCallback((gate: GateName) => {
     setMuted((prev) => (prev.includes(gate) ? prev.filter((g) => g !== gate) : [...prev, gate]));
+  }, []);
+
+  // One fault kind for now: the gate raises a TimeoutError before it calls its
+  // instrument, so nothing is spent and the ERROR lands in Loki and Influx.
+  const toggleFault = React.useCallback((gate: GateName) => {
+    setFaults((prev) => {
+      if (prev[gate]) {
+        const next = { ...prev };
+        delete next[gate];
+        return next;
+      }
+      return { ...prev, [gate]: "timeout" };
+    });
   }, []);
 
   const seek = React.useCallback(
@@ -270,7 +285,7 @@ export function ConsoleShell({ dashboardUrl, environment, mock }: ShellProps) {
               </div>
 
               <div className="flex min-h-0 min-w-0 flex-col gap-2">
-                <VerdictSummary state={state} onRetry={() => retry(muted)} />
+                <VerdictSummary state={state} onRetry={() => retry(muted, faults)} />
 
                 <Tabs
                   value={segment}
@@ -297,7 +312,9 @@ export function ConsoleShell({ dashboardUrl, environment, mock }: ShellProps) {
                       reading={instruments}
                       mute={muted}
                       onToggleMute={toggleMute}
-                      muteDisabled={busy}
+                      faults={faults}
+                      onToggleFault={toggleFault}
+                      controlsDisabled={busy}
                     />
                   </TabsContent>
 
@@ -342,7 +359,7 @@ export function ConsoleShell({ dashboardUrl, environment, mock }: ShellProps) {
                 </span>
               </PanelHeader>
               <div className="fit-scroll flex-1">
-                <Timeline state={state} dashboardUrl={dashboardUrl} onRetry={() => retry(muted)} />
+                <Timeline state={state} dashboardUrl={dashboardUrl} onRetry={() => retry(muted, faults)} />
               </div>
             </Panel>
           </TabsContent>
