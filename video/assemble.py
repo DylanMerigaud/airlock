@@ -131,7 +131,7 @@ WAIT_KEEP_S = 0.5
 # limit, and the render pays for every second of waiting kept). Under that the stretch stays in the
 # render, where it is a couple of seconds of a clip playing under a row that reads "Checking", and
 # it is counted in the pace measurement like everything else.
-SMALL_WAIT_S = 2.5
+SMALL_WAIT_S = 2.0
 # When compressing every wait leaves the render under the length it is meant to reach, whole waits
 # go back on the picture, shortest first. Only short ones: a wait given back is a stretch of the
 # render with nothing happening in it, and past this it costs the video more than the seconds are
@@ -755,10 +755,11 @@ def build_video(
     for i, label in enumerate(labels, start=1):
         caption = out_dir / f"compression-{i}.txt"
         caption.write_text(label["text"], encoding="utf-8")
+        y = 42 + label.get("row", 0) * (COMPRESSION_FONT_SIZE + 2 * 16 + 10)
         chain.append(
             f"drawtext=fontfile={MONO_FONT}:textfile={caption}"
             f":fontsize={COMPRESSION_FONT_SIZE}:fontcolor=white:box=1:boxcolor=black@0.78"
-            ":boxborderw=16:x=(w-text_w)/2:y=42"
+            f":boxborderw=16:x=(w-text_w)/2:y={y}"
             f":enable='between(t,{label['from']:.3f},{label['to']:.3f})'"
         )
     if voice_caption:
@@ -976,12 +977,16 @@ def main() -> int:
             "to": at_cut,
         })
     # Two cuts can land close enough that their captions would be drawn on top of each other, in
-    # the same place, at the same size, for the second it takes to read either. The later one waits
-    # for the earlier to have said what it says.
+    # the same place, at the same size, for the second it takes to read either. Draft 5 made the
+    # later one wait for the earlier, which left it half a second when two waits sat back to back
+    # (the fault run's brand and claim gates land 0.5 s apart once their waits are cut); the later
+    # caption now takes the row under the earlier one for its whole 2.5 s instead.
     labels.sort(key=lambda label: label["to"])
+    for label in labels:
+        label["row"] = 0
     for previous, label in zip(labels, labels[1:], strict=False):
         if label["from"] < previous["to"]:
-            label["from"] = min(previous["to"], label["to"] - 0.5)
+            label["row"] = previous["row"] + 1
     held_back = sum(b - a for a, b, _, kind in plan.cuts if kind not in WAIT_LABEL)
 
     for a, b, name, kind in plan.cuts:
@@ -1078,7 +1083,8 @@ def main() -> int:
                           "removed_s": c["removed_s"], "kind": c["kind"], "label": c["label"]}
                          for c in compressions],
         "compression_labels": [{"text": label["text"], "from_s": round(label["from"], 3),
-                                "to_s": round(label["to"], 3)} for label in labels],
+                                "to_s": round(label["to"], 3), "row": label.get("row", 0)}
+                               for label in labels],
         "hold_trim_s": round(held_back, 3),
         "voice_outlasts_picture_s": round(max(0.0, best["narration_end"] + TAIL_PAD_S - best["video_len"]), 3),
         "punches": [{"cue": entry["cue"], "target": entry["target"], "at_s": entry["t"],

@@ -1,152 +1,199 @@
 1
-00:00:00,400 --> 00:00:03,768
+00:00:00,400 --> 00:00:03,586
 Since August 2026 the law wants generated content marked.
 
 2
-00:00:03,768 --> 00:00:10,858
+00:00:03,586 --> 00:00:07,833
 Studios ship dozens of generated assets a week; the reviewer
-checks by hand, and nobody can prove which one was checked.
+checks by hand,
 
 3
-00:00:11,258 --> 00:00:15,665
+00:00:07,833 --> 00:00:12,360
+and nobody can prove which one was checked, or that the
+check itself was working.
+
+4
+00:00:12,660 --> 00:00:16,953
 Airlock: four gates, then a verdict that asks Grafana before
 it rules.
 
-4
-00:00:15,665 --> 00:00:20,450
-The rights gate is amber: its telemetry has been dark for
-seventeen minutes.
-
 5
-00:00:20,450 --> 00:00:21,331
-Remember that.
+00:00:16,953 --> 00:00:20,510
+Every line under a gate is Grafana's word, not the gate's.
 
 6
-00:00:21,731 --> 00:00:24,408
+00:00:21,083 --> 00:00:23,760
 A real commercial with a real trademark on screen.
 
 7
-00:00:24,408 --> 00:00:28,584
+00:00:23,760 --> 00:00:27,936
 The four gates run in parallel on Vertex AI Agent Engine
 while the clip plays.
 
 8
-00:00:28,984 --> 00:00:34,949
+00:00:28,236 --> 00:00:34,201
 Provenance is a cryptographic check, not an opinion: this
 film was shot decades before C2PA existed.
 
 9
-00:00:37,849 --> 00:00:43,377
+00:00:34,701 --> 00:00:40,499
 Brand: the charter forbids health claims, comparisons and
-children, and the wordmark is not even there.
+children, and the house wordmark is not even there.
 
 10
-00:00:49,726 --> 00:00:51,822
+00:00:40,999 --> 00:00:43,110
 Click the time and the clip goes there.
 
 11
-00:00:51,822 --> 00:00:55,907
-The claim gate reads every claim with its timestamp and maps
-it to the rule:
+00:00:43,110 --> 00:00:45,492
+Every claim with its timestamp and its rule:
 
 12
-00:00:55,907 --> 00:01:00,100
-an expert endorsement, an organisation endorsement, no
-substantiation on file.
+00:00:45,492 --> 00:00:51,555
+a consumer testimonial under the Endorsement Guides, an
+efficacy claim under section five with no study on file.
 
 13
-00:01:00,500 --> 00:01:05,928
-Rights: the Video Intelligence API found the logo and the
-faces; the registry clears neither.
+00:00:52,055 --> 00:00:52,450
+Rights:
 
 14
-00:01:06,328 --> 00:01:12,668
-Before it rules, the verdict asks Grafana about each gate:
-healthy, and has it caught a real injected defect this week.
+00:00:52,450 --> 00:00:58,821
+Video Intelligence found the logo, the dental association's
+seal and the faces; the registry clears none of them.
 
 15
-00:01:12,668 --> 00:01:17,144
-Then it writes the verdict back as an annotation and opens
-the incident for a human.
+00:01:00,963 --> 00:01:04,479
+Before it rules, the verdict asks Grafana five things about
+each
 
 16
-00:01:17,544 --> 00:01:19,145
-There it is, on the dashboard.
+00:01:04,479 --> 00:01:08,214
+gate, starting with: did Loki see this gate report on this
+very run.
 
 17
-00:01:23,768 --> 00:01:26,818
-A clean generated asset, signed with a real manifest.
+00:01:08,214 --> 00:01:14,367
+Then it writes the verdict back as an annotation, and the
+escalation opens the incident for the clearance owner.
 
 18
-00:01:27,564 --> 00:01:33,363
-Provenance passes in under a second: the manifest verifies
-against the studio's own trust list.
+00:01:14,367 --> 00:01:16,784
+Half a dollar at list price, and it says so.
 
 19
-00:01:33,363 --> 00:01:34,767
-Brand and claim follow.
+00:01:19,959 --> 00:01:21,675
+A clean generated asset, signed.
 
 20
-00:01:40,430 --> 00:01:41,605
-Four gates pass.
+00:01:21,675 --> 00:01:26,769
+Now we break the instrument on purpose: the rights gate will
+time out before it reads anything.
 
 21
-00:01:42,105 --> 00:01:43,863
-And the verdict still refuses:
+00:01:27,069 --> 00:01:29,405
+The gate fails in a millisecond and says so.
 
 22
-00:01:43,863 --> 00:01:48,200
-Grafana cannot see the rights control succeed, so its PASS
-does not count.
+00:01:29,405 --> 00:01:30,998
+The other three read the clip.
 
 23
-00:01:48,200 --> 00:01:50,661
-A control nobody can see is not a control.
+00:01:31,998 --> 00:01:33,016
+Three gates pass.
 
 24
-00:01:51,061 --> 00:01:53,205
-Turn the telemetry back on and run again.
+00:01:33,016 --> 00:01:34,812
+And the verdict still refuses.
 
 25
-00:01:53,605 --> 00:01:55,189
-Same clip, same gates.
+00:01:35,312 --> 00:01:37,552
+A control that failed is not a control.
 
 26
-00:02:01,381 --> 00:02:02,854
-Brand and claim pass again.
+00:01:37,552 --> 00:01:41,457
+Then the investigator, the one language model agent in the
+pipeline,
 
 27
-00:02:02,854 --> 00:02:07,490
-The rights gate reads the clip one more time, and this time
-its push reaches Grafana.
+00:01:41,457 --> 00:01:47,774
+reads Loki through the same Grafana MCP server: this run's
+line, the previous runs, the alert that just fired.
 
 28
-00:02:07,954 --> 00:02:11,936
-Now every gate is healthy and has caught a real injected
-defect this week.
+00:01:48,290 --> 00:01:52,455
+It names the cause and the second it happened, and writes it
+into the incident.
 
 29
-00:02:11,936 --> 00:02:14,842
-This is the PASS the reviewer no longer signs by hand.
+00:01:52,455 --> 00:01:54,459
+Grafana's alert rule fires on its own.
 
 30
-00:02:15,242 --> 00:02:17,745
-Every verdict is an annotation on this dashboard.
+00:01:55,418 --> 00:01:58,678
+A human closes the loop from the console: the incident
+resolves,
 
 31
-00:02:17,745 --> 00:02:20,094
-Every block that needs a human is an incident.
+00:01:58,678 --> 00:02:02,854
+and the decision lands on the dashboard as an annotation
+with the reviewer's role.
 
 32
-00:02:20,094 --> 00:02:24,282
-Each gate had to catch a real injected defect before it
-earned the right to block.
+00:02:03,424 --> 00:02:09,048
+The Nimbus test clip blocks on one claim, nine out of ten
+sommeliers, with nothing behind it.
 
 33
-00:02:24,682 --> 00:02:28,327
-Nothing ships without a gate that has already caught a real
-defect.
+00:02:09,048 --> 00:02:12,132
+The studio puts the study on file beside the asset.
 
 34
-00:02:28,327 --> 00:02:29,198
+00:02:12,132 --> 00:02:13,462
+Same clip, same gates.
+
+35
+00:02:13,762 --> 00:02:19,303
+Provenance: signed, and marked as generated, the
+machine-readable marking Article 50 asks for.
+
+36
+00:02:19,603 --> 00:02:22,113
+Claim passes and names the study it rests on.
+
+37
+00:02:22,613 --> 00:02:27,494
+Every gate seen by Grafana on this run, healthy, and
+calibrated by this morning's proof:
+
+38
+00:02:27,494 --> 00:02:33,762
+a scheduled job injects a real defect into every gate twice
+a day and a gate that misses loses its right to pass.
+
+39
+00:02:33,762 --> 00:02:36,757
+This is the PASS the reviewer no longer signs by hand.
+
+40
+00:02:37,758 --> 00:02:40,356
+Every verdict is an annotation on this dashboard.
+
+41
+00:02:40,356 --> 00:02:43,855
+Every block that needs a human is an incident that a human
+closes.
+
+42
+00:02:43,855 --> 00:02:48,521
+Every gate proves itself twice a day, and the cost of every
+check is on the same screen.
+
+43
+00:02:50,272 --> 00:02:54,917
+Nothing ships without a gate that has already caught a real
+defect, seen by Grafana.
+
+44
+00:02:54,917 --> 00:02:55,802
 That is Airlock.
