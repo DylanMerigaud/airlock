@@ -3655,3 +3655,22 @@ scheduled run (every 6 hours) is the first that traces the calibration; the clea
 the engine's side already. The 13:58 UTC engine deploy (the prompt hint) had no run of its own. The
 `invoke_workflow airlock` root span is flushed at its end inside the request; a run whose request is
 cut before the escalation ends would leave its root span to the next request's flush.
+
+## Two more fixes on the way to the third panel (2026-09-05, 12:00 to 14:30 UTC)
+
+- The brand gate's timestamps were wrong by construction: the schema asked gemini-2.5-flash for
+  `start_s` as a number and the model answered minutes.seconds as a decimal (0.06, 0.13, 0.26 on the
+  Crest excerpt for 6, 13 and 26 s), so the brand markers clustered in the clip's first second (found
+  by the console pass of the same day). The schema now asks for a clock string (`mm:ss.s`) and
+  `normalize_timestamps()` turns it into seconds; measured on Crest with `airlock.run --only brand`:
+  8.0, 13.0, 16.5, 27.5 s. Tests on the parser. Commit 0d13e4b.
+- The two incidents from before the owner label (25, 26) could not be relabelled (`AddLabel` needs
+  a label option the escalation had not created yet: "label option not found: owner:clearance");
+  both resolved from the console route (annotations 115, 116) and the next test-clip run opened
+  incident 37 with its labels; the Crest run after the final redeploy opened 39 (annotation 120,
+  trace d1bc84c0e5d3d0fc817d96d53bc53dc9).
+- The proof runs every six hours (scheduler `0 */6 * * *`, job generation 8); the Agent Engine config
+  is rendered from `airlock.settings` (`--render-engine-config`, drift test).
+
+Deploys from the merged main at 14:20 UTC: Agent Engine (brand fix, traces), console (per-claim
+rows, owner column, trace link), airlock-mcp, the proof job. Third panel next.
