@@ -3674,3 +3674,81 @@ cut before the escalation ends would leave its root span to the next request's f
 
 Deploys from the merged main at 14:20 UTC: Agent Engine (brand fix, traces), console (per-claim
 rows, owner column, trace link), airlock-mcp, the proof job. Third panel next.
+
+## Round five and the redeploy (2026-09-05, 15:00 to 16:30 UTC)
+
+The rest of the third panel's findings, fixed after the panel reports were written and deployed
+across all four services (engine, console, airlock-mcp, dashboard bootstrap):
+
+- **A trace with no Grafana login.** Two judges of the third pass could open the incident and the
+  annotation but not the trace link, because Grafana Explore needs a session. `console/src/lib/trace.ts`
+  reads the trace back through the datasource proxy with the console's own service account token;
+  `GET /api/trace/[id]` serves it; `console/src/components/trace-spans.tsx` renders the span tree
+  (name, duration, status, attributes) in the Trace tab, with the Explore link kept as a secondary
+  option. Verified: trace `a8d6794e1642c1d7e9b46f0332e2846b` (the Crest run below) read back 53 spans
+  with no auth header from the browser's side.
+- **The investigator's own word cap, enforced.** `INVESTIGATION_NOTE_WORDS = 60` was only ever
+  written into the prompt; a live note ran to 242 words with raw `**bold**` and backtick syntax
+  shown verbatim in the Record. `strip_markdown()` and `enforce_note_budget()` in agent.py now clean
+  the text and truncate to the note's own conclusion line when the model overruns, with the original
+  word count kept in the payload (`note_words_before_truncation`) rather than hidden. Tests added.
+- **A muted gate no longer wastes nine seconds of retries.** The Loki retry loop re-queried every
+  unseen gate on every attempt; a muted gate is unseen by design, so it paid the full `LOKI_RETRIES *
+  LOKI_RETRY_S` wait for nothing. It is now asked once (R1 still rests on Grafana's own view, not an
+  assumption) and excluded from further attempts.
+- **A substantiation must answer to the claim it is filed for.** `claim.py`'s `decide()` now checks
+  the study's own `kind` field against the claim's classified kind when both are present; a study
+  filed for an unrelated kind no longer silently lifts a claim that happens to share the same quote
+  text. Three tests: kind match lifts, kind mismatch blocks with a stated reason, no declared kind
+  still lifts (a hand-written file need not add a field it may not know).
+- **The Findings thread reads claim first.** It sorted gates by `settledAt`; on Crest, brand (which
+  the pipeline runs in parallel and which happens to answer fast) landed before claim and its twelve
+  exclusion rows buried the eight claim rows every time. `FINDINGS_GATE_PRIORITY` fixes the order to
+  claim, rights, brand, provenance regardless of settle time.
+- **The Queue's Resolve signs with the incident's real owner.** It hardcoded `reviewer_role:
+  "platform on-call"` for every row; `reviewerRoleForOwner()` reads the incident's own `owner` label.
+  The route's errors (a rate limit, a refused non-Airlock title) now surface under the button instead
+  of failing silently.
+- **The Record links the incident and names its owner.** It printed `, incident 39` as plain text
+  while the trace two lines below was already a clickable anchor; the incident is now the same kind
+  of link, with `, routed to the clearance owner` (or platform on-call) appended when known.
+- **The dashboard's annotation wall split.** Every verdict (PASS and BLOCK alike) shared one
+  annotation series with the two a human actually acts on (`needs-human`, `reviewed`), so 126
+  routine markers buried the two that mattered on the one public screen. Three series now: "Airlock
+  verdicts" (off by default), "Airlock needs a human" and "Airlock reviewed" (on).
+- **The dead man's switch and the panel titles now match the six hour cadence**, not the twelve hour
+  cadence they were sized for before 2026-09-05: the window is 7 h (one cadence plus an hour of
+  jitter, fires after the first missed proof, not the second), the panel reads "per 6 h".
+- **The stat tile "Incidents" is honestly "Escalations".** The counter it reads
+  (`airlock_incident_total`) is one sample per escalation, whether it opened a new incident or joined
+  an open one; it is not a count of distinct incidents, and the old label implied it was.
+- **OpenTelemetry is a declared dependency**, not a transitive rider on `google-cloud-aiplatform`
+  that a future dependency bump could silently drop.
+- **One test exercises the verdict agent's own failure path end to end**
+  (`tests/test_verdict_agent.py`): a toolset whose `get_tools` raises before any Grafana question is
+  asked becomes an ERROR verdict in state with `needs_human` true, a gate line per gate for the
+  investigator to read, and the toolset still closed in the `finally` branch. It had never been
+  driven by anything but a live paused stack before.
+- **`scripts/check.sh` now fails when the DEVPOST test count drifts** (it drifted three times across
+  three panel passes): it greps the claimed count out of the prose and compares it to
+  `pytest --collect-only`.
+- **README states the console has no login**, in the file itself rather than only in this ledger:
+  anyone with the URL can run a check or resolve an open incident, both rate-limited, and the resolve
+  route refuses a title it did not write itself.
+- The investigator's content-BLOCK task line no longer tells a human "the asset itself must change":
+  a brand finding rests on this demo's own charter (`charter.yaml`), not a universal standard, and the
+  instruction now says so.
+
+Deploy, in order: Agent Engine (`Deployed to Agent Platform`, engine unchanged
+`1737023312967499776`), `scripts/grafana_bootstrap.py` (dashboard version 9, five alert rules read
+back, the Loki to Tempo derived field still linked on the read-only datasource), console revision
+`airlock-console-00019-rrn`, airlock-mcp revision `airlock-mcp-00008-rwj`, the daily proof job
+(`0 */6 * * *` unchanged, rebuilt for the OTLP dependency and the claim gate fix).
+
+Verification on the redeployed engine: Crest run, BLOCK content, annotation 139, trace
+`a8d6794e1642c1d7e9b46f0332e2846b`, incident 43 (owner clearance), the investigator's note now three
+sentences citing "a brand charter violation" rather than telling a human to alter the asset.
+Console `/api/health` after redeploy: all four gates read `healthy` (not amber; confirms the
+majority-rule fix from round three holds live). `/api/trace/a8d6794e...` read back 53 spans with no
+browser-side auth. Incidents 42 and 43 resolved from the console to leave the Queue clean for the
+next pass.
