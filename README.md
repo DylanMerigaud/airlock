@@ -89,12 +89,13 @@ scripts/with_env.sh uv run python -m airlock.run assets/real/CrestToothpa-18-48.
 scripts/with_env.sh uv run adk run agents/pipeline "gs://<your bucket>/asset.mp4"         # the whole pipeline, verdict through Grafana
 ```
 
-`scripts/with_env.sh` loads `.env.local` (copy `.env.example`) and pulls the four secrets from the
+`scripts/with_env.sh` loads `.env.local` (copy `.env.example`) and pulls the five secrets from the
 macOS keychain of the author's account. On another machine skip it and export them yourself before
 the command: `GRAFANA_SERVICE_ACCOUNT_TOKEN` (a Grafana service account token with editor rights),
 `GRAFANA_INFLUX_TOKEN` and `GRAFANA_LOKI_TOKEN` (the stack's write token, the same value for both
-on Grafana Cloud) and `AIRLOCK_MCP_TOKEN` (the bearer you give mcp-grafana). In the cloud they come
-from Secret Manager (`infra/gcp/secrets.sh`).
+on Grafana Cloud), `GRAFANA_OTLP_TOKEN` (an access policy token with the `traces:write` scope; unset
+means no traces, the rest runs) and `AIRLOCK_MCP_TOKEN` (the bearer you give mcp-grafana). In the
+cloud they come from Secret Manager (`infra/gcp/secrets.sh`; the traces token is `grafana-traces-token`).
 
 What a judge changes to run it on their own project, all read from env with the author's values as
 defaults: the project (`GOOGLE_CLOUD_PROJECT` in `.env.local`, `AIRLOCK_PROJECT` for the scripts
@@ -125,8 +126,14 @@ Every step and its output is in `docs/RUNS.md`.
                                                                escalation                                     |
                                                                                                               v
   gates push counters (Influx line protocol) and events (Loki)  ---->  Grafana Cloud: dashboard "Airlock gates",
-                                                                        annotations, incidents, alert rules
+  every run is one trace (OTLP over HTTP, the OTLP gateway)             annotations, incidents, alert rules, Tempo
 ```
+
+One trace per run in Tempo (`airlock/tracing.py`): ADK's spans around every agent and the
+investigator's calls, one `airlock.gate.<name>` span per gate with its status and cost, one
+`grafana.<tool>` span per question the verdict asks. Every Loki line carries the run's `trace_id`
+(the stack's derived field turns it into a link), the annotation names it, the incident links the
+trace, the console's Record links it.
 
 Inputs: a Prelinger commercial (real, public domain, `assets/real/SOURCE.md`), a Veo clip with an
 injected claim and a real C2PA manifest (synthetic, labelled, `SYNTHETIC.md`), or a short upload.

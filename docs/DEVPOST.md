@@ -20,7 +20,9 @@ The verdict is written back to the Grafana dashboard as an annotation; then an i
 (gemini-2.5-flash, the same Grafana MCP tools) reads this run's Loki lines, the previous runs and the
 alert rules and names the root cause with the timestamp it rests on, and when only a human can lift
 the BLOCK, an incident is opened in Grafana IRM (or the open one for the same asset joined, as a drill
-on the free stack) carrying that note, which the reviewer closes from the console. A check takes
+on the free stack) carrying that note and a link to the run's trace in Tempo (every run is one trace,
+every Loki line carries its id, so logs, trace and incident name each other), which the reviewer
+closes from the console. A check takes
 one to four minutes, almost all of it the Video Intelligence operation: measured on the hosted
 console, the 8 s clean clip took 38 s (`docs/RUNS.md`, the cold judge pass of 2026-09-02,
 annotation 52) and 243 s (the console v3.1 verification the same night, annotation 55), and 189 s
@@ -34,7 +36,7 @@ clean clip, and a gate whose defect slipped through loses its right to PASS unti
 
 ## How I built it
 
-All decision logic is plain, unit-tested Python (185 tests, none of them calls a model): the four
+All decision logic is plain, unit-tested Python (202 tests, none of them calls a model): the four
 gate decisions, the two verdict rules, the escalation rule. Google ADK is the runtime envelope: a
 SequentialAgent whose first step is a ParallelAgent of the four gates (each a BaseAgent around a
 plain function, run in a thread so they really overlap), then a verdict BaseAgent, then the one

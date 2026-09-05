@@ -3,7 +3,9 @@
 `airlock_mcp/server.py` wraps `airlock.gates.{rights,claim,brand,provenance}` in a
 `FastMCP("airlock")` server, served over the streamable HTTP transport at `/mcp`. Every tool
 runs its gate through `airlock.gates.base.run_gate`, so a tool call pushes the same Grafana
-counters and events a pipeline run does. Inbound auth is a single bearer
+counters and events a pipeline run does, and is one span `airlock.gate.<name>` in Tempo (its own
+trace, flushed when the call ends; the Loki line of the call carries the trace id) when
+`GRAFANA_OTLP_TOKEN` is set, which the deploy script sets from Secret Manager. Inbound auth is a single bearer
 (`AIRLOCK_MCP_SERVER_TOKEN`); a request without `Authorization: Bearer <token>` gets 401,
 except `GET /health` which is open. The tools are `async def` and hand the gate to a worker thread
 (`asyncio.to_thread`), so a second client is served while a rights check holds Video Intelligence.
