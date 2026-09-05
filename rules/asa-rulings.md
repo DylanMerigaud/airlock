@@ -28,6 +28,9 @@ Two real rulings of the UK Advertising Standards Authority, both published 2026-
 
 ## How the claim gate cites them
 
-The claim gate names the FTC section (16 CFR 255.x, `rules/ftc-16-cfr-255.md`) that a claim falls
-under, and the ASA ruling above whose claim shape matches, as `rule_ids`. The gate does not decide
-UK law; the ruling is the precedent a reviewer would pull, with its reference number.
+The claim gate names the US rule a claim falls under (16 CFR Part 255 for an endorsement,
+`rules/ftc-16-cfr-255.md`; FTC Act section 5 and the substantiation policy statement for the
+advertiser's own claim, `rules/ftc-substantiation.md`), the CAP Code rule (3.7, 3.32, 2.1), and the
+ASA ruling above whose claim shape matches, as `rule_ids`. The gate does not decide UK law; the
+ruling is the precedent a reviewer would pull, with its reference number. Both markets are cited
+on every regulated claim because the gate does not know where the asset airs.
