@@ -15,7 +15,8 @@ import json
 import pathlib
 import sys
 
-from airlock.gates.base import GATES, Asset, GateResult, run_gate
+from airlock.gates import CHECKS, GATES
+from airlock.gates.base import Asset, GateResult, run_gate
 
 
 def make_asset(path: str, gcs_uri: str | None = None) -> Asset:
@@ -27,19 +28,11 @@ def make_asset(path: str, gcs_uri: str | None = None) -> Asset:
 
 
 def run_all(asset: Asset, only: list[str] | None = None) -> list[GateResult]:
-    from airlock.gates import brand, claim, provenance, rights
-
-    table = {
-        "rights": (rights.check, rights.SOURCE_OF_TRUTH),
-        "claim": (claim.check, claim.SOURCE_OF_TRUTH),
-        "brand": (brand.check, brand.SOURCE_OF_TRUTH),
-        "provenance": (provenance.check, provenance.SOURCE_OF_TRUTH),
-    }
     results = []
     for gate in GATES:
         if only and gate not in only:
             continue
-        fn, source = table[gate]
+        fn, source = CHECKS[gate]
         results.append(run_gate(gate, fn, asset, source))
     return results
 
