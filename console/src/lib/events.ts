@@ -48,12 +48,24 @@ export const GATE_MEASURED: Partial<Record<GateName, string>> = {
 
 export type RawEvent = { author: string; text: string; ts: number };
 
+/**
+ * The one fault a reviewer can inject for now: the gate raises a TimeoutError
+ * before it calls its instrument, so nothing is spent and the ERROR lands in
+ * Loki and Influx like a real one. The verdict has to notice through Grafana.
+ */
+export type FaultKind = "timeout";
+export type FaultMap = Partial<Record<GateName, FaultKind>>;
+
 export type GateRunningPayload = {
   gate: GateName;
   stage: "running";
   asset_id?: string;
+  /** The ADK invocation id: the run the verdict asks Loki about. */
+  run_id?: string;
   source_of_truth?: string;
   telemetry_muted?: boolean;
+  /** Set when the reviewer injected a fault into this gate for this run. */
+  fault?: string;
 };
 
 /** What a single gate spent to produce its answer, at list price. */
@@ -74,8 +86,10 @@ export type GateDonePayload = {
   evidence?: unknown[];
   rule_ids?: string[];
   elapsed_ms?: number;
+  run_id?: string;
   source_of_truth?: string;
   telemetry_muted?: boolean;
+  fault?: string;
   usage?: GateUsage;
 };
 
@@ -89,6 +103,21 @@ export type ProbePayload = {
   calibrated: boolean;
   /** The sentence the verdict agent read out of Grafana, when it sent one. */
   calibration?: string;
+  /** Whether Loki holds this run's event for the gate; absent on older recordings. */
+  seen_this_run?: boolean | null;
+  /** A remark the verdict attached to this probe, when it sent one. */
+  note?: string;
+};
+
+/**
+ * A remark from the verdict agent about Grafana itself, not about a gate: for
+ * now "Grafana Cloud was starting, waited N s" when a paused free stack had to
+ * wake before it answered.
+ */
+export type GrafanaNotePayload = {
+  stage: "grafana";
+  note: string;
+  waited_s?: number;
 };
 
 export type VerdictGate = {
@@ -150,6 +179,7 @@ export type ParsedPayload =
   | { kind: "gate-running"; gate: GateName; payload: GateRunningPayload }
   | { kind: "gate-done"; gate: GateName; payload: GateDonePayload }
   | { kind: "probe"; payload: ProbePayload }
+  | { kind: "grafana-note"; payload: GrafanaNotePayload }
   | { kind: "verdict"; payload: VerdictPayload }
   | { kind: "escalation"; payload: EscalationPayload };
 
@@ -184,6 +214,9 @@ export function parsePayload(text: string): ParsedPayload | null {
   }
   if (stage === "grafana" && isGate(value.gate)) {
     return { kind: "probe", payload: value as unknown as ProbePayload };
+  }
+  if (stage === "grafana" && typeof value.note === "string" && value.note.trim()) {
+    return { kind: "grafana-note", payload: value as unknown as GrafanaNotePayload };
   }
   if (stage === "verdict") {
     return { kind: "verdict", payload: value as unknown as VerdictPayload };
