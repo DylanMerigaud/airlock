@@ -8,6 +8,7 @@ import { DecisionRecord } from "@/components/decision-record";
 import { FindingsThread } from "@/components/findings-thread";
 import { Stage, type StageAsset } from "@/components/stage";
 import { Timeline } from "@/components/timeline";
+import { TraceSpans } from "@/components/trace-spans";
 import { StatTiles } from "@/components/stat-tiles";
 import { SpecStrip } from "@/components/spec-strip";
 import { BlockQueue, IncidentQueue } from "@/components/block-queue";
@@ -19,6 +20,7 @@ import { useRun } from "@/lib/use-run";
 import { useInstruments } from "@/lib/use-instruments";
 import { useIncidents } from "@/lib/use-incidents";
 import { useReview } from "@/lib/use-review";
+import { reviewerRoleForOwner } from "@/lib/review";
 import { buildFindings, verdictNotes } from "@/lib/findings";
 import { collectMarkers } from "@/lib/timecodes";
 import { loadQueue, saveQueue, type BlockEntry } from "@/lib/block-queue";
@@ -385,6 +387,12 @@ export function ConsoleShell({ dashboardUrl, environment, mock }: ShellProps) {
               </PanelHeader>
               <div className="fit-scroll flex-1">
                 <Timeline state={state} dashboardUrl={dashboardUrl} onRetry={() => retry(muted, faults)} />
+                {state.verdict?.trace_id && (
+                  <div className="border-t border-line">
+                    <h4 className="label-micro px-3 pt-2 text-ink-soft">Tempo trace of this run</h4>
+                    <TraceSpans traceId={state.verdict.trace_id} exploreUrl={state.verdict.trace_url} />
+                  </div>
+                )}
               </div>
             </Panel>
           </TabsContent>
@@ -410,16 +418,22 @@ export function ConsoleShell({ dashboardUrl, environment, mock }: ShellProps) {
                     incidents={incidentsView.incidents}
                     onRerun={run}
                     onResolve={async (incident) => {
-                      await fetch("/api/incident/resolve", {
+                      const res = await fetch("/api/incident/resolve", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
                           incidentID: incident.id,
-                          reviewer_role: "platform on-call",
+                          reviewer_role: reviewerRoleForOwner(incident.owner),
                           summary: `resolved from the queue: ${incident.title}`,
                           asset_id: incident.assetId ?? undefined,
                         }),
                       });
+                      if (!res.ok) {
+                        const body = (await res.json().catch(() => null)) as { error?: string } | null;
+                        throw new Error(body?.error || `The resolve route answered ${res.status}.`);
+                      }
+                      const payload = (await res.json()) as { error?: string | null };
+                      if (payload.error) throw new Error(payload.error);
                       await refreshIncidents();
                     }}
                     rerunTarget={rerunTarget}

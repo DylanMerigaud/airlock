@@ -7,6 +7,15 @@
 export const REVIEWER_ROLES = ["clearance owner (legal)", "agency", "platform on-call"] as const;
 export type ReviewerRole = (typeof REVIEWER_ROLES)[number];
 
+/** The role a Queue resolve should sign as, from the incident's own `owner` label: the button beside the
+ *  owner column must not sign every incident as platform on-call regardless of who it was routed to
+ *  (found live, 2026-09-05). Falls back to platform on-call for an incident opened before the label
+ *  existed, or any other owner value. */
+export function reviewerRoleForOwner(owner: string | null): ReviewerRole {
+  if (owner === "clearance") return "clearance owner (legal)";
+  return "platform on-call";
+}
+
 export type ResolvePayload = {
   ok: boolean;
   mock: boolean;

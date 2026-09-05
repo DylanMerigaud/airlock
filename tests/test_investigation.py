@@ -37,8 +37,10 @@ from agents.pipeline.agent import (
     incident_title,
     investigation_kind,
     investigator_instruction,
+    enforce_note_budget,
     loki_lines_from_answer,
     note_kind_line,
+    strip_markdown,
     tool_rows,
     trace_fields,
 )
@@ -431,3 +433,32 @@ def test_verdict_sample_no_longer_carries_incidents_total(monkeypatch):
 def test_root_agent_runs_the_investigation_between_verdict_and_escalation(motive):
     del motive
     assert [a.name for a in pipeline.root_agent.sub_agents] == ["gates", "verdict", "investigation", "escalation"]
+
+
+def test_strip_markdown_keeps_the_words_drops_the_syntax():
+    text = "**Rights Gate:** the `rights` gate failed.\n# Heading\nROOT CAUSE: it timed out."
+    out = strip_markdown(text)
+    assert "*" not in out and "`" not in out and "#" not in out
+    assert "Rights Gate: the rights gate failed." in out
+    assert "ROOT CAUSE: it timed out." in out
+
+
+def test_enforce_note_budget_passes_a_short_note_through_unchanged():
+    text = "ROOT CAUSE: the rights gate timed out."
+    out, overran = enforce_note_budget(text, "ROOT CAUSE", limit=60)
+    assert out == text and overran is None
+
+
+def test_enforce_note_budget_truncates_an_overlong_note_to_its_conclusion_line():
+    body = " ".join(f"word{i}" for i in range(200))
+    text = f"{body}\nROOT CAUSE: the rights gate timed out at 2026-09-05T00:00:00Z."
+    out, overran = enforce_note_budget(text, "ROOT CAUSE", limit=60)
+    assert out == "ROOT CAUSE: the rights gate timed out at 2026-09-05T00:00:00Z."
+    assert overran == len(text.split())
+
+
+def test_enforce_note_budget_falls_back_to_a_head_truncation_with_no_conclusion_line():
+    body = " ".join(f"word{i}" for i in range(200))
+    out, overran = enforce_note_budget(body, "ROOT CAUSE", limit=10)
+    assert out.endswith("(truncated)") and len(out.split()) <= 16
+    assert overran == 200

@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import time
 from collections.abc import AsyncGenerator, Awaitable, Callable
 from datetime import UTC, datetime, timedelta
@@ -337,21 +338,28 @@ class VerdictAgent(BaseAgent):
                 loki_uid = pick_datasource_uid(await ask("list_datasources", {"type": "loki"}), "loki")
 
             # Question 1, Loki: this run's event of each gate. Asked for every gate first, then again for
-            # the gates still unseen, so the ingestion wait is shared and bounded.
+            # the gates still unseen, so the ingestion wait is shared and bounded. A muted gate pushes
+            # nothing on purpose: it is asked once, so R1 still rests on Grafana's own view and not an
+            # assumption, but never retried (found live, 2026-09-05: 9 s of retries spent confirming
+            # silence the mute switch already guaranteed).
             end = datetime.now(UTC) + timedelta(minutes=1)
             start = end - timedelta(minutes=RUN_EVENT_WINDOW_MIN + 1)
+            muted = set(muted_gates(_input_object(ctx)))
             seen: dict[str, dict[str, Any] | None] = {}
+            settled: set[str] = set()
             logql = {g: logql_question(g, run_id) for g in GATES}
             for attempt in range(1 + LOKI_RETRIES):
                 if attempt:
                     await asyncio.sleep(LOKI_RETRY_S)
                 for gate in GATES:
-                    if seen.get(gate):
+                    if seen.get(gate) or gate in settled:
                         continue
                     raw = await ask("query_loki_logs", {"datasourceUid": loki_uid, "logql": logql[gate], "limit": 20,
                                                         "startRfc3339": start.strftime("%Y-%m-%dT%H:%M:%SZ"), "endRfc3339": end.strftime("%Y-%m-%dT%H:%M:%SZ")})
                     seen[gate] = parse_run_event(raw, run_id)
-                if all(seen.get(g) for g in GATES):
+                    if seen[gate] is None and gate in muted:
+                        settled.add(gate)
+                if all(seen.get(g) or g in settled for g in GATES):
                     break
             if waiter.waited_s > 0:
                 yield _text_event(ctx, self.name, json.dumps({"stage": "grafana", "note": f"Grafana Cloud was starting, waited {int(waiter.waited_s)} s"}))
@@ -505,7 +513,9 @@ def investigator_instruction(ctx: ReadonlyContext) -> str:
     else:
         task = (f"The verdict BLOCKED on the content of the asset: {', '.join(focus)}. Read this run's line of each blocking gate and name, "
                 "with its time_utc, the finding and the rule id it cites (rule_ids in the line); say whether a human can lift the block "
-                "with paperwork (a substantiation, a licence, a release) or whether the asset itself must change.")
+                "with paperwork (a substantiation, a licence, a release) or whether the asset does not meet the charter or registry it was "
+                "checked against. The charter (charter.yaml) is this demo's own brand book, not a universal standard: when a brand finding "
+                "is the block, say it does not meet THIS charter, not that the asset itself is wrong.")
     trace_line = (f"\ntrace id: {verdict['trace_id']} (this run's trace in Tempo; the Loki lines of this run carry it as the body field trace_id, "
                   "not a label: filter with |= if you need it; you may cite it)" if verdict.get("trace_id") else "")
     return f"""You are the investigator of Airlock, a release control for generated video ads. Four gates (rights, claim, brand, provenance)
@@ -615,6 +625,28 @@ def note_kind_line(text: str, kind: str) -> str | None:
         if stripped.upper().startswith(kind + ":"):
             return stripped
     return None
+
+
+def strip_markdown(text: str) -> str:
+    """The Record renders this note as plain text, not markdown: drop the syntax a model reaches for
+    (bold, headings, backticks) rather than the words themselves. Found live, 2026-09-05: a note
+    showed literal asterisks and backticks to the reviewer."""
+    out = re.sub(r"\*\*(.+?)\*\*", lambda m: m.group(1), text)
+    out = re.sub(r"`([^`]+)`", lambda m: m.group(1), out)
+    out = re.sub(r"^#{1,6}\s*", "", out, flags=re.MULTILINE)
+    return out
+
+
+def enforce_note_budget(text: str, kind: str, limit: int = INVESTIGATION_NOTE_WORDS) -> tuple[str, int | None]:
+    """The instruction asks for at most `limit` words; a model that ignores it gets truncated to its own
+    conclusion line rather than shown whole (found live, 2026-09-05: a 242 word note against a 60 word
+    ask). Returns the text to use and the original word count when it overran, else None."""
+    text = strip_markdown(text)
+    words = text.split()
+    if len(words) <= limit:
+        return text, None
+    conclusion = note_kind_line(text, kind)
+    return (conclusion or " ".join(words[: limit + 5]) + " (truncated)"), len(words)
 
 
 def cited_lines(note: str, lines: list[dict[str, Any]], run_id: str) -> list[dict[str, Any]]:
@@ -775,7 +807,10 @@ class InvestigationAgent(BaseAgent):
             text = fallback_note(kind, verdict, error)
         elif not text:
             text = fallback_note(kind, verdict, budget.stopped or "the model returned no text")
-        note = text
+        # The instruction asks for at most INVESTIGATION_NOTE_WORDS words and plain text; the model does
+        # not always keep either promise (measured live, 2026-09-05: 242 words with markdown syntax against
+        # a 60 word plain-text ask). Enforced here rather than trusted, and the overrun is said, not hidden.
+        note, overran_words = enforce_note_budget(text, kind)
         payload: dict[str, Any] = {"stage": "investigation", "kind": kind, "note": note, "run_id": run_id,
                                    "asset_id": verdict.get("asset_id"), "model": INVESTIGATOR_MODEL,
                                    "tool_calls": sum(1 for c in calls if c.get("step") == "tool_call"),
@@ -784,6 +819,8 @@ class InvestigationAgent(BaseAgent):
                                    "cited": cited_lines(note, loki_lines, run_id),
                                    "conclusion": note_kind_line(note, kind),
                                    "elapsed_ms": int((time.time() - started) * 1000)}
+        if overran_words:
+            payload["note_words_before_truncation"] = overran_words
         if error or note.startswith("investigation unavailable"):
             payload["fallback"] = True
             payload["error"] = error or budget.stopped

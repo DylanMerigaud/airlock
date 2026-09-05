@@ -30,6 +30,13 @@ market** (the US and UK rules are both cited on every claim; the gate does not k
 asset airs), and **the FDA side of a health claim** (a cavity or decay claim on toothpaste is an
 OTC drug claim; the gate says so in the reason and cites nothing further).
 
+The console itself has no login: it is a demo posture, stated here rather than only in
+`docs/RUNS.md`. Anyone with the URL can run a check (rate-limited per caller) and anyone can resolve
+an open Airlock incident from the Record or the Queue (also rate-limited, and the route refuses a
+title it did not write itself), signing it with a self-declared role rather than a verified identity.
+An identity in front of the console (IAP, or a signed reviewer token) is the natural next step and
+is not built.
+
 The brand gate's palette check rests on the model's estimate of the dominant colours under a JSON
 schema, not on a measurement; a frame histogram (ffmpeg or PIL over sampled frames) is the follow-up,
 noted 2026-09-05, not in this submission.

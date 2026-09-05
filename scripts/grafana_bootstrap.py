@@ -7,11 +7,12 @@ provisioning API (/api/v1/provisioning), the notification policy tree is replace
 
 Three rules, all on the counters the gates and the proof push (a series is absent when nothing
 happened, so "no data" is OK, not an alert):
-  Airlock daily proof failed    sum(sum_over_time(airlock_daily_proof_total{outcome="fail"}[13h])) > 0
+  Airlock daily proof failed    sum(sum_over_time(airlock_daily_proof_total{outcome="fail"}[7h])) > 0
   Airlock gate errors           sum by (gate) (sum_over_time(airlock_gate_errors_total[15m])) > 0
   Airlock calibration missed    sum by (gate) (sum_over_time(airlock_calibration_misses_total[24h])) > 0
 One contact point (email, AIRLOCK_ALERT_EMAIL, default dylanmerigaud@gmail.com), the default policy
-routed to it. The investigator agent reads the rules' state through mcp-grafana's list_alert_rules.
+routed to it. The investigator agent reads the rules' state through mcp-grafana's
+alerting_manage_rules(operation="list"), the tool the server actually exposes.
 
 Logs to traces: the Loki datasource needs a derived field that turns the trace_id of an Airlock line into a
 link to the Tempo datasource. Grafana Cloud provisions its Loki datasource read-only (PUT answers 403) with
@@ -111,11 +112,27 @@ def dashboard(ds_uid: str) -> dict:
                     "type": "dashboard",
                 },
                 {
+                    # Every verdict (PASS and BLOCK on ordinary content) is the loudest series and the least
+                    # actionable: off by default so it does not bury the two annotations a human acts on.
                     "datasource": {"type": "grafana", "uid": "-- Grafana --"},
-                    "enable": True,
+                    "enable": False,
                     "iconColor": "orange",
                     "name": "Airlock verdicts",
-                    "target": {"limit": 100, "matchAny": False, "tags": ["airlock"], "type": "tags"},
+                    "target": {"limit": 100, "matchAny": False, "tags": ["airlock", "verdict"], "type": "tags"},
+                },
+                {
+                    "datasource": {"type": "grafana", "uid": "-- Grafana --"},
+                    "enable": True,
+                    "iconColor": "red",
+                    "name": "Airlock needs a human",
+                    "target": {"limit": 100, "matchAny": False, "tags": ["airlock", "needs-human"], "type": "tags"},
+                },
+                {
+                    "datasource": {"type": "grafana", "uid": "-- Grafana --"},
+                    "enable": True,
+                    "iconColor": "green",
+                    "name": "Airlock reviewed",
+                    "target": {"limit": 100, "matchAny": False, "tags": ["airlock", "reviewed"], "type": "tags"},
                 },
             ]
         },
@@ -132,7 +149,7 @@ def dashboard(ds_uid: str) -> dict:
                   thresholds=[{"color": "red", "value": None}, {"color": "green", "value": 1}],
                   overrides=[by_name_thresholds("fail", [{"color": "green", "value": None}, {"color": "red", "value": 1}])]),
             panel(17, "Cost per daily proof, list price USD (7d)", "sum(sum_over_time(airlock_daily_proof_cost_usd[7d])) / clamp_min(sum(sum_over_time(airlock_daily_proof_total[7d])), 1)", ds_uid, 6, 28, w=6, h=6, kind="stat", unit="currencyUSD", legend="per proof"),
-            panel(18, "Daily proofs over time (per 12 h)", "sum by (outcome) (sum_over_time(airlock_daily_proof_total[12h]))", ds_uid, 12, 28, w=12, h=6, legend="{{outcome}}"),
+            panel(18, "Daily proofs over time (per 6 h)", "sum by (outcome) (sum_over_time(airlock_daily_proof_total[6h]))", ds_uid, 12, 28, w=12, h=6, legend="{{outcome}}"),
             panel(13, "Seconds since last success (stale past 900 s)", f"time() - max by (gate) (max_over_time(airlock_gate_last_success_ts{{{GATE}}}[7d]))", ds_uid, 18, 0, w=6, h=6, unit="s", kind="stat",
                   thresholds=[{"color": "green", "value": None}, {"color": "red", "value": 900}]),
             panel(1, "Gate runs (per 5 min)", f"sum by (gate) (sum_over_time(airlock_gate_runs_total{{{GATE}}}[5m]))", ds_uid, 0, 6),
@@ -159,7 +176,7 @@ def alert_rules(ds_uid: str) -> list[dict]:
     reads as OK because these counters only exist when a failure was pushed."""
     specs = [
         ("airlock-daily-proof-failed", "Airlock daily proof failed",
-         'sum(sum_over_time(airlock_daily_proof_total{outcome="fail"}[13h]))',
+         'sum(sum_over_time(airlock_daily_proof_total{outcome="fail"}[7h]))',
          "A scheduled proof failed in the last 13 hours: a gate missed its injected defect, or the clean clip did not PASS. Read the proof's Loki lines ({app=\"airlock\"} |= \"daily-proof\")."),
         ("airlock-gate-errors", "Airlock gate errors",
          "sum by (gate) (sum_over_time(airlock_gate_errors_total[15m]))",
@@ -193,9 +210,10 @@ def alert_rules(ds_uid: str) -> list[dict]:
                            "conditions": [{"evaluator": {"type": "gt", "params": [0]}, "operator": {"type": "and"}, "query": {"params": ["C"]}, "reducer": {"type": "last", "params": []}, "type": "query"}]}},
             ],
         })
-    # The dead man's switch: the proof runs every 6 hours and pushes one sample; thirteen hours without one is
+    # The dead man's switch: the proof runs every 6 hours and pushes one sample; seven hours without one is
     # an outage of the schedule itself (Scheduler, the job, a quota), which no ">" rule on a counter can see.
-    # No data is the alert here, so noDataState is Alerting.
+    # No data is the alert here, so noDataState is Alerting. The window is one cadence plus an hour of
+    # jitter budget, not two cadences: it fires after the FIRST missed proof, not the second.
     rules.append({
         "uid": "airlock-daily-proof-missing",
         "title": "Airlock daily proof did not run",
@@ -206,12 +224,12 @@ def alert_rules(ds_uid: str) -> list[dict]:
         "noDataState": "Alerting",
         "execErrState": "Error",
         "orgID": 1,
-        "annotations": {"summary": "No daily proof sample in the last 13 hours: the schedule, the job or its quota failed. Check the Cloud Run job executions.",
-                        "expr": "sum(sum_over_time(airlock_daily_proof_total[13h]))"},
+        "annotations": {"summary": "No daily proof sample in the last 7 hours: the schedule, the job or its quota failed. Check the Cloud Run job executions.",
+                        "expr": "sum(sum_over_time(airlock_daily_proof_total[7h]))"},
         "labels": {"app": "airlock", "owner": "platform"},
         "data": [
             {"refId": "A", "relativeTimeRange": {"from": 600, "to": 0}, "datasourceUid": ds_uid,
-             "model": {"refId": "A", "expr": "sum(sum_over_time(airlock_daily_proof_total[13h]))", "instant": True, "range": False,
+             "model": {"refId": "A", "expr": "sum(sum_over_time(airlock_daily_proof_total[7h]))", "instant": True, "range": False,
                        "intervalMs": 1000, "maxDataPoints": 43200}},
             {"refId": "C", "relativeTimeRange": {"from": 0, "to": 0}, "datasourceUid": "__expr__",
              "model": {"refId": "C", "type": "threshold", "expression": "A",

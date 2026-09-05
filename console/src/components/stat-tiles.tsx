@@ -136,7 +136,10 @@ export function StatTiles({
         width="34px"
         {...common}
       />
-      <Stat label="Incidents" value={stats?.incidents_7d ?? null} {...common} />
+      {/* The counter is airlock_incident_total, one sample per escalation whether it opened a new
+          incident or joined an open one: "escalations" is the honest word for that, not "incidents"
+          (found live, 2026-09-05: it read 41 beside 26 actual incidents). */}
+      <Stat label="Escalations" value={stats?.incidents_7d ?? null} {...common} />
       <Stat
         label="Cost"
         value={stats?.cost_per_check_usd_7d ?? null}

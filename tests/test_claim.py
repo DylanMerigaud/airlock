@@ -44,6 +44,32 @@ def test_substantiated_claim_is_advisory_not_blocking():
     assert "substantiation on file: study X, 1960, on file" in r.reasons[0]
 
 
+def test_a_study_filed_for_a_different_kind_of_claim_does_not_lift_this_one():
+    """A studio's study for an expert endorsement must not silently substantiate an efficacy claim that
+    happens to share the same quote text (found live, 2026-09-05: kind was never checked)."""
+    claims = [claim("Reduces cavities by 21%.", "efficacy")]
+    subst = {"claims": {"Reduces cavities by 21%.": {"study": "an unrelated endorsement study", "kind": "expert_endorsement"}}}
+    r = decide(claims, subst)
+    assert r.status == "BLOCK"
+    assert "filed for a expert_endorsement claim, not efficacy" in r.evidence[0]["blocking_claims"][0]["why"]
+
+
+def test_a_study_with_no_declared_kind_still_lifts_the_claim():
+    """A hand-written substantiation file need not name a kind; presence alone still lifts, as before."""
+    claims = [claim("Reduces cavities by 21%.", "efficacy")]
+    subst = {"claims": {"Reduces cavities by 21%.": {"study": "study X, no kind field"}}}
+    r = decide(claims, subst)
+    assert r.status == "PASS"
+
+
+def test_a_study_whose_kind_matches_lifts_normally():
+    claims = [claim("Recommended by 9 out of 10 sommeliers.", "expert_endorsement", endorser="sommeliers")]
+    subst = {"claims": {"Recommended by 9 out of 10 sommeliers.": {"study": "the sommelier panel", "kind": "expert_endorsement"}}}
+    r = decide(claims, subst)
+    assert r.status == "PASS"
+    assert r.evidence[0]["advisory_claims"][0]["substantiated_by"]["study"] == "the sommelier panel"
+
+
 def test_substantiation_matches_on_normalized_quote():
     """The KeyError of 2026-09-05: membership was tested on the lowercased key, the dict indexed with the raw quote."""
     claims = [claim("  reduces   cavities by 21%. ", "efficacy")]

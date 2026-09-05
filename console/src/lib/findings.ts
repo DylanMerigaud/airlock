@@ -124,7 +124,10 @@ function claimRows(gate: GateName, done: GateDonePayload, first: Record<string, 
     const rawChannel = str(claim.channel);
     const channel = rawChannel ? (CLAIM_CHANNEL[rawChannel] ?? words(rawChannel)) : null;
     const lifted = isRecord(claim.substantiated_by) ? str(claim.substantiated_by.study) : str(claim.substantiated_by);
-    const why = lifted ? `substantiation on file: ${lifted.replace(/\s*\(SYNTHETIC.*$/i, "")}` : str(claim.why);
+    // The full row keeps the (SYNTHETIC: ...) disclosure the study carries: this is the detailed evidence
+    // view, and a fictional study must stay visibly fictional here even where the short headline
+    // (checks-panel.tsx) trims it for space. Found live, 2026-09-05.
+    const why = lifted ? `substantiation on file: ${lifted}` : str(claim.why);
     const seconds = num(claim.start_s);
     return {
       key,
@@ -264,11 +267,15 @@ export function gateFindings(gate: GateName, done: GateDonePayload): Finding[] {
   return rows ?? plainRows(gate, done);
 }
 
-/** The gates' rows in the order the gates reported, oldest first. */
+/** Claim first (the regulatory substance a reviewer reads for), then rights, then the charter's own
+ *  exclusions, then provenance last (rarely has more than one row). Fixed rather than sorted by which
+ *  gate happened to land first: on Crest, brand settles before claim and its twelve exclusion rows
+ *  buried the eight claim rows at the top of the thread every time (found live, 2026-09-05). */
+const FINDINGS_GATE_PRIORITY: GateName[] = ["claim", "rights", "brand", "provenance"];
+
+/** The gates' rows in a fixed, reviewer-priority order, not the order the gates happened to settle in. */
 export function buildFindings(gates: Record<GateName, GateCardState>): Finding[] {
-  const settled = GATE_ORDER.filter((gate) => gates[gate].done !== null).sort(
-    (a, b) => (gates[a].settledAt ?? 0) - (gates[b].settledAt ?? 0),
-  );
+  const settled = FINDINGS_GATE_PRIORITY.filter((gate) => gates[gate].done !== null);
   const findings: Finding[] = [];
   for (const gate of settled) {
     const done = gates[gate].done;

@@ -185,11 +185,19 @@ def decide(claims: list[dict[str, Any]], substantiation: dict[str, Any]) -> Gate
         row["rules"] = rule["us"] + rule["uk"]
         row["why"] = rule["why"]
         key = normalize_quote(c.get("quote", ""))
-        if kind not in NOT_LIFTED_BY_SUBSTANTIATION and key in proven:
-            row["substantiated_by"] = proven[key]
-            substantiated.append(_study_name(proven[key]))
+        study = proven.get(key)
+        # A study filed for a different kind of claim (an efficacy study cited for an endorsement, say)
+        # does not lift this one: the substantiation on file has to answer to what was actually said,
+        # not just share the same quote text. `study_kind is None` (a study record with no kind field)
+        # still lifts, so a hand-written substantiation file need not add a field it may not know.
+        study_kind = study.get("kind") if isinstance(study, dict) else None
+        if kind not in NOT_LIFTED_BY_SUBSTANTIATION and study is not None and (study_kind is None or study_kind == kind):
+            row["substantiated_by"] = study
+            substantiated.append(_study_name(study))
             advisory.append(row)
             continue
+        if study is not None and study_kind is not None and study_kind != kind:
+            row["why"] = f"a study is on file, but it is filed for a {study_kind} claim, not {kind}: {rule['why']}"
         blocking.append(row)
         for r in row["rules"]:
             if r not in rule_ids:

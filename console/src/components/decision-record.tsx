@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatVerdictCostLine, groupRuleIds, readC2pa, type LokiLine } from "@/lib/events";
 import { labelForTarget } from "@/lib/assets";
+import { ownerLabel } from "@/lib/incident-types";
 import { REVIEWER_ROLES, type ReviewerRole } from "@/lib/review";
 import type { ReviewState } from "@/lib/use-review";
 import type { RunState } from "@/lib/use-run";
@@ -98,7 +99,27 @@ export function DecisionRecord({
             {verdict.annotation_id !== undefined && verdict.annotation_id !== null
               ? `annotation ${verdict.annotation_id}`
               : "no annotation id"}
-            {escalation?.incident_id ? `, incident ${escalation.incident_id}` : ""}
+            {escalation?.incident_id ? (
+              <>
+                ,{" "}
+                {escalation.incident_url ? (
+                  <a
+                    href={escalation.incident_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-accent underline underline-offset-[3px]"
+                    title={`incident ${escalation.incident_id} in Grafana IRM`}
+                  >
+                    incident {escalation.incident_id}
+                  </a>
+                ) : (
+                  `incident ${escalation.incident_id}`
+                )}
+                {escalation.owner ? `, routed to the ${ownerLabel(escalation.owner)}` : ""}
+              </>
+            ) : (
+              ""
+            )}
             {verdict.trace_id && verdict.trace_url ? (
               <>
                 ,{" "}

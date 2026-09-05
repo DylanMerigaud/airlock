@@ -77,10 +77,16 @@ export function IncidentQueue({
   busy: boolean;
 }) {
   const [resolving, setResolving] = React.useState<string | null>(null);
+  const [resolveError, setResolveError] = React.useState<{ id: string; message: string } | null>(null);
   const resolve = async (incident: IncidentPreview) => {
     setResolving(incident.id);
+    setResolveError(null);
     try {
       await onResolve(incident);
+    } catch (error) {
+      // The route can refuse (a rate limit, a non-Airlock title) or Grafana can answer with an error;
+      // a silent failure here would look like the click did nothing (found live, 2026-09-05).
+      setResolveError({ id: incident.id, message: error instanceof Error ? error.message : String(error) });
     } finally {
       setResolving(null);
     }
@@ -183,6 +189,11 @@ export function IncidentQueue({
                       {resolving === incident.id ? "Resolving" : "Resolve"}
                     </Button>
                   </div>
+                  {resolveError?.id === incident.id && (
+                    <p role="alert" className="mt-1 max-w-[28ch] text-right text-[11px] leading-[1.4] text-warn">
+                      {resolveError.message}
+                    </p>
+                  )}
                 </td>
               </tr>
             );
