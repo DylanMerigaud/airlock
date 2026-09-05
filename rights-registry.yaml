@@ -1,5 +1,9 @@
 # What the rights gate knows. A brand, face or work that is not in this file is UNKNOWN, and an
 # unknown identifiable element blocks: the gate has no right to assume a clearance it cannot see.
+#
+# Brand names are matched against Video Intelligence's logo names (whole name) and against the
+# on-screen text token-wise: every word of the name must appear, in one text line or across the
+# lines read within 3 s of each other ("AMERICAN DENTAL" and "ASSOCIATION" on a seal).
 brands:
   - name: Nimbus
     owner: "fictional (Airlock synthetic test brand)"
@@ -14,11 +18,18 @@ brands:
     status: not_cleared
     note: "Organisation name and seal; an endorsement needs its written consent (16 CFR 255.4)."
 faces:
-  # No real person is cleared. Any detected face without a matching release blocks.
+  # A release clears the faces of ONE asset, the one it names, never every face the gate sees.
+  # Fields: asset_id (the asset's file name without extension, or the asset id the pipeline was
+  # given), signed_by, date, and optionally covers: all for a blanket release (the studio's own
+  # staff in every clip). A release that names another asset clears nothing. Video Intelligence
+  # gives no age: a minor's face gets the same rule as an adult's (a known gap, README).
+  # No real person is cleared: the list is empty, and the Nimbus clips carry no face
+  # (person_generation=dont_allow, face_tracks = 0 on every run).
   releases: []
-works:
-  # Music, footage or artwork with a licence on file.
-  licences: []
+# works.licences (music, footage, artwork) was removed on 2026-09-05: no code read it, and the
+# gate has nothing to match a licence against. Video Intelligence reads no audio, so a music cue
+# is never seen; footage and artwork would need a fingerprint the gate does not compute. A cue
+# sheet and an audio fingerprint are the follow-up (README, known gaps).
 policy:
   unknown_brand: BLOCK
   unknown_face: BLOCK

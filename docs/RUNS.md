@@ -1979,3 +1979,232 @@ Screenshots in the session scratchpad, folder `t4/`: `01-idle.png` (the upload t
 `05-rights-header-badge.png`, `06-rights-evidence-table.png`, `07-claim-evidence-table.png`,
 `08-verdict-row.png`, `09-escalation-table-raw-open.png`, `10-trace-fault-rows.png`. The dev
 server was stopped afterwards; nothing was deployed from this task.
+
+
+## Domain correctness: citations, puffery, substantiation on GCS, releases per face, provenance actions (2026-09-05)
+
+The compliance judge of the 2026-09-05 panel scored the domain layer "one layer deep": the
+substantiation path was unreachable on GCS assets and crashed on a case difference (also the
+vibe-code judge's defect 2 and the Google judge's defect 10), five of seven claim kinds cited the
+Endorsement Guides for claims Part 255 does not govern, no puffery class and no 255.5, one release
+cleared every face, `works.licences` had no code behind it, the ADA entry never fired on the Crest
+spot, and the provenance gate never read `c2pa.actions`. This section is the fix, gate by gate,
+with the outputs. Branch `worktree-agent-ab3f7347cf71053e4`, commits b000a12, 494a912, c6fe2e2,
+4d86d01 and this one. `uv run pytest -q` before each commit: 94 tests at the fork, 120 after
+(26 new: 12 claim, 9 rights, 5 provenance). No test calls a model or a cloud API.
+
+### Claim gate (airlock/gates/claim.py)
+
+- Substantiation lookup, in order: `<path>.substantiation.yaml` when the asset has a local file,
+  else the GCS object `<gcs_uri>.substantiation.yaml` (read with `airlock.assets._storage_client`,
+  the client the download uses; a 404 is "no study", any other failure raises so the envelope
+  records an ERROR instead of a false "no substantiation on file"), else nothing. The pipeline
+  builds GCS-only assets (`Asset(path="")`), so the bucket is the path that runs in the cloud. The
+  evidence says where the file was read from (`substantiation_read_from`).
+- Quotes are matched normalised on both sides (lower, one space, no surrounding quotes, no trailing
+  sentence punctuation) and the value is read from the normalised dict: the KeyError of
+  claim.py:95-96 is gone, `tests/test_claim.py::test_substantiation_matches_on_normalized_quote`
+  is the regression.
+- Citations. Endorsement kinds keep Part 255 (consumer_testimonial 255.2(a) and (b), expert 255.3,
+  organisation 255.4). The advertiser's own efficacy, health, comparative and superlative claims
+  cite `FTC Act section 5 (15 U.S.C. 45)` and `FTC Policy Statement Regarding Advertising
+  Substantiation (1983)` plus `CAP Code 3.7`; comparative adds `16 CFR 14.15` and `CAP Code 3.32`;
+  a health claim's reason says it is an OTC drug claim under FDA jurisdiction on a product like
+  toothpaste (21 CFR 355). New file `rules/ftc-substantiation.md`: citation, a two-sentence
+  summary in our own words, the source URL, per rule. The plan said CAP 3.33 for comparisons; the
+  ASA's own Hotpoint ruling (G26-1344778) and the code page number the rule 3.32 ("a comparison with
+  an identifiable competitor must not mislead"), 3.33 is "same needs or purpose", so 3.32 is cited,
+  read on https://www.asa.org.uk/type/non_broadcast/code_section/03.html on 2026-09-05.
+- Two kinds added to the Gemini schema, the prompt and `decide()`: `puffery` (advisory, reason
+  "puffery, not a factual claim (FTC does not require substantiation for puffery)") and
+  `material_connection` (BLOCK on `16 CFR 255.5` and `CAP Code 2.1`; a study does not lift it, a
+  disclosure does, tested). The prompt now defines every kind in one clause each.
+- The BLOCK reason carries the rule's "why" after the citation; the PASS reason names the study
+  when one was used ("substantiation on file: <study>").
+
+Rule ids that changed (the eval manifest and any ground truth naming ids must follow):
+
+| kind | before | after |
+|---|---|---|
+| efficacy | `16 CFR 255.1(a)`, `16 CFR 255.2(b)`, `ASA A26-1337640 (CAP 3.1, 3.7)` | `FTC Act section 5 (15 U.S.C. 45)`, `FTC Policy Statement Regarding Advertising Substantiation (1983)`, `CAP Code 3.7`, `ASA A26-1337640 (CAP 3.1, 3.7)` |
+| health | `16 CFR 255.1(a)`, `ASA A26-1337640 (CAP 3.7, 12.11)` | `FTC Act section 5 (15 U.S.C. 45)`, `FTC Policy Statement Regarding Advertising Substantiation (1983)`, `CAP Code 3.7`, `ASA A26-1337640 (CAP 3.7, 12.11)` |
+| comparative | `16 CFR 255.1(a)`, `ASA G26-1344778 (CAP 3.1, 3.3, 3.32)` | `FTC Act section 5 (15 U.S.C. 45)`, `FTC Policy Statement Regarding Advertising Substantiation (1983)`, `16 CFR 14.15`, `CAP Code 3.7`, `CAP Code 3.32`, `ASA G26-1344778 (CAP 3.1, 3.3, 3.32)` |
+| superlative | `16 CFR 255.1(a)`, `ASA G26-1344778 (CAP 3.1, 3.3)` | `FTC Act section 5 (15 U.S.C. 45)`, `FTC Policy Statement Regarding Advertising Substantiation (1983)`, `CAP Code 3.7`, `ASA G26-1344778 (CAP 3.1, 3.3)` |
+| consumer_testimonial, expert_endorsement, organization_endorsement | unchanged | unchanged |
+| material_connection (new) | | `16 CFR 255.5`, `CAP Code 2.1` |
+| puffery (new), price, other | advisory, no id | advisory, no id |
+| claim PASS | `16 CFR 255.1` | `16 CFR 255.1`, `FTC Act section 5 (15 U.S.C. 45)`, `CAP Code 3.7` |
+| provenance PASS, manifest marked generated | `airlock:provenance:manifest-required`, `signature-valid`, `signer-trusted` | the same plus `airlock:provenance:generated-marking` |
+| rights | unchanged (`registry:brands:unknown`, `registry:brands:not_cleared`, `registry:faces:no_release`, `registry:explicit_content`) | unchanged |
+
+`airlock/verdict.py` `PAPERWORK_RULE_PREFIXES` still matches every claim BLOCK through the `ASA `
+or `16 CFR` id each kind keeps; adding `FTC Act` and `CAP Code` to the tuple (T1's file) would stop
+that from being a coincidence. The console's `groupRuleIds` (console/src/lib/events.ts) files the
+new ids under "Other references"; a "FTC Act and policy" group and a "CAP Code" group are for T4.
+
+### The substantiation demo, and why it is not beside nimbus-test-clip.mp4
+
+The plan put the file at `gs://.../synthetic/nimbus-test-clip.mp4.substantiation.yaml`. That URI is
+the claim gate's calibration defect (`airlock/calibrate.py:47`, expected BLOCK on 16 CFR 255.3, run
+by the daily proof in the cloud with `path=""`), the console's "Nimbus test clip" preset
+("claim block on 16 CFR 255.3", console/src/lib/assets.ts:35) and the video's beat. A study beside
+it would turn every daily claim calibration into a MISS and R2 would refuse the claim gate's PASS
+on every verdict. So the substantiated variant is a byte-identical copy under another name:
+
+```
+gcloud storage cp gs://airlock-agentic-cinema-assets/synthetic/nimbus-test-clip.mp4 gs://airlock-agentic-cinema-assets/synthetic/nimbus-test-clip-substantiated.mp4
+gcloud storage cp assets/synthetic/nimbus-test-clip-substantiated.mp4.substantiation.yaml gs://airlock-agentic-cinema-assets/synthetic/nimbus-test-clip-substantiated.mp4.substantiation.yaml
+gcloud storage ls -l gs://airlock-agentic-cinema-assets/synthetic/
+   5031842  2026-09-05T06:24:35Z  gs://airlock-agentic-cinema-assets/synthetic/nimbus-test-clip-substantiated.mp4
+      1219  2026-09-05T06:24:43Z  gs://airlock-agentic-cinema-assets/synthetic/nimbus-test-clip-substantiated.mp4.substantiation.yaml
+   5031842  2026-08-29T00:17:48Z  gs://airlock-agentic-cinema-assets/synthetic/nimbus-test-clip.mp4
+shasum -a 256: cf5e05c2665181b92f81ac3c80a02ed99b85e066d4fd72a7ef4f3b54e5efe343 for both local files
+```
+
+The study is fictional and the file says so (SYNTHETIC.md lists it). The claim gate alone on the
+two GCS-only assets, built with `airlock.assets.from_message` exactly as the pipeline builds them
+(`python -m airlock.run` takes a local path and would have found the local file first; the
+script is in the session scratchpad):
+
+```
+[06:25:06 UTC] asset_id=nimbus-test-clip-substantiated path='' gcs_uri=gs://airlock-agentic-cinema-assets/synthetic/nimbus-test-clip-substantiated.mp4
+  claim PASS 18735 ms  no regulated claim without substantiation (2 claim(s) read, 2 advisory); substantiation on file: Nimbus sommelier preference panel, 2026-08 (SYNTHETIC: a fictional study written for the Airlock demo, no such panel exists)
+  rule_ids: ['16 CFR 255.1', 'FTC Act section 5 (15 U.S.C. 45)', 'CAP Code 3.7']
+  substantiation_read_from: gs://airlock-agentic-cinema-assets/synthetic/nimbus-test-clip-substantiated.mp4.substantiation.yaml  entries: 1
+  claim: {"start_s": 0.0, "kind": "puffery", "quote": "Clear as morning.", "endorser": null, "substantiated_by": null}
+  claim: {"start_s": 3.0, "kind": "expert_endorsement", "quote": "Recommended by 9 out of 10 sommeliers.", "endorser": "sommeliers", "substantiated_by": {"study": "Nimbus sommelier preference panel, 2026-08 (SYNTHETIC: ...)", "kind": "expert_endorsement", "rule": "16 CFR 255.3: ...", "on_file_with": "Airlock demo studio (fictional)", "date": "2026-08-28"}}
+[06:25:28 UTC] asset_id=nimbus-test-clip path='' gcs_uri=gs://airlock-agentic-cinema-assets/synthetic/nimbus-test-clip.mp4
+  claim BLOCK 11891 ms  1 regulated claim(s) with no substantiation on file; first at 3.17s: "Recommended by 9 out of 10 sommeliers." (expert_endorsement, 16 CFR 255.3): an expert endorsement must be supported by an actual exercise of that expertise
+  rule_ids: ['16 CFR 255.3', 'ASA A26-1337640 (CAP 3.7)']
+  substantiation_read_from: None  entries: 0
+```
+
+The same clip, the file beside one name and not the other: PASS with the study named, BLOCK on
+255.3. The console preset Phase C adds: label "Nimbus test clip, study on file", asset id
+`nimbus-test-clip-substantiated`, URI
+`gs://airlock-agentic-cinema-assets/synthetic/nimbus-test-clip-substantiated.mp4`, expected
+"rights pass, claim PASS with substantiation on file (the fictional sommelier panel, SYNTHETIC.md),
+brand pass, provenance pass". `scripts/fetch_assets.sh` (T5's file) can `cp` the local copy so the
+local `airlock.run` also has it.
+
+### Rights gate (airlock/gates/rights.py, rights-registry.yaml)
+
+- Registry names are matched token-wise against the on-screen text: every word of the name must be
+  a whole word of one text line, or of the lines whose spans start within 3 s of it (the hit line
+  has to carry at least one word). Single-word names still match whole words only ("Crestwood"
+  does not match Crest). The finding says `across_lines: true` and the reason "on-screen text
+  across lines".
+- A release clears the faces of the asset it names (`asset_id`, matched against the asset id and
+  the file stem of its path or URI) or every asset when it says `covers: all`; a release list
+  naming another asset clears nothing. Before, any non-empty list disabled the face check
+  (rights.py:130-131). The registry documents the fields; the list stays empty because no real
+  person is cleared and the Nimbus clips carry no face (`face_tracks = 0` on every run, so the
+  clean clip still PASSes with no release).
+- `works.licences` removed from the registry with the comment saying why: no code read it, Video
+  Intelligence reads no audio and computes no fingerprint. `tests/test_rights.py::test_registry_has_no_unread_key`
+  keeps the registry to the keys the gate reads.
+- The evidence carries the text lines (`texts`, text and start, capped at 80) so a match can be
+  checked from the record; the fixture of 2026-08-29 only carried `text_lines: 45`, which is why
+  the ADA miss could not be shown from it.
+
+The rights gate alone on the Crest excerpt (`python -m airlock.run assets/real/CrestToothpa-18-48.mp4
+--gcs-uri gs://airlock-agentic-cinema-assets/real/CrestToothpa-18-48.mp4 --only rights --json`,
+right after the four runs below, 75032 ms), the reasons and the text lines around the seal:
+
+```
+reason: brand Crest (not_cleared, logo at 16.12s, confidence 0.853): Real registered trademark. No licence on file for this asset.
+reason: brand American Dental Association (not_cleared, on-screen text across lines at 25.73s): Organisation name and seal; an endorsement needs its written consent (16 CFR 255.4).
+reason: 7 face track(s) with no release on file for this asset (first at 0.0s)
+rule_ids: ['registry:brands:not_cleared', 'registry:faces:no_release']
+findings: [{"element": "brand", "name": "Crest", "status": "not_cleared", "how": "logo", "first_seen_s": 16.12, "confidence": 0.853},
+           {"element": "brand", "name": "American Dental Association", "status": "not_cleared", "how": "on_screen_text", "first_seen_s": 25.73, "across_lines": true},
+           {"element": "faces", "tracks": 7, "first_seen_s": 0.0, "releases_on_file": 0}]
+face_tracks 7 text_lines 45 releases_applied 0
+   25.73s  COUNCIL ON DENTAL
+   25.73s  THERAPEUTICS
+   25.73s  DENTAL
+   25.73s  AMERICAN
+   25.73s  ASSOCIATION
+   25.83s  Accepted
+   26.03s  A DENTAL
+```
+
+Video Intelligence returns the seal as three one-word lines at the same timestamp; the whole-phrase
+match of 2026-08-28 could never see it, the token match does.
+
+### Provenance gate (airlock/gates/provenance.py)
+
+`summarize()` now reads every `c2pa.actions` (v1 or v2) assertion into `actions` (action,
+digitalSourceType, softwareAgent) and derives `generated_marking` (the IPTC `trainedAlgorithmicMedia`
+or `compositeWithTrainedAlgorithmicMedia` type on any action) and `marked_generated`. A trusted
+manifest with the marking PASSes with the reason "; marked as generated (digitalSourceType
+trainedAlgorithmicMedia, the EU AI Act Article 50 machine-readable marking)" and the rule id
+`airlock:provenance:generated-marking`; a trusted manifest without it stays PASS with a second
+reason "advisory: no machine-readable generated-content marking in the manifest (EU AI Act Article
+50)" and `advisory` in the evidence. Untrusted or invalid manifests block as before, whatever the
+marking. What each asset carries, `c2patool 0.27.16` on 2026-09-05 (the shipped files are not
+re-signed; their hashes stand):
+
+| asset | validation | issuer | actions (digitalSourceType) |
+|---|---|---|---|
+| assets/synthetic/nimbus-test-clip.mp4 | Valid (Trusted under trust/trust-anchors.pem) | Airlock (hackathon test) | c2pa.created trainedAlgorithmicMedia (Veo 3.1 on Vertex AI); c2pa.edited (ffmpeg drawtext overlay); 0 ingredients |
+| assets/synthetic/calibration/nimbus-clean-clip.mp4 | Valid (Trusted) | Airlock (hackathon test) | the same two actions; 0 ingredients |
+| assets/synthetic/calibration/nimbus-defect-provenance-broken.mp4 | Invalid (byte flipped) | Airlock (hackathon test) | the same two actions |
+| assets/synthetic/calibration/nimbus-defect-provenance-stripped.mp4 | no manifest | | |
+| assets/synthetic/calibration/nimbus-defect-brand-red.mp4 | no manifest | | |
+| assets/synthetic/veo-raw.mp4 | Valid, signer not on the trust list | Google LLC (Google C2PA Core Generator Library) | c2pa.created trainedAlgorithmicMedia; c2pa.edited trainedAlgorithmicMedia; 0 ingredients |
+
+So the two shipped Nimbus clips already carry the Article 50 marking: `scripts/make_synthetic_asset.sh`
+step 3 has written `c2pa.created` with `digitalSourceType trainedAlgorithmicMedia` since 2026-08-28,
+the gate just never read it. The script needs no change for that assertion. What it does not do,
+and would need a re-sign to add, is carry `veo-raw.mp4` (Google's own manifest) as an ingredient
+of the signed clip; a dated follow-up, not done here because the shipped hashes are published.
+
+### The four gates on each demo asset, one after another (with_env, 06:26 to 06:31 UTC)
+
+```
+python -m airlock.run assets/real/CrestToothpa-18-48.mp4 --gcs-uri gs://airlock-agentic-cinema-assets/real/CrestToothpa-18-48.mp4
+  rights      BLOCK   46475 ms  brand Crest (not_cleared, logo at 16.12s, confidence 0.853): Real registered trademark. No licence on file for this asset.
+                                rule registry:brands:not_cleared / registry:faces:no_release
+  claim       BLOCK   37350 ms  9 regulated claim(s) with no substantiation on file; first at 7.0s: "my side had 21% fewer cavities with Crest." (consumer_testimonial, 16 CFR 255.2(a)): a testimonial must reflect what consumers can generally expect, or disclose it does not
+                                rule 16 CFR 255.2(a) / 16 CFR 255.2(b) / ASA A26-1337640 (CAP 3.7) / FTC Act section 5 (15 U.S.C. 45) (first four of the list)
+  brand       BLOCK   18681 ms  mandatory mention missing: the Nimbus wordmark is never seen
+  provenance  BLOCK      52 ms  no C2PA manifest in the asset
+
+python -m airlock.run assets/synthetic/nimbus-test-clip.mp4 --gcs-uri gs://airlock-agentic-cinema-assets/synthetic/nimbus-test-clip.mp4
+  rights      PASS    38939 ms  cleared brand(s): Nimbus; no unreleased face, no explicit content
+  claim       BLOCK   14694 ms  1 regulated claim(s) with no substantiation on file; first at 3.0s: "Recommended by 9 out of 10 sommeliers." (expert_endorsement, 16 CFR 255.3): an expert endorsement must be supported by an actual exercise of that expertise
+                                rule 16 CFR 255.3 / ASA A26-1337640 (CAP 3.7)
+  brand       PASS    10955 ms  Nimbus wordmark seen, palette, tone and exclusions respected
+  provenance  PASS      130 ms  C2PA manifest verified and trusted; signed by Airlock (hackathon test); created by airlock-synthetic-asset; marked as generated (digitalSourceType trainedAlgorithmicMedia, the EU AI Act Article 50 machine-readable marking)
+                                rule airlock:provenance:manifest-required / signature-valid / signer-trusted / generated-marking
+
+python -m airlock.run assets/synthetic/nimbus-test-clip-substantiated.mp4 --gcs-uri gs://airlock-agentic-cinema-assets/synthetic/nimbus-test-clip-substantiated.mp4
+  rights      PASS    27858 ms  cleared brand(s): Nimbus; no unreleased face, no explicit content
+  claim       PASS    12393 ms  no regulated claim without substantiation (2 claim(s) read, 2 advisory); substantiation on file: Nimbus sommelier preference panel, 2026-08 (SYNTHETIC: a fictional study written for the Airlock demo, no such panel exists)
+                                rule 16 CFR 255.1 / FTC Act section 5 (15 U.S.C. 45) / CAP Code 3.7
+  brand       PASS    11573 ms  Nimbus wordmark seen, palette, tone and exclusions respected
+  provenance  PASS      62 ms  (same as above, marked as generated)
+
+python -m airlock.run assets/synthetic/calibration/nimbus-clean-clip.mp4 --gcs-uri gs://airlock-agentic-cinema-assets/calibration/nimbus-clean-clip.mp4
+  rights      PASS    35410 ms  cleared brand(s): Nimbus; no unreleased face, no explicit content
+  claim       PASS    23658 ms  no regulated claim without substantiation (2 claim(s) read, 2 advisory)
+  brand       PASS     8553 ms  Nimbus wordmark seen, palette, tone and exclusions respected
+  provenance  PASS     104 ms  (same as above, marked as generated)
+```
+
+Gemini now labels "Clear as morning." `puffery` on the Nimbus clips (it was `other`), still
+advisory. On the Crest excerpt the claim gate read 9 blocking claims (run 1 of 2026-08-28 read 9,
+run 2 read 10) and its rule id list now carries `FTC Act section 5 (15 U.S.C. 45)` where the
+2026-08-28 runs carried `16 CFR 255.1(a)`; the calibration ledger's expectations (`registry:brands:not_cleared`, `16 CFR 255.3`,
+`charter:`, `manifest-required`, `signature-valid`) are unchanged and still met by these runs.
+
+### Not done here
+
+- No deploy: the agent engine and airlock-mcp carry the old gates until the main session redeploys
+  after the merge; the hosted console will show the new reasons and rule ids then. The console
+  fixtures (Phase C) still carry the old claim citations and the old rights reason.
+- The eval ground truth (T5, `eval/`) is measured on the old ids; the table above is what it has
+  to follow for the efficacy, health, comparative and superlative rows.
+- README's "Every decision is a plain function; the models only read" sentence is T5's; the gates
+  table and the known gaps paragraph are updated here.

@@ -16,12 +16,19 @@ Public dashboard (no login): https://narrowsubmarine1895.grafana.net/public-dash
 
 Four gates read the asset, each against a named source of truth:
 
-| gate | source of truth | what blocks |
-|---|---|---|
-| rights | Video Intelligence API (logos, faces, text, explicit content) against `rights-registry.yaml` | an identifiable brand or face the registry does not clear |
-| claim | gemini-2.5-pro extracts every claim with timestamps; 16 CFR Part 255 and two ASA rulings map each kind (`rules/`) | a regulated claim with no substantiation on file |
-| brand | gemini-2.5-flash reads the asset against `charter.yaml` | a missing wordmark, an exclusion, a forbidden colour, the wrong tone |
-| provenance | c2pa-python verifies the C2PA manifest against `trust/trust-anchors.pem` | no manifest, a broken signature, an untrusted signer |
+| gate | source of truth | what blocks | what it cites |
+|---|---|---|---|
+| rights | Video Intelligence API (logos, faces, text, explicit content) against `rights-registry.yaml` | a brand the registry does not clear (logo, or its name token-wise across the on-screen text lines), a face with no release for this asset, explicit content | the registry entry and its note |
+| claim | gemini-2.5-pro extracts every claim with timestamps and a kind; the rule maps each kind (`rules/`) | a regulated claim with no substantiation on file (`<asset>.substantiation.yaml`, beside the asset locally or in the bucket, matched on the normalised quote); an endorser's undisclosed material connection | endorsements: 16 CFR 255.2 (consumer testimonial), 255.3 (expert), 255.4 (organisation), 255.5 (material connection); the advertiser's own efficacy, health, comparative and superlative claims: FTC Act section 5 and the FTC Policy Statement Regarding Advertising Substantiation (1983), CAP Code 3.7; a comparison also 16 CFR 14.15 and CAP 3.32; the ASA ruling whose claim shape matches. Puffery and price are advisory. |
+| brand | gemini-2.5-flash reads the asset against `charter.yaml` | a missing wordmark, an exclusion, a forbidden colour, the wrong tone | the charter line |
+| provenance | c2pa-python verifies the C2PA manifest against `trust/trust-anchors.pem` and reads its `c2pa.actions` | no manifest, a broken signature, an untrusted signer | the manifest's `digitalSourceType`: `trainedAlgorithmicMedia` is the machine-readable generated-content marking (EU AI Act Article 50); a trusted manifest without it PASSes with an advisory |
+
+Known gaps a clearance desk would still check by hand: **music and artwork** (Video Intelligence
+reads no audio and computes no fingerprint; a cue sheet is not read), **minors** (Video Intelligence
+gives no age, so a child's face gets the adult rule and 16 CFR 255.6 is never applied), **the
+market** (the US and UK rules are both cited on every claim; the gate does not know where the
+asset airs), and **the FDA side of a health claim** (a cavity or decay claim on toothpaste is an
+OTC drug claim; the gate says so in the reason and cites nothing further).
 
 Then the verdict agent asks Grafana, through MCP, five questions about each gate before it rules:
 whether Loki holds this run's event of the gate (LogQL `{app="airlock", gate="rights"} |= "<run id>"`,
@@ -172,7 +179,9 @@ model or a cloud API.
 ## Synthetic inputs
 
 `SYNTHETIC.md` names every synthetic element: the Veo clip, its overlays, its self-issued signing
-certificate, the calibration variants. Everything else is real and named at its source.
+certificate, the calibration variants, and the fictional sommelier study in
+`assets/synthetic/nimbus-test-clip-substantiated.mp4.substantiation.yaml` that lets the claim gate
+be shown lifting a BLOCK. Everything else is real and named at its source.
 
 ## Layout
 

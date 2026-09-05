@@ -1,0 +1,18 @@
+# Substantiation on file for nimbus-test-clip-substantiated.mp4, a byte-identical copy of
+# assets/synthetic/nimbus-test-clip.mp4 under another name (same sha256, see SYNTHETIC.md).
+#
+# The claim gate reads this file from beside the asset (<asset>.substantiation.yaml, locally or
+# in the bucket: gs://airlock-agentic-cinema-assets/synthetic/nimbus-test-clip-substantiated.mp4.substantiation.yaml)
+# and matches each key against the quotes Gemini extracted, normalised (case, whitespace, trailing
+# punctuation). A matched regulated claim becomes advisory: "substantiation on file: <study>".
+#
+# EVERYTHING BELOW IS SYNTHETIC. The study is fictional, invented for the demo so that the same
+# clip can be shown blocking without this file and passing with it. No sommelier panel was run.
+asset: nimbus-test-clip-substantiated.mp4
+claims:
+  "Recommended by 9 out of 10 sommeliers.":
+    study: "Nimbus sommelier preference panel, 2026-08 (SYNTHETIC: a fictional study written for the Airlock demo, no such panel exists)"
+    kind: expert_endorsement
+    rule: "16 CFR 255.3: an expert endorsement must rest on an actual exercise of the expertise"
+    on_file_with: "Airlock demo studio (fictional)"
+    date: "2026-08-28"
