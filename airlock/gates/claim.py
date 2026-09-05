@@ -90,7 +90,8 @@ RULES: dict[str, dict[str, Any]] = {
     "health":                   {"us": [FTC_ACT_5, FTC_SUBSTANTIATION], "uk": [CAP_SUBSTANTIATION, f"{ASA_HEALTHY_DOG} (CAP 3.7, 12.11)"],
                                  "why": "a health claim needs substantiation on file; on a drug or OTC product (a cavity or decay claim on "
                                         "toothpaste, 21 CFR 355) it is an OTC drug claim under FDA jurisdiction as well"},
-    "comparative":              {"us": [FTC_ACT_5, FTC_SUBSTANTIATION, FTC_COMPARATIVE], "uk": [CAP_SUBSTANTIATION, CAP_COMPARISONS, f"{ASA_HOTPOINT} (CAP 3.1, 3.3, 3.32)"],
+    "comparative":              {"us": [FTC_ACT_5, FTC_SUBSTANTIATION, FTC_COMPARATIVE],
+                                 "uk": [CAP_SUBSTANTIATION, CAP_COMPARISONS, f"{ASA_HOTPOINT} (CAP 3.1, 3.3, 3.32)"],
                                  "why": "a comparison with a competitor needs its basis substantiated and, in the UK, clear on the same screen"},
     "superlative":              {"us": [FTC_ACT_5, FTC_SUBSTANTIATION], "uk": [CAP_SUBSTANTIATION, f"{ASA_HOTPOINT} (CAP 3.1, 3.3)"],
                                  "why": "a superlative is a comparison with every competitor and needs its basis"},

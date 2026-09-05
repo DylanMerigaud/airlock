@@ -2,7 +2,6 @@ import os
 
 import pytest
 
-from airlock.gates.base import Asset
 from airlock.gates.provenance import decide, read_manifest_store
 
 CREST = os.path.join(os.path.dirname(__file__), "..", "assets", "real", "CrestToothpa.mp4")
@@ -33,7 +32,8 @@ def test_valid_but_untrusted_signer_blocks():
         "active_manifest": "urn:x",
         "validation_state": "Valid",
         "manifests": {"urn:x": {"claim_generator": "c2patool", "signature_info": {"issuer": "Somebody"}, "assertions": []}},
-        "validation_results": {"activeManifest": {"failure": [{"code": "signingCredential.untrusted", "explanation": "x"}], "success": [{"code": "claimSignature.validated"}]}},
+        "validation_results": {"activeManifest": {"failure": [{"code": "signingCredential.untrusted", "explanation": "x"}],
+                                                  "success": [{"code": "claimSignature.validated"}]}},
     }
     r = decide(store)
     assert r.status == "BLOCK"

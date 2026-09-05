@@ -126,7 +126,8 @@ def decide(store: dict[str, Any] | None) -> GateResult:
                           evidence=[s], rule_ids=[RULE_SIGNATURE_VALID], source_of_truth=SOURCE_OF_TRUTH)
     if untrusted or state != "trusted":
         return GateResult(gate="provenance", status="BLOCK",
-                          reasons=[f"C2PA signature valid but the signer is not on the trust list: {s.get('issuer') or 'unknown issuer'} ({', '.join(untrusted) or state})"],
+                          reasons=[f"C2PA signature valid but the signer is not on the trust list: {s.get('issuer') or 'unknown issuer'} "
+                                   f"({', '.join(untrusted) or state})"],
                           evidence=[s], rule_ids=[RULE_SIGNER_TRUSTED], source_of_truth=SOURCE_OF_TRUTH)
     reason = f"C2PA manifest verified and trusted; signed by {s.get('issuer')}; created by {s.get('claim_generator')}"
     rule_ids = [RULE_MANIFEST_REQUIRED, RULE_SIGNATURE_VALID, RULE_SIGNER_TRUSTED]

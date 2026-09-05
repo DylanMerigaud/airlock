@@ -72,11 +72,16 @@ def annotate(asset: Asset) -> dict[str, Any]:
     else:
         request["input_content"] = pathlib.Path(asset.path).read_bytes()
     op = client.annotate_video(request=request)
-    a = op.result(timeout=float(os.environ.get("AIRLOCK_VI_TIMEOUT_S", "600"))).annotation_results[0]
-    logos = [{"name": l.entity.description, "entity_id": l.entity.entity_id,
-              "spans": [{"start": _secs(t.segment.start_time_offset), "end": _secs(t.segment.end_time_offset), "confidence": round(t.confidence, 3)} for t in l.tracks]}
-             for l in a.logo_recognition_annotations]
-    texts = [{"text": t.text, "spans": [{"start": _secs(s.segment.start_time_offset), "end": _secs(s.segment.end_time_offset)} for s in t.segments]} for t in a.text_annotations]
+    response = op.result(timeout=float(os.environ.get("AIRLOCK_VI_TIMEOUT_S", "600")))
+    if response is None:  # the client stub types the result as Optional; an empty answer is an instrument failure
+        raise RuntimeError("Video Intelligence returned no annotation results")
+    a = response.annotation_results[0]
+    logos = [{"name": la.entity.description, "entity_id": la.entity.entity_id,
+              "spans": [{"start": _secs(t.segment.start_time_offset), "end": _secs(t.segment.end_time_offset),
+                         "confidence": round(t.confidence, 3)} for t in la.tracks]}
+             for la in a.logo_recognition_annotations]
+    texts = [{"text": t.text, "spans": [{"start": _secs(s.segment.start_time_offset), "end": _secs(s.segment.end_time_offset)} for s in t.segments]}
+             for t in a.text_annotations]
     faces = [{"start": _secs(t.segment.start_time_offset), "end": _secs(t.segment.end_time_offset)} for f in a.face_detection_annotations for t in f.tracks]
     explicit: dict[str, int] = {}
     for f in a.explicit_annotation.frames:
@@ -168,11 +173,13 @@ def decide(annotations: dict[str, Any], registry: dict[str, Any], refs: set[str]
     for logo in annotations.get("logos", []):
         status, entry = _brand_status(logo["name"], registry)
         first = logo["spans"][0] if logo["spans"] else {}
-        findings.append({"element": "brand", "name": logo["name"], "status": status, "how": "logo", "first_seen_s": first.get("start"), "confidence": first.get("confidence")})
+        findings.append({"element": "brand", "name": logo["name"], "status": status, "how": "logo", "first_seen_s": first.get("start"),
+                         "confidence": first.get("confidence")})
         seen.add(logo["name"].lower())
         if status == "unknown":
             # The API's logo names were wrong on 6 of 10 real 1950s spots (eval of 2026-08-29): the name is a guess.
-            reasons.append(f"a logo the registry does not know at {first.get('start')}s (Video Intelligence's guess: {logo['name']}, confidence {first.get('confidence')})")
+            reasons.append(f"a logo the registry does not know at {first.get('start')}s (Video Intelligence's guess: {logo['name']}, "
+                           f"confidence {first.get('confidence')})")
             rule_ids.append("registry:brands:unknown")
         elif status != "cleared":
             reasons.append(f"brand {logo['name']} ({status}, logo at {first.get('start')}s, confidence {first.get('confidence')})"
@@ -187,14 +194,16 @@ def decide(annotations: dict[str, Any], registry: dict[str, Any], refs: set[str]
                          "across_lines": hit.get("across_lines", False)})
         if status != "cleared":
             where = "on-screen text" + (" across lines" if hit.get("across_lines") else "")
-            reasons.append(f"brand {hit['name']} ({status}, {where} at {first.get('start')}s)" + (f": {entry.get('note')}" if entry and entry.get("note") else ""))
+            note = f": {entry.get('note')}" if entry and entry.get("note") else ""
+            reasons.append(f"brand {hit['name']} ({status}, {where} at {first.get('start')}s)" + note)
             rule_ids.append("registry:brands:" + ("not_cleared" if status == "not_cleared" else "unknown"))
     faces = annotations.get("faces", [])
     releases = releases_for(refs, registry)
     if faces and policy.get("unknown_face", "BLOCK") == "BLOCK":
         first = min(faces, key=lambda f: f["start"])
         if releases:
-            findings.append({"element": "faces", "tracks": len(faces), "first_seen_s": first["start"], "released_by": [r.get("asset_id") or "all" for r in releases],
+            findings.append({"element": "faces", "tracks": len(faces), "first_seen_s": first["start"],
+                             "released_by": [r.get("asset_id") or "all" for r in releases],
                              "status": "released"})
         else:
             reasons.append(f"{len(faces)} face track(s) with no release on file for this asset (first at {first['start']}s)")

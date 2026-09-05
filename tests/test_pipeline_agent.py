@@ -19,7 +19,8 @@ RUN = "e-7f3a"
 
 
 def loki_answer(*bodies: dict, labels_status: str = "PASS") -> str:
-    rows = [{"timestamp": '"1788566913325404907"', "line": json.dumps(b), "labels": {"app": "airlock", "gate": "rights", "status": labels_status}} for b in bodies]
+    rows = [{"timestamp": '"1788566913325404907"', "line": json.dumps(b), "labels": {"app": "airlock", "gate": "rights", "status": labels_status}}
+            for b in bodies]
     return json.dumps({"data": rows, "metadata": {"linesReturned": len(rows)}})
 
 

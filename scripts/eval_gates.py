@@ -48,7 +48,7 @@ import subprocess
 import sys
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from typing import Any
 
 import yaml
@@ -276,7 +276,7 @@ def run_eval(specs: list[AssetSpec], previous: dict | None = None, order: list[s
              checkpoint: pathlib.Path | None = RESULTS_PATH) -> dict:
     """Run the specs one at a time. After every asset the payload so far is merged into
     `previous` (the results.json on disk, when there is one) and written to `checkpoint`."""
-    started = (previous or {}).get("started") or datetime.now(timezone.utc).isoformat()
+    started = (previous or {}).get("started") or datetime.now(UTC).isoformat()
     prev_rows = list((previous or {}).get("assets") or [])
     order = order or [s.asset_id for s in specs]
     rows: list[dict] = []
@@ -292,7 +292,7 @@ def run_eval(specs: list[AssetSpec], previous: dict | None = None, order: list[s
                 print(f"    {gate:<11} {g['status']:<6} {g['elapsed_ms']:>7} ms  {g['reason'][:120]}", flush=True)
         print(f"    wall {int((time.perf_counter() - t0) * 1000):>7} ms", flush=True)
         payload = {"started": started,
-                   "finished": datetime.now(timezone.utc).isoformat(), "bucket": BUCKET, "code": code_version(),
+                   "finished": datetime.now(UTC).isoformat(), "bucket": BUCKET, "code": code_version(),
                    "manifest": str(MANIFEST_PATH.relative_to(ROOT)), "assets": merge_rows(prev_rows, rows, order),
                    "partial": i < len(specs)}
         if checkpoint is not None:
@@ -538,7 +538,7 @@ def write_eval_md(payload: dict) -> None:
             continue
         g = a["gates"]
 
-        def cell(gate: str) -> str:
+        def cell(gate: str, g: dict = g) -> str:
             r = g.get(gate)
             if not r:
                 return ""
@@ -547,7 +547,8 @@ def write_eval_md(payload: dict) -> None:
         wall = f"{a['wall_ms'] / 1000:.1f} s" if "wall_ms" in a else ""
         asset_cost = asset_cost_usd(a)
         per_asset_costs.append(asset_cost)
-        lines.append(f"| {a['asset_id']} | {a['kind']} | {cell('rights')} | {cell('claim')} | {cell('brand')} | {cell('provenance')} | {wall} | ${asset_cost:.4f} |")
+        lines.append(f"| {a['asset_id']} | {a['kind']} | {cell('rights')} | {cell('claim')} | {cell('brand')} | {cell('provenance')} "
+                     f"| {wall} | ${asset_cost:.4f} |")
     lines.append("")
     lines.append("## Per gate: the status against the expected status")
     lines.append("")
