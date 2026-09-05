@@ -3235,3 +3235,47 @@ at once. The relay was left on New York.
 
 What stays: the Submit click on 2026-09-08 (rules checkbox and the button), after which Devpost
 still allows edits until the deadline.
+
+## The day in one section: the panel, the fixes, the video (2026-09-05)
+
+Dylan's ask (2026-09-04, verbatim in French, translated): "I have no time to look; I fear it smells like
+vibe code, not thought through; what do you advise to really evaluate the quality and build dynamite."
+The answer was measured, not asserted: four independent judge personas read the repo and drove the
+hosted console cold at 03:00 UTC (the Grafana partner architect, the Google Cloud agent judge, a
+skeptical staff engineer hunting generated code, a brand-safety practitioner), each on the four
+Devpost criteria verbatim. First pass, Technological Implementation / Design / Potential Impact /
+Quality of the Idea: Grafana 3/3/3/4, Google 4/4/3/4, engineer 4/4/3/4, practitioner 4/3/3/4; four
+times "maybe" on winning the track. Their converging defects, all fixed the same day and each with
+its own section above: the mute demo did not refuse (R1 read a 15 minute global window, not this
+run); no LlmAgent inside ADK and Loki written but never read; no alert rules; incidents opened as
+drills and never closed; the run route open to any bucket with no rate limit; a KeyError in the one
+"PASS with paperwork" branch; the gate table copied four times, a dead spike agent, 66 ruff and 11
+pyright findings, docs and fixtures drifted, the eval not reproducible; Part 255 cited for claims it
+does not govern.
+
+What shipped, in deploy order: Agent Engine `1737023312967499776` redeployed three times (07:17 UTC
+from T1's branch, 07:09 from T2's, 07:37 from the merged main), airlock-mcp revision 00004 (async
+tools, `/health`), mcp-grafana revision 00005 (alerting tools), the daily proof job rebuilt (tagged
+ledger, `--max-retries=0`), the console revisions 00011 to 00015 (one PromQL source, the fault
+switch, the investigator's note, incidents listed and resolved, the fourth preset, the bucket
+allowlist and the 12 runs per hour per caller, 3 instances at most, a claim PASS naming its study).
+Verified on the merged engine: clean clip PASS annotation 87 with a DECISION NOTE; the study-on-file
+preset PASS annotation 88 with the claim row naming the study; five console fixtures re-recorded
+(annotations 89 to 93, incidents 25, 26 joined, 32 opened). Tests 64 to 179, `ruff check .` and
+`pyright airlock agents airlock_mcp scripts` clean, `pnpm typecheck`, `pnpm lint`, `pnpm build`
+clean. The eval re-run on the shipped gates at 09:30 UTC (section above and `eval/EVAL.md`): same
+scores with n, one new surprise, a claim call that hung and was ended by the new 300 s client
+timeout as an ERROR.
+
+The video: script v6 (three runs, one decision shown three ways: the real film blocked on its
+content, the control broken on camera with the investigator naming the cause from Loki and a human
+resolving the incident, the test clip passed on its study), three takes, the third kept:
+`video/out/airlock-v6-synthetic-voice.mp4`, 175.6 s, every render gate PASS, longest still stretch
+1.85 s (6.40 s in draft 5), synthetic voice declared on screen and in the description. Uploaded
+unlisted as https://youtu.be/T-cPGG8NhZo with the English subtitle track; the Devpost draft carries
+it and the current text (4 of 5 steps, the Submit click left for 2026-09-08).
+
+Spend: September gross 0.79 EUR at 09:39 UTC (the budget notification the cap function logged; billing
+lags a day, so the day's Video Intelligence minutes are not all in yet, and they sit inside the free
+quota anyway); August closed at 3.49 EUR. The credit is not at risk, the cap stays armed. Second pass of the same four
+judges at 10:10 UTC: see the next section.
