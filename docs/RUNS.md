@@ -3195,3 +3195,43 @@ insert opening drawn at 155.95 s and its held last frame at 167.8 s on the daily
 landing at 170.0 s with the PASS card and the DECISION NOTE. No text cut off. Still there for the human
 pass: the dashboard's axis reads local time (04:04) where the console and the note read UTC (09:04), and
 the escalation of run 1 joined drill 25 again rather than opening an incident.
+
+## M6 second pass: the final video on YouTube, the Devpost draft refreshed (2026-09-05)
+
+Two outward actions on Dylan's own accounts, authorised on 2026-09-04 and 2026-09-05, so that the
+submission carries the final video and the current text before the Submit click.
+
+**YouTube.** Channel "Dylan Merigaud" (@dylanmerigaudpro, UC2Yns3jvybFGmPemTd4z3vA), still signed
+in. `video/out/airlock-v6-synthetic-voice.mp4` (175.6 s, 55.6 MB, 1920x1080) uploaded through
+Studio's dialog as on 2026-09-02: the same title, the description from `docs/DEVPOST.md` (console,
+public dashboard, repository, the stack, the synthetic narration named), audience "not made for
+kids", video language English, visibility Unlisted. The English SRT (19 cues) went in through Video
+elements > Subtitles > Upload file (with timing); the editor read the cues back at the right times
+and the video's Subtitles page shows "English (video language): Published Sep 5, 2026" beside the
+automatic captions. Checks: "Checks complete. No issues found." (copyright included) before the
+save. The watch page shows the title, the Unlisted badge and 2:56 (the player reports 175.641 s).
+
+Video: https://youtu.be/T-cPGG8NhZo
+
+The draft 5 placeholder (https://youtu.be/xWJ0nMu5cqM) stays on the channel, unlisted, unused.
+
+**Devpost.** Logged in as @DylanMerigaud. Project details step: the video link replaced
+(xWJ0nMu5cqM to T-cPGG8NhZo); the story replaced by the four sections of `docs/DEVPOST.md` as they
+stand today (What it does, How I built it, Challenges, Accomplishments, one Markdown field, 7241
+characters, read back identical after the save); the 17 Built With tags and the three Try it out
+links (console, repository, public dashboard) already matched the file and were left alone; the
+image gallery kept its screenshot. Saved with "Save & continue", which landed on Additional info
+(untouched). The preview page embeds the new video and renders the four sections with the current
+figures (179 tests, the investigator, the keepalive job, the eval of 2026-09-05). Still 4/5 steps
+done, Devpost flags nothing; the Submit step page lists only the rules checkbox and the "Submit
+project" button, not clicked.
+
+Draft: https://devpost.com/software/airlock-s2kidr (Devpost shows it as "incomplete submission")
+
+A detour worth knowing for 2026-09-08: devpost.com answered `403 Forbidden` from its AWS load
+balancer to every request (browser and curl alike) while the Mac's Mullvad relay was Ashburn
+(us-qas, exit 103.81.231.47, a HostRoyale hosting range); the New York relay (us-nyc) went through
+at once. The relay was left on New York.
+
+What stays: the Submit click on 2026-09-08 (rules checkbox and the button), after which Devpost
+still allows edits until the deadline.
