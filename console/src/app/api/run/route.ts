@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { assetIdFor, PRESET_ASSETS, resolveAsset } from "@/lib/assets";
-import { GATE_ORDER, type GateName } from "@/lib/events";
+import { GATE_ORDER, type FaultKind, type FaultMap, type GateName } from "@/lib/events";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -85,14 +85,35 @@ function locationOf(resource: string): string {
   return match ? match[1] : "us-central1";
 }
 
+/** The faults the pipeline knows how to inject; anything else in the body is dropped. */
+const FAULT_KINDS: FaultKind[] = ["timeout"];
+
+/** Only known gates and known fault kinds travel; the pipeline never sees a free-form value. */
+function faultsFrom(value: unknown): FaultMap {
+  const faults: FaultMap = {};
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return faults;
+  for (const gate of GATE_ORDER) {
+    const kind = (value as Record<string, unknown>)[gate];
+    if (typeof kind === "string" && (FAULT_KINDS as string[]).includes(kind)) faults[gate] = kind as FaultKind;
+  }
+  return faults;
+}
+
 /**
- * What the pipeline receives. A bare URI when nothing is muted, so a plain run
- * stays exactly what it was; a JSON message when the reviewer asked one or more
- * gates to run without pushing anything to Grafana.
+ * What the pipeline receives. A bare URI when nothing is muted and no fault is
+ * injected, so a plain run stays exactly what it was; a JSON message when the
+ * reviewer asked one or more gates to run without pushing anything to Grafana
+ * (`mute`) or to fail on purpose before spending anything (`fault`).
  */
-function messageFor(gcsUri: string, mute: GateName[]): string {
-  if (mute.length === 0) return gcsUri;
-  return JSON.stringify({ gcs_uri: gcsUri, asset_id: assetIdFor(gcsUri), mute });
+function messageFor(gcsUri: string, mute: GateName[], faults: FaultMap = {}): string {
+  const injected = Object.keys(faults).length > 0;
+  if (mute.length === 0 && !injected) return gcsUri;
+  return JSON.stringify({
+    gcs_uri: gcsUri,
+    asset_id: assetIdFor(gcsUri),
+    mute,
+    ...(injected ? { fault: faults } : {}),
+  });
 }
 
 /** Live mode: Vertex AI Agent Engine streamQuery, relayed event by event. */
@@ -208,11 +229,13 @@ async function relayAgentEngine(message: string, relay: Relay, signal: AbortSign
 export async function POST(request: Request) {
   let asset: string;
   let mute: GateName[];
+  let faults: FaultMap;
   try {
-    const body = (await request.json()) as { asset?: string; mute?: unknown };
+    const body = (await request.json()) as { asset?: string; mute?: unknown; fault?: unknown };
     asset = String(body.asset ?? "");
     const asked = Array.isArray(body.mute) ? body.mute : [];
     mute = GATE_ORDER.filter((gate) => asked.includes(gate));
+    faults = faultsFrom(body.fault);
   } catch {
     return NextResponse.json({ error: "Send a JSON body with an asset field." }, { status: 400 });
   }
@@ -256,13 +279,13 @@ export async function POST(request: Request) {
         fail: (message) => write(sse("failed", { message, ts: Date.now() - startedAt })),
       };
 
-      write(sse("open", { asset: gcsUri, mock, mute, ts: 0 }));
+      write(sse("open", { asset: gcsUri, mock, mute, fault: faults, ts: 0 }));
 
       try {
         if (mock) {
           await replayFixture(fixtureFor(asset), relay, request.signal);
         } else {
-          await relayAgentEngine(messageFor(gcsUri, mute), relay, request.signal);
+          await relayAgentEngine(messageFor(gcsUri, mute, faults), relay, request.signal);
         }
       } catch (error) {
         relay.fail(error instanceof Error ? error.message : String(error));
