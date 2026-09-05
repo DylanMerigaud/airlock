@@ -19,7 +19,7 @@ import {
   type GateName,
 } from "@/lib/events";
 import { CALIBRATION_CLAUSE, calibrationFor, GATE_DOT, type InstrumentReading } from "@/lib/instrument";
-import type { GateCardState, RunState } from "@/lib/use-run";
+import { escalationLine, investigationLine, investigationStepLine, type GateCardState, type RunState } from "@/lib/use-run";
 
 /**
  * A once-a-second clock, only while something runs. It feeds the elapsed
@@ -550,6 +550,7 @@ export function ChecksList({
     return seen === true || seen === false;
   });
   const escalation = state.escalation;
+  const investigation = state.investigation;
   const anyRunning = GATE_ORDER.some((g) => state.gates[g].status === "RUNNING");
   const now = useNow(anyRunning);
 
@@ -719,17 +720,58 @@ export function ChecksList({
       </CheckRow>
 
       <CheckRow
+        name="investigation"
+        status={state.investigationStatus}
+        line={
+          investigation
+            ? investigationLine(investigation)
+            : state.investigationStatus === "RUNNING"
+              ? (state.investigationSteps.length > 0
+                  ? investigationStepLine(state.investigationSteps[state.investigationSteps.length - 1])
+                  : "Reading this run's Loki lines through mcp-grafana")
+              : state.phase === "idle"
+                ? "An LlmAgent on gemini-2.5-flash reads Loki and the alert rules, then names the cause"
+                : state.phase === "settled" || state.escalation
+                  ? "No investigation on this run (recorded before the investigator existed)"
+                  : "Waiting for the verdict"
+        }
+      >
+        <dl className="space-y-2 text-[12.5px] leading-[1.5]">
+          <div>
+            <dt className="label-micro text-ink-soft">Source of truth</dt>
+            <dd className="mt-1 text-ink">
+              What Grafana holds about this run, read through mcp-grafana: this run&apos;s Loki lines, the
+              previous runs of the failing gate, the gate counters and the Airlock alert rules. At most 6
+              tool calls; the verdict never depends on the note.
+            </dd>
+          </div>
+          {investigation && (
+            <div>
+              <dt className="label-micro text-ink-soft">{investigation.fallback ? "Fallback note" : investigation.kind}</dt>
+              <dd className="mt-1 whitespace-pre-line text-ink">{investigation.note}</dd>
+            </div>
+          )}
+          {state.investigationSteps.length > 0 && (
+            <div>
+              <dt className="label-micro text-ink-soft">Tool calls</dt>
+              <dd className="mt-1 space-y-1 font-mono text-[11px] text-ink-soft">
+                {state.investigationSteps.map((step, index) => (
+                  <p key={`${step.tool}-${index}`}>{investigationStepLine(step)}</p>
+                ))}
+              </dd>
+            </div>
+          )}
+        </dl>
+      </CheckRow>
+
+      <CheckRow
         name="escalation"
         status={state.escalationStatus}
         line={
           escalation
-            ? escalation.incident_id
-              ? `Incident ${escalation.incident_id} opened${escalation.incident_title ? `: ${escalation.incident_title}` : ""}`
-              : escalation.fallback_annotation_id !== undefined
-                ? `The Incident API refused, a needs-human annotation was written instead (id ${escalation.fallback_annotation_id})`
-                : (escalation.reason ?? "No escalation needed")
+            ? escalationLine(escalation)
             : state.phase === "idle"
-              ? "Opens an incident only when a human has to arbitrate"
+              ? "Opens an incident only when a human has to arbitrate, or joins the open one for the same asset and motive"
               : "Waiting for the verdict"
         }
       >

@@ -1,13 +1,23 @@
-"""Airlock: the ADK pipeline. Four gate agents in parallel, then the verdict agent.
+"""Airlock: the ADK pipeline. Four gate agents in parallel, the verdict, the investigator, the escalation.
 
     root_agent = SequentialAgent(airlock)
         ParallelAgent(gates): rights, claim, brand, provenance   (each a BaseAgent around a plain gate function)
         VerdictAgent: asks Grafana five questions per gate through mcp-grafana (this run's event in
                       Loki, then four PromQL questions), applies the deterministic rules of
                       airlock.verdict, writes the annotation.
-        EscalationAgent: opens a Grafana incident when the verdict says a human is needed.
+        InvestigationAgent: wraps the one LlmAgent of the pipeline (gemini-2.5-flash, the same
+                      mcp-grafana toolset): it reads this run's Loki lines, the previous runs of the
+                      failing gate, the counters and the alert rules, and writes a note of at most 60
+                      words that names the cause (ROOT CAUSE on a control motive, DECISION NOTE on a
+                      content verdict or a PASS). At most 6 tool calls; any failure becomes a fallback
+                      note; the verdict never depends on it.
+        EscalationAgent: when the verdict says a human is needed, opens a Grafana incident (label
+                      owner:clearance for paperwork, owner:platform for a control) or attaches the run
+                      to the open incident of the same asset and motive, with the note and the Loki
+                      lines it cites.
 
-ADK is the envelope. Every decision is plain Python under tests (airlock/gates/*, airlock/verdict.py).
+ADK is the envelope. Every decision is plain Python under tests (airlock/gates/*, airlock/verdict.py);
+the LlmAgent explains, it does not decide.
 The input message is a GCS URI, or a JSON object {"gcs_uri": ..., "asset_id": ...}, optionally with
 "mute": ["rights"] (the gate runs but pushes nothing to Grafana) or "fault": {"rights": "timeout"}
 (the gate fails before it spends anything). The run id is the ADK invocation id: every gate event
@@ -20,33 +30,32 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 import time
-from datetime import datetime, timedelta, timezone
-from typing import Any, AsyncGenerator, Awaitable, Callable
+from collections.abc import AsyncGenerator, Awaitable, Callable
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from google.adk.agents.base_agent import BaseAgent
 from google.adk.agents.context import Context
 from google.adk.agents.invocation_context import InvocationContext
+from google.adk.agents.llm_agent import LlmAgent
 from google.adk.agents.parallel_agent import ParallelAgent
+from google.adk.agents.readonly_context import ReadonlyContext
 from google.adk.agents.sequential_agent import SequentialAgent
 from google.adk.events.event import Event
 from google.adk.events.event_actions import EventActions
+from google.adk.models.llm_response import LlmResponse
+from google.adk.tools.mcp_tool.mcp_toolset import McpToolset
 from google.genai import types
 
+from airlock import settings
 from airlock.assets import from_message
-from airlock.gates import brand, claim, provenance, rights
-from airlock.gates.base import GATES, Asset, run_gate
+from airlock.gates import CHECKS, GATES
+from airlock.gates.base import Asset, run_gate
 from airlock.grafana_mcp import make_grafana_toolset, pick_datasource_uid, pinned_loki_uid, pinned_prometheus_uid, tool_text
-from airlock.telemetry import InfluxPusher, line
-from airlock.verdict import RUN_EVENT_WINDOW_MIN, GateHealth, Verdict, decide, logql_question, promql_questions
+from airlock.telemetry import line, shared_pushers
+from airlock.verdict import RUN_EVENT_WINDOW_MIN, GateHealth, Verdict, decide, logql_question, needs_paperwork, promql_questions
 
-CHECKS = {
-    "rights": (rights.check, rights.SOURCE_OF_TRUTH),
-    "claim": (claim.check, claim.SOURCE_OF_TRUTH),
-    "brand": (brand.check, brand.SOURCE_OF_TRUTH),
-    "provenance": (provenance.check, provenance.SOURCE_OF_TRUTH),
-}
 # temp: keys are invocation-scoped in ADK (applied in memory, never persisted), so a session that
 # receives a second message starts from the message, not from the first run's asset and mute list.
 STATE_ASSET = "temp:airlock:asset"
@@ -64,11 +73,12 @@ LOKI_RETRY_S = 3
 LOKI_RETRIES = 3
 
 
-def _text_event(ctx: InvocationContext, author: str, text: str, state_delta: dict[str, Any] | None = None) -> Event:
+def _text_event(ctx: InvocationContext, author: str, text: str, state_delta: dict[str, Any] | None = None, isolation_scope: str | None = None) -> Event:
     return Event(
         invocation_id=ctx.invocation_id,
         author=author,
         branch=ctx.branch,
+        isolation_scope=isolation_scope,
         content=types.Content(role="model", parts=[types.Part(text=text)]),
         actions=EventActions(state_delta=state_delta or {}),
     )
@@ -170,13 +180,15 @@ def run_cost(gate_results: dict[str, dict[str, Any]]) -> dict[str, Any]:
 
 def push_verdict_sample(status: str, motive: str, needs_human: bool, cost_usd: float | None = None) -> None:
     """One airlock_verdict sample per verdict, through the Influx endpoint (independent of the Grafana
-    API, so the verdict agent's own failure leaves a trace too)."""
-    if not os.environ.get("GRAFANA_INFLUX_URL"):
+    API, so the verdict agent's own failure leaves a trace too). No incidents_total here: the verdict
+    does not know yet; the escalation pushes that field when it opens or joins an incident."""
+    influx, _ = shared_pushers()
+    if influx is None:
         return
-    fields: dict[str, int | float] = {"total": 1, "needs_human": 1 if needs_human else 0, "incidents_total": 0}
+    fields: dict[str, int | float] = {"total": 1, "needs_human": 1 if needs_human else 0}
     if cost_usd is not None:
         fields["cost_usd"] = float(cost_usd)
-    InfluxPusher.from_env().push_lines([line("airlock_verdict", {"status": status, "motive": motive.replace(" ", "_")}, fields)])
+    influx.push_lines([line("airlock_verdict", {"status": status, "motive": motive.replace(" ", "_")}, fields)])
 
 
 def push_verdict_counters(verdict: Verdict, incident_opened: bool, cost_usd: float | None = None) -> None:
@@ -236,7 +248,7 @@ def loki_timestamp(raw: Any) -> str | None:
     digits = str(raw).strip().strip('"')
     if not digits.isdigit():
         return str(raw)
-    return datetime.fromtimestamp(int(digits) / 1e9, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+    return datetime.fromtimestamp(int(digits) / 1e9, tz=UTC).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
 
 
 def looks_like_waking(text: str) -> bool:
@@ -281,7 +293,8 @@ class VerdictAgent(BaseAgent):
     async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
         asset = _asset_from_ctx(ctx)
         run_id = asset.run_id or ctx.invocation_id
-        gate_results = {g: ctx.session.state.get(STATE_GATE.format(g)) or {"status": "ERROR", "reasons": ["gate did not report"], "rule_ids": []} for g in GATES}
+        gate_results = {g: ctx.session.state.get(STATE_GATE.format(g)) or {"status": "ERROR", "reasons": ["gate did not report"], "rule_ids": []}
+                        for g in GATES}
         toolset = make_grafana_toolset(["list_datasources", "query_prometheus", "query_loki_logs", "create_annotation"])
         tool_ctx = Context(invocation_context=ctx)
         waiter = GrafanaWaiter()
@@ -300,7 +313,7 @@ class VerdictAgent(BaseAgent):
 
             # Question 1, Loki: this run's event of each gate. Asked for every gate first, then again for
             # the gates still unseen, so the ingestion wait is shared and bounded.
-            end = datetime.now(timezone.utc) + timedelta(minutes=1)
+            end = datetime.now(UTC) + timedelta(minutes=1)
             start = end - timedelta(minutes=RUN_EVENT_WINDOW_MIN + 1)
             seen: dict[str, dict[str, Any] | None] = {}
             logql = {g: logql_question(g, run_id) for g in GATES}
@@ -331,7 +344,8 @@ class VerdictAgent(BaseAgent):
                 health[gate] = GateHealth(gate, answers["error_rate_15m"]["value"], answers["seconds_since_success"]["value"],
                                           answers["calibration_catches_7d"]["value"], answers["last_calibration_caught"]["value"],
                                           seen_this_run=bool(event), runs_15m=answers["runs_15m"]["value"], raw=answers)
-                yield _text_event(ctx, self.name, json.dumps({"stage": "grafana", "gate": gate, "run_id": run_id, "answers": answers, "health": health[gate].describe(),
+                yield _text_event(ctx, self.name, json.dumps({"stage": "grafana", "gate": gate, "run_id": run_id, "answers": answers,
+                                                              "health": health[gate].describe(),
                                                               "seen_this_run": bool(event), "calibrated": health[gate].calibrated,
                                                               "calibration": health[gate].calibration_note()}))
             verdict = decide(gate_results, health)
@@ -340,9 +354,9 @@ class VerdictAgent(BaseAgent):
             payload["run_id"] = run_id
             if waiter.waited_s > 0:
                 payload["note"] = f"Grafana Cloud was starting, waited {int(waiter.waited_s)} s"
-            tags = ["airlock", "verdict", verdict.status.lower(), asset.asset_id[:40], os.environ.get("AIRLOCK_RUNTIME", "local")]
+            tags = ["airlock", "verdict", verdict.status.lower(), asset.asset_id[:40], settings.runtime()]
             ann = await ask("create_annotation", {
-                "dashboardUid": os.environ.get("AIRLOCK_DASHBOARD_UID", "airlock-gates"),
+                "dashboardUid": settings.dashboard_uid(),
                 "time": int(time.time() * 1000),
                 "text": f"{verdict.status} ({verdict.motive}) {asset.asset_id} run {run_id}: " + " | ".join(verdict.reasons)[:900],
                 "tags": tags})
@@ -372,40 +386,502 @@ class VerdictAgent(BaseAgent):
             await toolset.close()
 
 
-class EscalationAgent(BaseAgent):
-    """On a BLOCK only a human can arbitrate (a control unavailable, uncalibrated or in error), opens a
-    Grafana incident and says so. A content BLOCK needs no human: the rule already decided."""
+
+# The investigator: the one LLM agent of the pipeline. It reads what Grafana holds about this run
+# (this run's Loki lines, the previous runs of the failing gate, the counters, the alert rules)
+# through the same mcp-grafana toolset and writes a short note naming the cause. The verdict never
+# depends on it: it explains the verdict, it does not make it. Bounded: at most
+# INVESTIGATION_TOOL_BUDGET tool calls, INVESTIGATION_MODEL_CALLS model turns and
+# INVESTIGATION_BUDGET_S of wall time, and any failure becomes a deterministic fallback note.
+INVESTIGATOR_MODEL = "gemini-2.5-flash"
+# mcp-grafana 1.3.0 names its alert rule tool alerting_manage_rules (operations list, get, versions, create,
+# update, delete); the budget refuses anything but the read operations.
+INVESTIGATION_TOOLS = ["query_loki_logs", "query_prometheus", "alerting_manage_rules"]
+ALERT_RULE_READ_OPERATIONS = ("list", "get")
+INVESTIGATION_TOOL_BUDGET = 6
+INVESTIGATION_MODEL_CALLS = 8
+INVESTIGATION_BUDGET_S = 150
+INVESTIGATION_NOTE_WORDS = 60
+INVESTIGATION_THINKING_TOKENS = 1024  # gemini-2.5-flash thinks before it calls a tool; the thoughts count against max_output_tokens
+INVESTIGATION_OUTPUT_TOKENS = 4096
+INVESTIGATION_OUTPUT_KEY = "airlock:investigation"  # the LlmAgent's output_key: the note as text
+STATE_INVESTIGATION = "temp:airlock:investigation"  # the wrapper's payload: note, tool calls, Loki lines
+# The rows the wrapper streams between the LlmAgent's own events (one per tool call and answer) carry an
+# isolation scope of their own, so ADK keeps them out of the model's context: an event by another author in
+# the middle of a tool turn would otherwise anchor the model's next turn after its own function call, and the
+# function responses would be dropped as orphans (measured on 2026-09-05 with the first build).
+INVESTIGATION_ROW_SCOPE = "airlock:investigation-rows"
+CONTROL_MOTIVES = ("control unavailable", "uncalibrated control", "instrument error")
+EVIDENCE_HEAD_CHARS = 200
+LOKI_LINES_KEPT = 8
+
+
+def investigation_kind(verdict: dict[str, Any]) -> str:
+    """ROOT CAUSE when the verdict rests on the state of a control, DECISION NOTE for a content BLOCK or a PASS."""
+    return "ROOT CAUSE" if verdict.get("motive") in CONTROL_MOTIVES else "DECISION NOTE"
+
+
+def gates_to_investigate(verdict: dict[str, Any]) -> list[str]:
+    """The gates the note should rest on: the ones in error, blocking, unseen or uncalibrated; on a PASS, all four."""
+    lines = verdict.get("gates") or []
+    picked = [g["gate"] for g in lines if g.get("status") != "PASS" or g.get("seen_this_run") is False or g.get("calibrated") is False]
+    return picked or [g["gate"] for g in lines] or list(GATES)
+
+
+def investigator_instruction(ctx: ReadonlyContext) -> str:
+    """The instruction, built from this invocation's state (the verdict payload and the asset). A
+    callable, so ADK's {key} templating is bypassed and the LogQL braces are sent as written."""
+    verdict = dict(ctx.state.get(STATE_VERDICT) or {})
+    asset = ctx.state.get(STATE_ASSET) or {}
+    run_id = verdict.get("run_id") or asset.get("run_id") or ctx.invocation_id
+    asset_id = verdict.get("asset_id") or asset.get("asset_id") or "unknown-asset"
+    kind = investigation_kind(verdict)
+    focus = gates_to_investigate(verdict)
+    loki_uid, prom_uid = pinned_loki_uid() or "grafanacloud-logs", pinned_prometheus_uid() or "grafanacloud-prom"
+    gate_lines = []
+    for g in verdict.get("gates") or []:
+        seen = g.get("seen_this_run")
+        gate_lines.append(f'- {g.get("gate")}: {g.get("status")}, "{str(g.get("reason", ""))[:240]}"; '
+                          f'seen by Grafana for this run: {"yes" if seen else "NO" if seen is False else "unknown"}; '
+                          f'calibrated: {"yes" if g.get("calibrated") else "no"} ({g.get("calibration", "")})')
+    reasons = "\n".join(f"- {r[:300]}" for r in verdict.get("reasons") or []) or "- (none)"
+    if kind == "ROOT CAUSE":
+        task = (f"The verdict BLOCKED because a control was unavailable, uncalibrated or in error: {', '.join(focus)}. "
+                "Read this run's line of each such gate (its reasons name the failure; a fault field means the failure was injected on purpose "
+                "by the reviewer), then that gate's previous runs over the last 24 hours to say whether the failure is new or recurring, "
+                "then the alert rules to say whether an Airlock rule is firing or pending. Name the root cause: what failed, "
+                "in which gate, at what time (time_utc of the line), and whether it was injected or real.")
+    elif verdict.get("status") == "PASS":
+        task = ("The verdict is PASS: every gate passed, was seen by Grafana for this run, and is calibrated. Read this run's line of "
+                f"{focus[0]} and of {focus[-1]}, confirm they carry this run id, then the alert rules to say whether any Airlock alert "
+                "rule fires. The note says what was checked and rests on the time_utc of the latest line read.")
+    else:
+        task = (f"The verdict BLOCKED on the content of the asset: {', '.join(focus)}. Read this run's line of each blocking gate and name, "
+                "with its time_utc, the finding and the rule id it cites (rule_ids in the line); say whether a human can lift the block "
+                "with paperwork (a substantiation, a licence, a release) or whether the asset itself must change.")
+    return f"""You are the investigator of Airlock, a release control for generated video ads. Four gates (rights, claim, brand, provenance)
+read the asset, then a deterministic verdict asked Grafana about each gate and ruled. The verdict is final; you do not change it.
+You explain it from what Grafana holds, for the human who receives the incident or reads the record.
+
+RUN
+asset: {asset_id}
+run id: {run_id}
+verdict: {verdict.get("status")} ({verdict.get("motive")}), needs a human: {"yes" if verdict.get("needs_human") else "no"}
+reasons:
+{reasons}
+gates:
+{chr(10).join(gate_lines) or "- (no gate lines)"}
+
+TOOLS, at most {INVESTIGATION_TOOL_BUDGET} calls in total, never the same call twice
+- query_loki_logs(datasourceUid="{loki_uid}", logql=<LogQL>, startRfc3339="now-1h", endRfc3339="now", limit=20): Loki holds one JSON
+  line per gate run, with the fields asset_id, run_id, gate, status, reasons, rule_ids, elapsed_ms, evidence_head and, when the reviewer
+  injected a fault, fault. Every line carries time_utc: cite it as written.
+  this run, one gate:            {{app="airlock", gate="rights"}} |= "{run_id}"
+  previous runs of a gate:       {{app="airlock", gate="rights"}} with startRfc3339="now-24h" (newest first)
+  the errors of a gate:          {{app="airlock", gate="rights", status="ERROR"}} with startRfc3339="now-24h"
+- query_prometheus(datasourceUid="{prom_uid}", expr=<PromQL>, queryType="instant", endTime="now"): the counters the gates push, e.g.
+  sum(sum_over_time(airlock_gate_errors_total{{gate="rights"}}[15m])) and sum(sum_over_time(airlock_gate_runs_total{{gate="rights"}}[15m])).
+- alerting_manage_rules(operation="list", label_selectors=['{{app="airlock"}}']): the Airlock alert rules ("Airlock gate errors",
+  "Airlock daily proof failed", "Airlock calibration missed") with their state (firing, pending, normal, unknown). Read only: never
+  another operation.
+
+TASK
+{task}
+Then write the note: at most {INVESTIGATION_NOTE_WORDS} words, plain English for a non-engineer, every fact taken from a tool answer, the
+time_utc of the log line the note rests on quoted as written. Say it when an alert rule fires or is pending. If a tool answered an error,
+say so and rest on what you have. Never invent a line, a value or a timestamp. The note ends with exactly one line that starts with
+"{kind}: " and names the cause (or the decision) in one sentence."""
+
+
+def compact_loki_answer(text: str) -> str:
+    """The query_loki_logs answer as the model reads it: each row gains time_utc (the nanosecond timestamp
+    read as UTC, the timestamp the note cites) and its body's evidence is cut to a head, so twenty lines
+    of the rights gate do not carry twenty logo tables. Anything that is not the JSON shape is returned as is."""
+    try:
+        d = json.loads(text)
+    except json.JSONDecodeError:
+        return text
+    rows = d.get("data") if isinstance(d, dict) else None
+    if not isinstance(rows, list):
+        return text
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        row["time_utc"] = loki_timestamp(row.get("timestamp"))
+        raw_line = row.get("line")
+        if not isinstance(raw_line, str):
+            continue
+        try:
+            body = json.loads(raw_line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(body, dict) and "evidence" in body:
+            evidence = json.dumps(body.pop("evidence"), default=str)
+            body["evidence_head"] = evidence[:EVIDENCE_HEAD_CHARS] + ("..." if len(evidence) > EVIDENCE_HEAD_CHARS else "")
+            row["line"] = json.dumps(body, default=str)
+    return json.dumps(d, default=str)
+
+
+def loki_lines_from_answer(text: str) -> list[dict[str, Any]]:
+    """The compact Loki lines of a query_loki_logs answer: time_utc, gate, status, run_id, asset_id, the first
+    reason and the fault, for the incident body and the record."""
+    try:
+        d = json.loads(text)
+    except json.JSONDecodeError:
+        return []
+    rows = d.get("data") if isinstance(d, dict) else None
+    if not isinstance(rows, list):
+        return []
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        if not isinstance(row, dict) or not isinstance(row.get("line"), str):
+            continue
+        try:
+            body = json.loads(row["line"])
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(body, dict):
+            continue
+        labels = row.get("labels") or {}
+        entry: dict[str, Any] = {"time_utc": row.get("time_utc") or loki_timestamp(row.get("timestamp")),
+                                 "gate": body.get("gate") or labels.get("gate"),
+                                 "status": body.get("status") or labels.get("status"),
+                                 "run_id": body.get("run_id"), "asset_id": body.get("asset_id"),
+                                 "reason": str((body.get("reasons") or [""])[0])[:240]}
+        if body.get("fault"):
+            entry["fault"] = body["fault"]
+        out.append(entry)
+    return out
+
+
+def format_loki_line(entry: dict[str, Any]) -> str:
+    fault = f" (fault: {entry['fault']})" if entry.get("fault") else ""
+    return f"{entry.get('time_utc')} {entry.get('gate')} {entry.get('status')}{fault}: {entry.get('reason')} [run {entry.get('run_id')}]"
+
+
+def note_kind_line(text: str, kind: str) -> str | None:
+    """The one line of the note that starts with the kind ("ROOT CAUSE: ..."), or None when the model left it out."""
+    for raw in reversed(text.splitlines()):
+        stripped = raw.strip().lstrip("*# ").strip()
+        if stripped.upper().startswith(kind + ":"):
+            return stripped
+    return None
+
+
+def cited_lines(note: str, lines: list[dict[str, Any]], run_id: str) -> list[dict[str, Any]]:
+    """The Loki lines the note rests on: those whose time_utc the note quotes, then this run's lines, deduplicated."""
+    seen: set[str] = set()
+    picked: list[dict[str, Any]] = []
+    for entry in lines:
+        key = f"{entry.get('time_utc')}|{entry.get('gate')}|{entry.get('run_id')}"
+        if key in seen:
+            continue
+        stamp = str(entry.get("time_utc") or "")
+        if (stamp and stamp in note) or (stamp[:19] and stamp[:19] in note) or entry.get("run_id") == run_id:
+            seen.add(key)
+            picked.append(entry)
+    return picked[:LOKI_LINES_KEPT]
+
+
+def fallback_note(kind: str, verdict: dict[str, Any], error: str) -> str:
+    """The deterministic note when the investigator could not run: the verdict's own first reason, and why."""
+    first = (verdict.get("reasons") or ["no reason recorded"])[0]
+    return f"investigation unavailable: {error[:300]}\n{kind}: {first[:300]} (from the verdict, not investigated)"
+
+
+class InvestigationBudget:
+    """The bounds of one investigation: tool calls, model turns and wall time, enforced through the
+    LlmAgent's callbacks. Past the tool budget the tool answers a refusal; past the model or time
+    budget the model turn is replaced by a closing note, which ends the loop."""
+
+    def __init__(self, kind: str, tool_calls: int = INVESTIGATION_TOOL_BUDGET, model_calls: int = INVESTIGATION_MODEL_CALLS,
+                 budget_s: float = INVESTIGATION_BUDGET_S) -> None:
+        self.kind = kind
+        self.max_tool_calls = tool_calls
+        self.max_model_calls = model_calls
+        self.deadline = time.monotonic() + budget_s
+        self.tool_calls = 0
+        self.model_calls = 0
+        self.stopped: str | None = None
+
+    def before_tool(self, tool: Any, args: dict[str, Any], tool_context: Any) -> dict[str, Any] | None:
+        self.tool_calls += 1
+        if self.tool_calls > self.max_tool_calls:
+            self.stopped = self.stopped or f"tool budget of {self.max_tool_calls} calls spent"
+            return {"error": f"tool budget of {self.max_tool_calls} calls spent: write the note now from the answers you have"}
+        if getattr(tool, "name", "") == "alerting_manage_rules" and str(args.get("operation", "list")) not in ALERT_RULE_READ_OPERATIONS:
+            # The investigator reads; it never creates, updates or deletes a rule, whatever the model asks.
+            return {"error": f"alerting_manage_rules is read only here: operation {args.get('operation')!r} refused, use operation 'list'"}
+        return None
+
+    def after_tool(self, tool: Any, args: dict[str, Any], tool_context: Any, tool_response: Any) -> dict[str, Any] | None:
+        """query_loki_logs answers gain time_utc and lose their evidence tables before the model reads them."""
+        if getattr(tool, "name", "") != "query_loki_logs" or not isinstance(tool_response, dict):
+            return None
+        parts = tool_response.get("content")
+        if not isinstance(parts, list):
+            return None
+        changed = dict(tool_response)
+        changed["content"] = [{**p, "text": compact_loki_answer(p["text"])} if isinstance(p, dict) and isinstance(p.get("text"), str) else p for p in parts]
+        return changed
+
+    def on_tool_error(self, tool: Any, args: dict[str, Any], tool_context: Any, error: Exception) -> dict[str, Any]:
+        """A tool that raised answers its error as text: the model says so in the note instead of the run dying."""
+        return {"error": f"{getattr(tool, 'name', 'tool')} failed: {type(error).__name__}: {str(error)[:400]}"}
+
+    def before_model(self, callback_context: Any, llm_request: Any) -> LlmResponse | None:
+        self.model_calls += 1
+        if self.model_calls > self.max_model_calls:
+            self.stopped = self.stopped or f"model budget of {self.max_model_calls} turns spent"
+        elif time.monotonic() > self.deadline:
+            self.stopped = self.stopped or f"time budget of {INVESTIGATION_BUDGET_S} s spent"
+        else:
+            return None
+        text = f"{self.kind}: investigation stopped, {self.stopped}; the verdict stands on its own reasons."
+        return LlmResponse(content=types.Content(role="model", parts=[types.Part(text=text)]))
+
+    def on_model_error(self, callback_context: Any, llm_request: Any, error: Exception) -> LlmResponse:
+        self.stopped = f"model error: {type(error).__name__}: {str(error)[:200]}"  # the error that ended it, whatever came before
+        return LlmResponse(content=types.Content(role="model", parts=[types.Part(text=f"investigation unavailable: {self.stopped}")]))
+
+
+def make_investigator(budget: InvestigationBudget, toolset: McpToolset) -> LlmAgent:
+    """The LlmAgent, built per run so that its toolset is this run's and closed with it."""
+    return LlmAgent(
+        name="investigator",
+        model=INVESTIGATOR_MODEL,
+        description="reads this run's Loki lines, the gate counters and the alert rules through mcp-grafana and names the cause",
+        instruction=investigator_instruction,
+        tools=[toolset],
+        output_key=INVESTIGATION_OUTPUT_KEY,
+        include_contents="none",  # the instruction carries the run; the history of the four gates is not re-sent
+        generate_content_config=types.GenerateContentConfig(temperature=0.0, max_output_tokens=INVESTIGATION_OUTPUT_TOKENS,
+                                                            thinking_config=types.ThinkingConfig(thinking_budget=INVESTIGATION_THINKING_TOKENS,
+                                                                                                 include_thoughts=False)),
+        before_tool_callback=budget.before_tool,
+        after_tool_callback=budget.after_tool,
+        on_tool_error_callback=budget.on_tool_error,
+        before_model_callback=budget.before_model,
+        on_model_error_callback=budget.on_model_error,
+    )
+
+
+def tool_rows(event: Event) -> list[dict[str, Any]]:
+    """The investigator's tool calls and answers as rows: one per function_call part and one per function_response part."""
+    rows: list[dict[str, Any]] = []
+    for part in (event.content.parts if event.content and event.content.parts else []):
+        fc = getattr(part, "function_call", None)
+        if fc is not None and fc.name:
+            rows.append({"step": "tool_call", "tool": fc.name, "args": dict(fc.args or {})})
+        fr = getattr(part, "function_response", None)
+        if fr is not None and fr.name:
+            text = tool_text(fr.response if isinstance(fr.response, (dict, list)) else str(fr.response))
+            row: dict[str, Any] = {"step": "tool_result", "tool": fr.name, "chars": len(text), "preview": text[:240]}
+            if fr.name == "query_loki_logs":
+                lines = loki_lines_from_answer(text)
+                row["lines"] = len(lines)
+                row["loki_lines"] = lines
+            rows.append(row)
+    return rows
+
+
+class InvestigationAgent(BaseAgent):
+    """Runs the investigator LlmAgent on every verdict, streams its tool calls as rows, and turns any
+    failure into a fallback note: the run never stops here, and the escalation reads the note from state."""
 
     async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
         verdict = ctx.session.state.get(STATE_VERDICT) or {}
+        run_id = str(verdict.get("run_id") or ctx.invocation_id)
+        kind = investigation_kind(verdict)
+        started = time.time()
+        budget = InvestigationBudget(kind)
+        calls: list[dict[str, Any]] = []
+        loki_lines: list[dict[str, Any]] = []
+        text = ""
+        error: str | None = None
+        toolset: McpToolset | None = None
+        try:
+            toolset = make_grafana_toolset(INVESTIGATION_TOOLS)
+            investigator = make_investigator(budget, toolset)
+            async with asyncio.timeout(INVESTIGATION_BUDGET_S + 30):
+                async for event in investigator.run_async(ctx):
+                    for row in tool_rows(event):
+                        loki_lines.extend(row.pop("loki_lines", []))
+                        calls.append(row)
+                        yield _text_event(ctx, self.name, json.dumps({"stage": "investigation", "run_id": run_id, **row}, default=str),
+                                          isolation_scope=INVESTIGATION_ROW_SCOPE)
+                    if event.content and event.content.parts and event.is_final_response():
+                        text = "".join(p.text or "" for p in event.content.parts if getattr(p, "text", None))
+                    yield event  # the LlmAgent's own events: the runner appends them, the model's next turn reads them
+        except Exception as exc:  # the investigation is an explanation, never a gate: it fails into a note
+            error = f"{type(exc).__name__}: {str(exc)[:300]}"
+        finally:
+            if toolset is not None:
+                try:
+                    await toolset.close()
+                except Exception:
+                    pass
+        text = text.strip()
+        if error and not text:
+            text = fallback_note(kind, verdict, error)
+        elif not text:
+            text = fallback_note(kind, verdict, budget.stopped or "the model returned no text")
+        note = text
+        payload: dict[str, Any] = {"stage": "investigation", "kind": kind, "note": note, "run_id": run_id,
+                                   "asset_id": verdict.get("asset_id"), "model": INVESTIGATOR_MODEL,
+                                   "tool_calls": sum(1 for c in calls if c.get("step") == "tool_call"),
+                                   "model_turns": budget.model_calls, "steps": calls,
+                                   "loki_lines": loki_lines[:LOKI_LINES_KEPT * 3],
+                                   "cited": cited_lines(note, loki_lines, run_id),
+                                   "conclusion": note_kind_line(note, kind),
+                                   "elapsed_ms": int((time.time() - started) * 1000)}
+        if error or note.startswith("investigation unavailable"):
+            payload["fallback"] = True
+            payload["error"] = error or budget.stopped
+        if budget.stopped:
+            payload["stopped"] = budget.stopped
+        yield _text_event(ctx, self.name, json.dumps(payload, default=str), state_delta={STATE_INVESTIGATION: payload, INVESTIGATION_OUTPUT_KEY: note})
+
+
+# Who owns the BLOCK. Paperwork (a substantiation, a licence, a release, a signer to trust) goes to the
+# clearance owner; the state of a control (R1, R2, instrument error) goes to the platform.
+OWNER_CLEARANCE = "clearance"
+OWNER_PLATFORM = "platform"
+CLEARANCE_ROUTING = "Route to the clearance owner (legal or agency): a licence, a release or a study lifts this block"
+PLATFORM_ROUTING = "Route to the platform owner: a control was unavailable, uncalibrated or in error; the asset was not judged"
+
+
+def incident_owner(verdict: dict[str, Any]) -> str:
+    if verdict.get("motive") == "content" and needs_paperwork(list(verdict.get("rule_ids") or [])):
+        return OWNER_CLEARANCE
+    return OWNER_PLATFORM
+
+
+def incident_title(verdict: dict[str, Any], asset_id: str) -> str:
+    return f"Airlock needs a human: {verdict.get('motive')} on {asset_id}"[:120]
+
+
+def incident_url(incident_id: str, path: str | None = None) -> str | None:
+    """The incident's page on the stack: Grafana Incident answers a relative overviewURL, the console
+    needs an absolute one; None when GRAFANA_URL is not set (a local run without it)."""
+    base = settings.grafana_url().rstrip("/")
+    if path and path.startswith("http"):
+        return path
+    if not base:
+        return None
+    return base + (path if path and path.startswith("/") else f"/a/grafana-irm-app/incidents/{incident_id}")
+
+
+def find_open_incident(list_text: str, title: str) -> dict[str, Any] | None:
+    """The newest active incident of a list_incidents answer whose title is exactly this one (same asset, same motive)."""
+    try:
+        d = json.loads(list_text)
+    except json.JSONDecodeError:
+        return None
+    items = d.get("incidents") if isinstance(d, dict) else d
+    if not isinstance(items, list):
+        return None
+    matches = [i for i in items if isinstance(i, dict) and i.get("title") == title and str(i.get("status", "active")).lower() == "active"]
+    if not matches:
+        return None
+    matches.sort(key=lambda i: str(i.get("createdTime") or ""), reverse=True)
+    return matches[0]
+
+
+# Grafana Incident refuses an attachCaption over 512 characters (measured 2026-09-05: "oto: validation: AttachCaption is too long (max 512)").
+INCIDENT_CAPTION_MAX = 500
+
+
+def incident_caption(verdict: dict[str, Any], investigation: dict[str, Any], owner: str) -> str:
+    """The short caption on the incident: the routing line and the investigator's conclusion (or the
+    verdict's first reason); the full note and the Loki lines go in the incident's first timeline note."""
+    routing = CLEARANCE_ROUTING if owner == OWNER_CLEARANCE else PLATFORM_ROUTING
+    conclusion = investigation.get("conclusion") or (verdict.get("reasons") or ["no reason recorded"])[0]
+    return f"{routing}. {conclusion}"[:INCIDENT_CAPTION_MAX]
+
+
+def incident_body(verdict: dict[str, Any], investigation: dict[str, Any], owner: str) -> str:
+    """What the incident carries: the routing line, the investigator's note, the Loki lines it cites, the verdict's reasons."""
+    routing = CLEARANCE_ROUTING if owner == OWNER_CLEARANCE else PLATFORM_ROUTING
+    parts = [f"{routing}.",
+             f"Run {verdict.get('run_id')} on {verdict.get('asset_id')}: {verdict.get('status')} ({verdict.get('motive')}).",
+             "", f"Investigation ({investigation.get('model', INVESTIGATOR_MODEL)}, {investigation.get('tool_calls', 0)} tool calls):",
+             str(investigation.get("note") or "no note")]
+    cited = investigation.get("cited") or []
+    if cited:
+        parts += ["", "Loki lines:"] + [f"- {format_loki_line(e)}" for e in cited]
+    parts += ["", "Reasons:"] + [f"- {r[:300]}" for r in verdict.get("reasons") or []]
+    return "\n".join(parts)[:4000]
+
+
+class EscalationAgent(BaseAgent):
+    """On a BLOCK only a human can arbitrate (paperwork missing, or a control unavailable, uncalibrated or
+    in error), opens a Grafana incident, or attaches this run to the open incident of the same asset and
+    motive, with the investigator's note and the Loki lines it cites. A content BLOCK on a defect of the
+    asset itself needs no human: the rule already decided."""
+
+    async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
+        verdict = ctx.session.state.get(STATE_VERDICT) or {}
+        investigation = ctx.session.state.get(STATE_INVESTIGATION) or {"note": ctx.session.state.get(INVESTIGATION_OUTPUT_KEY), "tool_calls": 0}
         asset_id = verdict.get("asset_id", "unknown-asset")
         if not verdict.get("needs_human"):
             yield _text_event(ctx, self.name, json.dumps({"stage": "escalation", "opened": False,
                                                           "reason": f"no human needed: verdict {verdict.get('status', '?')} on {verdict.get('motive', '?')}"}))
             return
-        toolset = make_grafana_toolset(["create_incident", "create_annotation"])
+        toolset = make_grafana_toolset(["list_incidents", "create_incident", "add_activity_to_incident", "create_annotation"])
         tool_ctx = Context(invocation_context=ctx)
         started = time.time()
+        owner = incident_owner(verdict)
+        title = incident_title(verdict, asset_id)
+        body = incident_body(verdict, investigation, owner)
+        drill = settings.incident_drill()
+        motive_label = str(verdict.get("motive", "")).replace(" ", "-")
         try:
             tools = {t.name: t for t in await toolset.get_tools(tool_ctx)}
             reasons = verdict.get("reasons", [])
-            inc = tool_text(await tools["create_incident"].run_async(args={
-                "title": f"Airlock needs a human: {verdict.get('motive')} on {asset_id}"[:120],
-                "severity": "minor",
-                "roomPrefix": "airlock",
-                "status": "active",
-                "isDrill": os.environ.get("AIRLOCK_INCIDENT_DRILL", "true") == "true",
-                "labels": [{"key": "airlock", "label": str(verdict.get("motive", "")).replace(" ", "-")}],
-                "attachCaption": "Reasons: " + " | ".join(reasons)[:400]}, tool_context=tool_ctx))
-            payload: dict[str, Any] = {"stage": "escalation", "opened": True, "incident_raw": inc[:500], "elapsed_ms": int((time.time() - started) * 1000)}
+            payload: dict[str, Any] = {"stage": "escalation", "opened": False, "attached": False, "owner": owner, "title": title}
+            existing = None
             try:
-                d = json.loads(inc)
-                incident = d.get("incident") or d
-                payload["incident_id"] = incident.get("incidentID") or incident.get("id")
-                payload["incident_url"] = incident.get("incidentURL") or incident.get("url")
-                payload["incident_title"] = incident.get("title")
-            except (json.JSONDecodeError, AttributeError):
-                pass
+                listed = tool_text(await tools["list_incidents"].run_async(args={"status": "active", "drill": drill, "limit": 50}, tool_context=tool_ctx))
+                existing = find_open_incident(listed, title)
+            except Exception as exc:  # a list that fails means a new incident, said in the payload
+                payload["list_error"] = f"{type(exc).__name__}: {exc}"[:300]
+            if existing:
+                incident_id = str(existing.get("incidentId") or existing.get("incidentID"))
+                act = tool_text(await tools["add_activity_to_incident"].run_async(args={"incidentId": incident_id, "body": body}, tool_context=tool_ctx))
+                payload.update({"attached": True, "incident_id": incident_id, "incident_title": existing.get("title"),
+                                "incident_url": incident_url(incident_id), "activity_raw": act[:300]})
+                try:
+                    payload["activity_id"] = json.loads(act).get("activityItemID")
+                except (json.JSONDecodeError, AttributeError):
+                    pass
+            else:
+                inc = tool_text(await tools["create_incident"].run_async(args={
+                    "title": title,
+                    "severity": "minor",
+                    "roomPrefix": "airlock",
+                    "status": "active",
+                    "isDrill": drill,
+                    "labels": [{"key": "airlock", "label": motive_label}, {"key": "owner", "label": owner}],
+                    "attachCaption": incident_caption(verdict, investigation, owner)}, tool_context=tool_ctx))
+                payload.update({"opened": True, "incident_raw": inc[:500]})
+                try:
+                    d = json.loads(inc)
+                    incident = d.get("incident") or d
+                    payload["incident_id"] = incident.get("incidentID") or incident.get("id")
+                    payload["incident_url"] = incident_url(str(payload["incident_id"]),
+                                                           incident.get("overviewURL") or incident.get("incidentURL") or incident.get("url"))
+                    payload["incident_title"] = incident.get("title")
+                except (json.JSONDecodeError, AttributeError):
+                    pass
+                if payload.get("incident_id"):
+                    # The full note as the incident's first timeline entry: the caption is short, the timeline is not.
+                    try:
+                        act = tool_text(await tools["add_activity_to_incident"].run_async(args={"incidentId": str(payload["incident_id"]), "body": body},
+                                                                                          tool_context=tool_ctx))
+                        payload["activity_id"] = json.loads(act).get("activityItemID")
+                    except Exception as exc:
+                        payload["activity_error"] = f"{type(exc).__name__}: {exc}"[:300]
             if not payload.get("incident_id"):
                 # The plan's fallback: the Incident API refused (a free stack whose Incident app was never
                 # opened answers a foreign-key error). A second annotation tagged needs-human carries the
@@ -413,17 +889,18 @@ class EscalationAgent(BaseAgent):
                 payload["opened"] = False
                 payload["fallback"] = "needs-human annotation"
                 ann = tool_text(await tools["create_annotation"].run_async(args={
-                    "dashboardUid": os.environ.get("AIRLOCK_DASHBOARD_UID", "airlock-gates"),
+                    "dashboardUid": settings.dashboard_uid(),
                     "time": int(time.time() * 1000),
-                    "text": f"NEEDS HUMAN ({verdict.get('motive')}) {asset_id}: " + " | ".join(reasons)[:800],
-                    "tags": ["airlock", "needs-human", asset_id[:40], os.environ.get("AIRLOCK_RUNTIME", "local")]}, tool_context=tool_ctx))
+                    "text": f"NEEDS HUMAN ({verdict.get('motive')}, owner {owner}) {asset_id}: " + " | ".join(reasons)[:800],
+                    "tags": ["airlock", "needs-human", f"owner:{owner}", asset_id[:40], settings.runtime()]}, tool_context=tool_ctx))
                 try:
                     payload["fallback_annotation_id"] = json.loads(ann).get("Payload", {}).get("id")
                 except (json.JSONDecodeError, AttributeError):
                     payload["fallback_annotation_raw"] = ann[:300]
-            if os.environ.get("GRAFANA_INFLUX_URL"):
+            payload["elapsed_ms"] = int((time.time() - started) * 1000)
+            if shared_pushers()[0] is not None:
                 try:
-                    InfluxPusher.from_env().push_lines([line("airlock_incident", {"motive": str(verdict.get("motive", "")).replace(" ", "_")}, {"total": 1})])
+                    push_incident_sample(str(verdict.get("status", "BLOCK")), str(verdict.get("motive", "")), owner, attached=bool(payload.get("attached")))
                 except Exception as exc:
                     payload["telemetry_error"] = f"{type(exc).__name__}: {exc}"
             yield _text_event(ctx, self.name, json.dumps(payload, default=str), state_delta={"temp:airlock:escalation": payload})
@@ -434,8 +911,27 @@ class EscalationAgent(BaseAgent):
             await toolset.close()
 
 
-gate_agents = [GateAgent(name=f"{g}_gate", gate=g, description=f"{g} gate: {CHECKS[g][1]}") for g in GATES]
+def push_incident_sample(status: str, motive: str, owner: str, attached: bool) -> None:
+    """The incident samples, pushed from the escalation only (the verdict's sample no longer carries an
+    always-zero incidents_total): airlock_incident{motive, owner} total=1 (attached=1 when this run joined an
+    open incident) and airlock_verdict{status, motive} incidents_total=1."""
+    motive_tag = motive.replace(" ", "_")
+    influx, _ = shared_pushers()
+    if influx is None:
+        return
+    influx.push_lines([
+        line("airlock_incident", {"motive": motive_tag, "owner": owner}, {"total": 1, "attached": 1 if attached else 0}),
+        line("airlock_verdict", {"status": status, "motive": motive_tag}, {"incidents_total": 1}),
+    ])
+
+
+gate_agents: list[BaseAgent] = [GateAgent(name=f"{g}_gate", gate=g, description=f"{g} gate: {CHECKS[g][1]}") for g in GATES]
 gates = ParallelAgent(name="gates", sub_agents=gate_agents, description="the four gates, in parallel")
 verdict = VerdictAgent(name="verdict", description="asks Grafana about each gate, decides, writes the annotation")
-escalation = EscalationAgent(name="escalation", description="opens a Grafana incident when only a human can arbitrate the BLOCK")
-root_agent = SequentialAgent(name="airlock", sub_agents=[gates, verdict, escalation], description="Airlock: ship or block a generated asset on proof")
+investigation = InvestigationAgent(
+    name="investigation",
+    description="an LlmAgent on gemini-2.5-flash reads Loki, the counters and the alert rules through mcp-grafana and names the cause")
+escalation = EscalationAgent(name="escalation",
+                             description="opens or joins a Grafana incident, with the investigator's note, when only a human can arbitrate the BLOCK")
+root_agent = SequentialAgent(name="airlock", sub_agents=[gates, verdict, investigation, escalation],
+                             description="Airlock: ship or block a generated asset on proof")

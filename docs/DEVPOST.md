@@ -16,8 +16,11 @@ run's event of the gate, then four PromQL questions (error ratio over 15 minutes
 it, seconds since the gate last succeeded, injected defects caught over 7 days, and whether the last
 calibration run caught its defect). A gate whose run Grafana did not see forces a BLOCK "control
 unavailable"; a gate that never caught a real defect is advisory and cannot contribute to a PASS.
-The verdict is written back to the Grafana dashboard as an annotation, and when only a human can
-lift the BLOCK, an incident is opened in Grafana IRM (as a drill on the free stack). A check takes
+The verdict is written back to the Grafana dashboard as an annotation; then an investigator agent
+(gemini-2.5-flash, the same Grafana MCP tools) reads this run's Loki lines, the previous runs and the
+alert rules and names the root cause with the timestamp it rests on, and when only a human can lift
+the BLOCK, an incident is opened in Grafana IRM (or the open one for the same asset joined, as a drill
+on the free stack) carrying that note, which the reviewer closes from the console. A check takes
 one to four minutes, almost all of it the Video Intelligence operation: measured on the hosted
 console, the 8 s clean clip took 38 s (`docs/RUNS.md`, the cold judge pass of 2026-09-02,
 annotation 52) and 243 s (the console v3.1 verification the same night, annotation 55), and 189 s

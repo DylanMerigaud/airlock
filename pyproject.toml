@@ -54,6 +54,8 @@ ignore = [
 # One panel per line: the PromQL expression, the position and the thresholds read as one row of the
 # dashboard; folding them at 160 would hide the dashboard's shape.
 "scripts/grafana_bootstrap.py" = ["E501"]
+# Test fixtures quote whole event bodies and Loki lines on one line so a failing assertion reads as the record does.
+"tests/test_investigation.py" = ["E501"]
 
 [tool.pyright]
 include = ["airlock", "agents", "airlock_mcp", "scripts"]

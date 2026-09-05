@@ -10,17 +10,19 @@ import { Stage, type StageAsset } from "@/components/stage";
 import { Timeline } from "@/components/timeline";
 import { StatTiles } from "@/components/stat-tiles";
 import { SpecStrip } from "@/components/spec-strip";
-import { BlockQueue } from "@/components/block-queue";
+import { BlockQueue, IncidentQueue } from "@/components/block-queue";
 import { Button } from "@/components/ui/button";
 import { Panel, PanelBody, PanelHeader, PanelTitle } from "@/components/ui/card";
 import { SegmentTrigger, Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useRun } from "@/lib/use-run";
 import { useInstruments } from "@/lib/use-instruments";
+import { useIncidents } from "@/lib/use-incidents";
+import { useReview } from "@/lib/use-review";
 import { buildFindings, verdictNotes } from "@/lib/findings";
 import { collectMarkers } from "@/lib/timecodes";
 import { loadQueue, saveQueue, type BlockEntry } from "@/lib/block-queue";
-import { labelForTarget, presetById } from "@/lib/assets";
+import { assetIdFor, labelForTarget, presetById, PRESET_ASSETS } from "@/lib/assets";
 import type { FaultMap, GateName } from "@/lib/events";
 
 const SOURCES_LINE =
@@ -53,7 +55,7 @@ export function ConsoleShell({ dashboardUrl, environment, mock }: ShellProps) {
   const [tab, setTab] = React.useState("review");
   // What the right column is reading. The clip never leaves the screen for it.
   const [segment, setSegment] = React.useState("checks");
-  const [reviewed, setReviewed] = React.useState(false);
+  // The runs of this browser that ended BLOCK: the offline fallback of the queue.
   const [queue, setQueue] = React.useState<BlockEntry[]>([]);
   // Per run, and kept between runs until the reviewer switches it back off.
   const [muted, setMuted] = React.useState<GateName[]>([]);
@@ -64,6 +66,10 @@ export function ConsoleShell({ dashboardUrl, environment, mock }: ShellProps) {
   // retries while a route answers ok: false (a paused Grafana Cloud stack waking).
   const instruments = useInstruments(mock);
   const refreshInstruments = instruments.refresh;
+  // The queue: Grafana's open incidents, refreshed per settled run and per resolve.
+  const incidentsView = useIncidents();
+  const refreshIncidents = incidentsView.refresh;
+  const { review, submit: submitReview } = useReview(state, refreshIncidents);
 
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
   const [clipReady, setClipReady] = React.useState(false);
@@ -86,6 +92,7 @@ export function ConsoleShell({ dashboardUrl, environment, mock }: ShellProps) {
     // A restored run already refreshed the instruments and queued itself when it landed.
     if (state.restored) return;
     void refreshInstruments();
+    void refreshIncidents();
     const verdict = state.verdict;
     const runKey = state.startedAt;
     if (!verdict || verdict.status === "PASS" || runKey === null) return;
@@ -114,7 +121,17 @@ export function ConsoleShell({ dashboardUrl, environment, mock }: ShellProps) {
     state.target,
     target,
     refreshInstruments,
+    refreshIncidents,
   ]);
+
+  // An incident names the pipeline's asset id; the console can re-run it when a preset carries that id.
+  const rerunTarget = React.useCallback((assetId: string | null): string | null => {
+    if (!assetId) return null;
+    const preset = PRESET_ASSETS.find((a) => assetIdFor(a.gcs) === assetId);
+    if (preset) return preset.id;
+    if (target.startsWith("gs://") && assetIdFor(target) === assetId) return target;
+    return null;
+  }, [target]);
 
   const select = React.useCallback(
     (next: string, uploaded?: { name: string; objectUrl: string }) => {
@@ -128,7 +145,6 @@ export function ConsoleShell({ dashboardUrl, environment, mock }: ShellProps) {
 
   const run = React.useCallback(
     (asset: string) => {
-      setReviewed(false);
       setTab("review");
       setSegment("checks");
       setTarget(asset);
@@ -237,9 +253,9 @@ export function ConsoleShell({ dashboardUrl, environment, mock }: ShellProps) {
               <TabsTrigger value="trace">Trace</TabsTrigger>
               <TabsTrigger value="queue">
                 Queue
-                {queue.length > 0 && (
+                {(incidentsView.incidents ? incidentsView.incidents.length : queue.length) > 0 && (
                   <span className="tabular font-mono text-[11px] text-ink-soft">
-                    {queue.length}
+                    {incidentsView.incidents ? incidentsView.incidents.length : queue.length}
                   </span>
                 )}
               </TabsTrigger>
@@ -334,8 +350,8 @@ export function ConsoleShell({ dashboardUrl, environment, mock }: ShellProps) {
                     <DecisionRecord
                       state={state}
                       dashboardUrl={dashboardUrl}
-                      reviewed={reviewed}
-                      onMarkReviewed={() => setReviewed(true)}
+                      review={review}
+                      onReview={(role) => void submitReview(role)}
                     />
                   </TabsContent>
                 </Tabs>
@@ -366,25 +382,62 @@ export function ConsoleShell({ dashboardUrl, environment, mock }: ShellProps) {
 
           <TabsContent value="queue" className="fit-region flex flex-1 flex-col">
             <div className="fit-scroll flex-1 space-y-3">
-              <Panel>
-                <PanelHeader>
-                  <PanelTitle>Blocked in this session</PanelTitle>
-                  <span className="tabular font-mono text-[10.5px] text-ink-soft">
-                    {queue.length} run{queue.length === 1 ? "" : "s"}
-                  </span>
-                </PanelHeader>
-                <BlockQueue entries={queue} onRerun={run} busy={busy} />
-              </Panel>
+              {incidentsView.incidents ? (
+                <Panel>
+                  <PanelHeader>
+                    <PanelTitle>Open incidents in Grafana</PanelTitle>
+                    <span className="tabular font-mono text-[10.5px] text-ink-soft">
+                      {incidentsView.incidents.length} incident{incidentsView.incidents.length === 1 ? "" : "s"}
+                      {incidentsView.mock ? ", mock" : ""}
+                      {incidentsView.error ? ", last good reading" : ""}
+                    </span>
+                  </PanelHeader>
+                  {incidentsView.error && (
+                    <p className="border-b border-line px-3 py-2 text-[12px] leading-[1.45] text-warn">
+                      Grafana did not answer the last refresh ({incidentsView.error}); this is the last list it gave.
+                    </p>
+                  )}
+                  <IncidentQueue
+                    incidents={incidentsView.incidents}
+                    onRerun={run}
+                    rerunTarget={rerunTarget}
+                    busy={busy}
+                  />
+                </Panel>
+              ) : (
+                <Panel>
+                  <PanelHeader>
+                    <PanelTitle>
+                      {incidentsView.loading ? "Reading the open incidents in Grafana" : "Blocked in this browser (offline fallback)"}
+                    </PanelTitle>
+                    <span className="tabular font-mono text-[10.5px] text-ink-soft">
+                      {queue.length} run{queue.length === 1 ? "" : "s"}
+                    </span>
+                  </PanelHeader>
+                  {!incidentsView.loading && (
+                    <p className="border-b border-line px-3 py-2 text-[12px] leading-[1.45] text-warn">
+                      Grafana did not answer ({incidentsView.error ?? "no reading yet"}), so this list is the runs of this
+                      browser that ended BLOCK, kept in local storage. It is not the incident queue.
+                    </p>
+                  )}
+                  <BlockQueue entries={queue} onRerun={run} busy={busy} />
+                </Panel>
+              )}
               <Panel>
                 <PanelHeader>
                   <PanelTitle>How this queue works</PanelTitle>
                 </PanelHeader>
                 <PanelBody>
                   <p className="max-w-[80ch] text-[13px] leading-[1.55] text-ink-soft">
-                    Every run of this browser session that ended BLOCK is kept in local storage, so
-                    a reviewer can leave the page and come back to the same worklist. Re-run sends
-                    the same asset through the airlock again, which is how a reviewer confirms that
-                    a block caused by a degraded control clears once the control is healthy.
+                    The queue is Grafana&apos;s list of open Airlock incidents, read through the
+                    Incident API. The escalation agent opens one per asset and motive when a BLOCK
+                    needs a human, and later runs of the same asset join it instead of opening
+                    another; the investigator&apos;s note and the Loki lines it cites are in the
+                    incident. Marking a run reviewed in the Record resolves its incident and writes
+                    an annotation tagged reviewed. Re-run sends the asset through the airlock again,
+                    which is how a reviewer confirms that a block caused by a degraded control clears
+                    once the control is healthy. When Grafana does not answer, the runs of this
+                    browser that ended BLOCK are shown instead, and said to be that.
                   </p>
                 </PanelBody>
               </Panel>
