@@ -3,20 +3,17 @@ download them to a temp file, the gates that take a URI use it directly."""
 
 from __future__ import annotations
 
-import hashlib
-import os
 import pathlib
 import tempfile
 
+from airlock import settings
 from airlock.gates.base import Asset
-
-BUCKET = os.environ.get("AIRLOCK_ASSETS_BUCKET", "airlock-agentic-cinema-assets")
 
 
 def _storage_client():
     from google.cloud import storage
 
-    return storage.Client(project=os.environ.get("GOOGLE_CLOUD_PROJECT") or os.environ.get("AIRLOCK_PROJECT", "airlock-agentic-cinema"))
+    return storage.Client(project=settings.project())
 
 
 def download(gcs_uri: str, dest_dir: str | None = None) -> str:
@@ -25,14 +22,6 @@ def download(gcs_uri: str, dest_dir: str | None = None) -> str:
     dest = pathlib.Path(dest_dir) / pathlib.Path(blob_name).name
     _storage_client().bucket(bucket_name).blob(blob_name).download_to_filename(str(dest))
     return str(dest)
-
-
-def upload(path: str, prefix: str = "uploads") -> str:
-    p = pathlib.Path(path)
-    digest = hashlib.sha256(p.read_bytes()).hexdigest()[:12]
-    blob_name = f"{prefix}/{p.stem}-{digest}{p.suffix}"
-    _storage_client().bucket(BUCKET).blob(blob_name).upload_from_filename(str(p))
-    return f"gs://{BUCKET}/{blob_name}"
 
 
 def ensure_local(asset: Asset) -> Asset:

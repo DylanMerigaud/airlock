@@ -7,8 +7,10 @@ Usage:
   scripts/airlock_mcp_client.py --local        # http://127.0.0.1:8080/mcp
   scripts/airlock_mcp_client.py --url <url>    # any other URL
 
-The bearer is read from the macOS keychain entry "airlock-mcp-server-token" (service name,
-account dylanmerigaud), never printed and never taken from an argument.
+The bearer is AIRLOCK_MCP_SERVER_TOKEN when set, else the macOS keychain entry
+"airlock-mcp-server-token" (service name, account AIRLOCK_KEYCHAIN_ACCOUNT, default dylanmerigaud);
+never printed and never taken from an argument. The deployed URL and the bucket come from
+airlock.settings (AIRLOCK_MCP_SERVER_URL, AIRLOCK_ASSETS_BUCKET).
 """
 
 from __future__ import annotations
@@ -16,15 +18,20 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import pathlib
 import subprocess
+import sys
 import time
 
 from mcp import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
 
-DEPLOYED_URL = "https://airlock-mcp-771466810465.us-central1.run.app/mcp"
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
+
+from airlock import settings  # noqa: E402
+
 LOCAL_URL = "http://127.0.0.1:8080/mcp"
-BUCKET = "airlock-agentic-cinema-assets"
+BUCKET = settings.bucket()
 PROVENANCE_CASES = [
     (f"gs://{BUCKET}/calibration/nimbus-clean-clip.mp4", "PASS"),
     (f"gs://{BUCKET}/real/CrestToothpa-18-48.mp4", "BLOCK"),
@@ -32,8 +39,11 @@ PROVENANCE_CASES = [
 
 
 def bearer() -> str:
+    token = settings.airlock_mcp_server_token()
+    if token:
+        return token
     out = subprocess.run(
-        ["security", "find-generic-password", "-s", "airlock-mcp-server-token", "-a", "dylanmerigaud", "-w"],
+        ["security", "find-generic-password", "-s", "airlock-mcp-server-token", "-a", settings.keychain_account(), "-w"],
         capture_output=True, text=True, check=True,
     )
     return out.stdout.strip()
@@ -69,7 +79,7 @@ def main() -> None:
     ap.add_argument("--url", default=None, help="MCP server URL, e.g. https://.../mcp")
     ap.add_argument("--local", action="store_true", help=f"use {LOCAL_URL}")
     args = ap.parse_args()
-    url = args.url or (LOCAL_URL if args.local else DEPLOYED_URL)
+    url = args.url or (LOCAL_URL if args.local else settings.airlock_mcp_server_url())
     print(f"connecting to {url}")
     asyncio.run(run(url))
 

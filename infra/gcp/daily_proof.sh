@@ -10,16 +10,22 @@
 #
 # Usage: bash infra/gcp/daily_proof.sh
 #   AGENT_ENGINE_RESOURCE   the reasoning engine the proof queries (default: the deployed pipeline)
+# The coordinates below are the same variables airlock/settings.py reads, with the same defaults.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PROJECT="${AIRLOCK_PROJECT:-airlock-agentic-cinema}"
 REGION="${AIRLOCK_REGION:-us-central1}"
+BUCKET="${AIRLOCK_ASSETS_BUCKET:-airlock-agentic-cinema-assets}"
 JOB="${AIRLOCK_PROOF_JOB:-airlock-daily-proof}"
 REPOSITORY="${AIRLOCK_ARTIFACT_REPO:-airlock}"
 IMAGE="${REGION}-docker.pkg.dev/${PROJECT}/${REPOSITORY}/airlock-daily-proof:latest"
 ENGINE="${AGENT_ENGINE_RESOURCE:-projects/771466810465/locations/us-central1/reasoningEngines/1737023312967499776}"
 SCHEDULE="${AIRLOCK_PROOF_SCHEDULE:-0 */12 * * *}"
+GRAFANA_INFLUX_URL="${GRAFANA_INFLUX_URL:-https://prometheus-prod-67-prod-us-west-0.grafana.net/api/v1/push/influx/write}"
+GRAFANA_INFLUX_USER="${GRAFANA_INFLUX_USER:-3546988}"
+GRAFANA_LOKI_URL="${GRAFANA_LOKI_URL:-https://logs-prod-021.grafana.net}"
+GRAFANA_LOKI_USER="${GRAFANA_LOKI_USER:-1769169}"
 SCHEDULER_SA_ID="daily-proof-scheduler"
 SCHEDULER_SA="${SCHEDULER_SA_ID}@${PROJECT}.iam.gserviceaccount.com"
 
@@ -56,7 +62,7 @@ gcloud run jobs deploy "$JOB" \
   --project="$PROJECT" --region="$REGION" \
   --image="$IMAGE" \
   --tasks=1 --task-timeout=1800 --cpu=1 --memory=2Gi --max-retries=0 \
-  --set-env-vars="AIRLOCK_PROJECT=${PROJECT},AIRLOCK_ASSETS_BUCKET=airlock-agentic-cinema-assets,AIRLOCK_RUNTIME=daily-proof,AGENT_ENGINE_RESOURCE=${ENGINE},GRAFANA_INFLUX_URL=https://prometheus-prod-67-prod-us-west-0.grafana.net/api/v1/push/influx/write,GRAFANA_INFLUX_USER=3546988,GRAFANA_LOKI_URL=https://logs-prod-021.grafana.net,GRAFANA_LOKI_USER=1769169" \
+  --set-env-vars="AIRLOCK_PROJECT=${PROJECT},AIRLOCK_ASSETS_BUCKET=${BUCKET},AIRLOCK_RUNTIME=daily-proof,AGENT_ENGINE_RESOURCE=${ENGINE},GRAFANA_INFLUX_URL=${GRAFANA_INFLUX_URL},GRAFANA_INFLUX_USER=${GRAFANA_INFLUX_USER},GRAFANA_LOKI_URL=${GRAFANA_LOKI_URL},GRAFANA_LOKI_USER=${GRAFANA_LOKI_USER}" \
   --set-secrets="GRAFANA_INFLUX_TOKEN=grafana-influx-token:latest,GRAFANA_LOKI_TOKEN=grafana-influx-token:latest" \
   --quiet
 

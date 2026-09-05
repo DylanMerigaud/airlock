@@ -10,20 +10,20 @@ No Vertex SDK: the console (M4) and this module use the same HTTP call.
 from __future__ import annotations
 
 import json
-import os
 import time
 import uuid
+from collections.abc import Iterator
 from dataclasses import dataclass, field
-from typing import Any, Iterator
+from typing import Any
 
 import httpx
 
-DEFAULT_RESOURCE = "projects/771466810465/locations/us-central1/reasoningEngines/1737023312967499776"
+from airlock import settings
 
 
 def resource_from_env() -> str:
-    """The reasoning engine to query: AGENT_ENGINE_RESOURCE, or the one scripts/demo_prep.sh uses."""
-    return os.environ.get("AGENT_ENGINE_RESOURCE") or DEFAULT_RESOURCE
+    """The reasoning engine to query: AGENT_ENGINE_RESOURCE, or the deployed pipeline (airlock.settings)."""
+    return settings.engine_resource()
 
 
 @dataclass

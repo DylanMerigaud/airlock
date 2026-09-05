@@ -8,15 +8,18 @@ Usage: python scripts/generate_synthetic_clip.py [model]
 from __future__ import annotations
 
 import json
+import pathlib
 import sys
 import time
 
 from google import genai
 from google.genai import types
 
-PROJECT = "airlock-agentic-cinema"
-LOCATION = "us-central1"
-OUT = "gs://airlock-agentic-cinema-assets/synthetic/"
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
+
+from airlock import settings  # noqa: E402
+
+OUT = f"gs://{settings.bucket()}/synthetic/"
 PROMPT = (
     "Product commercial shot: a single plain unbranded matte white aluminium can of sparkling water on a "
     "light oak table by a window, soft morning light, fine condensation drops, a thin slice of lime beside it, "
@@ -27,7 +30,7 @@ PROMPT = (
 
 def main() -> None:
     model = sys.argv[1] if len(sys.argv) > 1 else "veo-3.1-generate-001"
-    client = genai.Client(vertexai=True, project=PROJECT, location=LOCATION)
+    client = genai.Client(vertexai=True, project=settings.project(), location=settings.region())
     t0 = time.time()
     op = client.models.generate_videos(
         model=model,
@@ -49,8 +52,10 @@ def main() -> None:
         op = client.operations.get(op)
     if op.error:
         sys.exit(f"veo error: {op.error}")
+    if op.response is None:
+        sys.exit("veo returned no response and no error")
     vids = op.response.generated_videos or []
-    print(json.dumps({"model": model, "elapsed_s": round(time.time() - t0, 1), "videos": [v.video.uri for v in vids],
+    print(json.dumps({"model": model, "elapsed_s": round(time.time() - t0, 1), "videos": [v.video.uri if v.video else None for v in vids],
                       "rai_filtered": getattr(op.response, "rai_media_filtered_count", None),
                       "rai_reasons": getattr(op.response, "rai_media_filtered_reasons", None)}))
 
