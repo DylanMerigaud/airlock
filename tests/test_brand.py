@@ -33,3 +33,16 @@ def test_forbidden_colour_and_other_brand_block():
     assert r.status == "BLOCK"
     assert any("forbidden palette" in x for x in r.reasons)
     assert any("Crest" in x for x in r.reasons)
+
+
+def test_clock_strings_become_seconds_and_a_bare_number_stays_seconds():
+    from airlock.gates.brand import clock_to_seconds, normalize_timestamps
+
+    assert clock_to_seconds("00:16.5") == 16.5
+    assert clock_to_seconds("0:26") == 26.0
+    assert clock_to_seconds("01:02:03") == 3723.0
+    assert clock_to_seconds(7.5) == 7.5
+    assert clock_to_seconds("later") is None and clock_to_seconds(None) is None
+    out = normalize_timestamps({"wordmark_timestamps": ["00:02", "bad"], "exclusion_violations": [{"exclusion": "x", "evidence": "y", "start": "00:26"}]})
+    assert out["wordmark_timestamps_s"] == [2.0]
+    assert out["exclusion_violations"][0]["start_s"] == 26.0

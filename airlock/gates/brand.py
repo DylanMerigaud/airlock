@@ -21,17 +21,55 @@ BRAND_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
         "wordmark_seen": {"type": "boolean"},
-        "wordmark_timestamps_s": {"type": "array", "items": {"type": "number"}},
+        "wordmark_timestamps": {"type": "array", "items": {"type": "string"}, "description": "each as mm:ss or mm:ss.s from the start of the clip"},
         "on_screen_text": {"type": "array", "items": {"type": "string"}},
         "dominant_colors_hex": {"type": "array", "items": {"type": "string"}},
         "tone_words": {"type": "array", "items": {"type": "string"}},
         "exclusion_violations": {"type": "array", "items": {"type": "object", "properties": {
-            "exclusion": {"type": "string"}, "evidence": {"type": "string"}, "start_s": {"type": "number"}},
+            "exclusion": {"type": "string"}, "evidence": {"type": "string"},
+            "start": {"type": "string", "description": "mm:ss or mm:ss.s from the start of the clip"}},
             "required": ["exclusion", "evidence"]}},
         "other_brands_seen": {"type": "array", "items": {"type": "string"}},
     },
-    "required": ["wordmark_seen", "wordmark_timestamps_s", "on_screen_text", "dominant_colors_hex", "tone_words", "exclusion_violations", "other_brands_seen"],
+    "required": ["wordmark_seen", "wordmark_timestamps", "on_screen_text", "dominant_colors_hex", "tone_words", "exclusion_violations", "other_brands_seen"],
 }
+
+
+def clock_to_seconds(value: Any) -> float | None:
+    """"mm:ss" or "mm:ss.s" (or "h:mm:ss") to seconds. gemini-2.5-flash asked for a number answers minutes.seconds
+    as a decimal (0.26 for 26 s, measured on the Crest excerpt on 2026-09-05), so the schema asks for a clock string
+    and this is the only place it is read. A bare number is taken as seconds; anything else is None."""
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    text = str(value).strip()
+    if not text:
+        return None
+    parts = text.split(":")
+    try:
+        if len(parts) == 1:
+            return float(parts[0])
+        seconds = 0.0
+        for part in parts:
+            seconds = seconds * 60 + float(part)
+        return round(seconds, 2)
+    except ValueError:
+        return None
+
+
+def normalize_timestamps(findings: dict[str, Any]) -> dict[str, Any]:
+    """The clock strings the model wrote become the seconds the rest of the gate and the console read
+    (`wordmark_timestamps_s`, `start_s`), so a finding's marker lands where the frame is."""
+    out = dict(findings)
+    out["wordmark_timestamps_s"] = [t for t in (clock_to_seconds(v) for v in findings.get("wordmark_timestamps") or []) if t is not None]
+    violations = []
+    for v in findings.get("exclusion_violations") or []:
+        row = dict(v)
+        row["start_s"] = clock_to_seconds(v.get("start"))
+        violations.append(row)
+    out["exclusion_violations"] = violations
+    return out
 
 
 def load_charter(path: pathlib.Path = CHARTER_PATH) -> dict[str, Any]:
@@ -45,7 +83,8 @@ def prompt_for(charter: dict[str, Any]) -> str:
         + f"\nThe wordmark is the exact word \"{charter.get('brand')}\" written on screen or on a product. Report wordmark_seen "
         f"as true only if that exact word appears; a different brand name does not count. Then: every piece of "
         "on-screen text; the dominant colours of the frames as hex; the tone words that describe the delivery; every charter "
-        "exclusion that the asset violates, quoting the evidence with its timestamp; any other brand name seen. Be literal."
+        "exclusion that the asset violates, quoting the evidence with its timestamp; any other brand name seen. Be literal. "
+        "Write every timestamp as a clock reading from the start of the clip, mm:ss or mm:ss.s (16.5 seconds in is 00:16.5)."
     )
 
 
@@ -100,6 +139,6 @@ def decide(findings: dict[str, Any], charter: dict[str, Any]) -> GateResult:
 def check(asset: Asset) -> GateResult:
     charter = load_charter()
     findings, usage = ask_json(FAST_MODEL, [video_part(asset.path, asset.gcs_uri, asset.mime_type), prompt_for(charter)], BRAND_SCHEMA)
-    result = decide(findings, charter)
+    result = decide(normalize_timestamps(findings), charter)
     result.evidence.append({"model": usage})
     return result
