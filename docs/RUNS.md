@@ -3279,3 +3279,60 @@ Spend: September gross 0.79 EUR at 09:39 UTC (the budget notification the cap fu
 lags a day, so the day's Video Intelligence minutes are not all in yet, and they sit inside the free
 quota anyway); August closed at 3.49 EUR. The credit is not at risk, the cap stays armed. Second pass of the same four
 judges at 10:10 UTC: see the next section.
+
+## The second panel and what it changed (2026-09-05, 10:10 to 11:40 UTC)
+
+The same four judge personas, the same brief, told to score the current state on its own merits and
+to name the delta. Scores, Technological Implementation / Design / Potential Impact / Quality of the
+Idea, first pass to second pass:
+
+| judge | first pass | second pass | would it win the track |
+|---|---|---|---|
+| Grafana partner architect | 3 / 3 / 3 / 4 | 4 / 4 / 4 / 4 | maybe, closer to yes |
+| Google Cloud agent judge | 4 / 4 / 3 / 4 | 5 / 4 / 4 / 5 | yes |
+| skeptical staff engineer | 4 / 4 / 3 / 4 | 4 / 4 / 3 / 5 | maybe, closer to yes |
+| brand-safety practitioner | 4 / 3 / 3 / 4 | 4 / 4 / 4 / 4 | maybe, leaning yes |
+| total of 80 | 56 | 64 | |
+
+Every first-pass defect the four named was checked by them as fixed except the ones they said were
+out of scope for the week (a real customer, Tempo traces, a frame histogram for the palette). Their
+second-pass findings, fixed in commit 9e48597 and deployed at 11:35 UTC (engine) and console
+revision 00016:
+
+- A failing telemetry push took the run down (Influx 503 after the gate had answered: the exception
+  left `run_gate`, ADK's ParallelAgent re-raised, no verdict). The pushes are now caught and recorded
+  on the result; the verdict then finds no Loki line for the run and rules control unavailable, R1 by
+  construction. Test `test_a_failing_telemetry_push_never_takes_the_run_down`.
+- The verdict's own failure (instrument error) re-raised and skipped the investigator and the
+  escalation. It is now the verdict of the run, in state, and both agents run on it.
+- The investigator was never told a gate was muted; its note said "no log entry was found". The gate
+  line in its instruction now says so, and the live note on the muted run reads "ROOT CAUSE: The
+  'rights' gate was intentionally muted by a reviewer for this run" (annotation 112, incident 36,
+  11:39 UTC).
+- Every healthy gate was painted amber after the T1 wording change (the console keyed on the word
+  "healthy", which `describe()` no longer emitted). The word is back and the console's amber keys on
+  the verdict's own problems (not seen, could not read, error ratio at the block line).
+- The rate limiter keyed on the first X-Forwarded-For hop, which a caller chooses; it keys on the
+  last hop, the one Cloud Run's front end appends, and the resolve route has the same bucket.
+- The resolve route resolved any incident id; it reads the incident first and refuses a title the
+  escalation did not write. The Queue gained a Resolve action per row.
+- The presets hardcoded the bucket beside the `ASSETS_BUCKET` setting; they are built from it and pass
+  the same allowlist.
+- The stat tiles range-queried and counted day 8 in a 7 d tile; stat targets are instant now
+  (dashboard version 8). Two alert rules added: "Airlock verdict could not reach Grafana" on
+  `airlock_verdict_total{status="ERROR"}` and the dead man's switch "Airlock daily proof did not run"
+  (no proof sample in 13 hours alerts, noDataState Alerting). Five rules provisioned, verified by GET.
+- Fifteen stale duplicate drill incidents (ids 2 to 24) resolved on the stack through
+  `IncidentsService.UpdateStatus`, one kept per title (25, 26).
+- Dead code the hygiene pass had listed for later: `status-chip.tsx`, `grafanaConfigured`,
+  `hasTimecode`, `RawEvent`, `@radix-ui/react-dialog`, `score_all`, `load_substantiation` removed.
+- Selecting another clip kept the previous verdict and its markers on the stage; the settled run is
+  cleared when the reviewer picks another asset (a run in flight is kept).
+- Docs: console/README.md routes and states brought to the current console, README and DEVPOST eval
+  numbers to the 09:30 UTC run, the M5 status line, the test count (185), `scripts/check.sh` runs
+  the five checks and README names it as the gate (there is no CI on this repository).
+
+Still open, on purpose and said: the console has no login (a demo posture: the run and the resolve
+routes are rate-limited per caller and the resolve route only touches Airlock incidents); the wake
+retry has met no real paused stack since the keepalive job started; the brand palette is the model's
+estimate; the release model clears the faces of the asset a release names, not each face.
