@@ -379,7 +379,14 @@ function gateLine(card: GateCardState): string {
   if (card.status === "RUNNING") return `Checking: ${GATE_STEP[card.gate].replace(": ", ", ")}`;
   const reasons = card.done?.reasons ?? [];
   const first = reasons[0] ?? `${card.gate} ${card.status}`;
-  if (card.status === "PASS") return "No issues found";
+  if (card.status === "PASS") {
+    // A PASS earned on paperwork or a marking says so: the study a claim rests on, the generated-content
+    // marking a manifest carries. A plain PASS stays plain.
+    const said = reasons
+      .flatMap((r) => r.split("; "))
+      .find((clause) => /substantiation on file|marked as generated/i.test(clause));
+    return said ? `No issues found: ${said.replace(/\s*\(SYNTHETIC.*$/i, "")}` : "No issues found";
+  }
   if (card.status === "ERROR") return `Check failed: ${first}`;
   return `${reasons.length || 1} issue${reasons.length === 1 ? "" : "s"} found: ${first}`;
 }
