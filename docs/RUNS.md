@@ -1706,3 +1706,61 @@ now says what the script does.
   paperwork BLOCK escalate (`needs_human` true, an incident): the live agent no longer says what the
   fixture replays. The table now says so; the fixture is re-recorded in a later pass, with the two
   others, on the current agent.
+
+### The eval, scored per rule, re-run on the current code
+
+`scripts/eval_gates.py` now reads its ground truth from `eval/manifest.yaml` (status per gate,
+rule ids that must fire, rule ids that must not, the brand on screen and whether a person is on
+screen for each real spot, hand-labelled from contact sheets on 2026-09-04) and scores per gate AND
+per rule id; a forbidden rule that fires is a false positive even when the BLOCK was right. Every
+percentage prints beside its count. The 2026-08-29 artifact was produced before the rights gate's
+reason wording changed (commit 8a1bea9) and scored the status only, so the whole set was re-run.
+
+First run, 05:22 UTC: 15 of 16 assets in 25 minutes, then the process hung on `veo-raw` for 32
+minutes inside a Gemini call and was killed (`sample` showed the main thread in `_ssl__SSLSocket_read`;
+the socket to Google had 14 MB sent and nothing received; google-genai builds its httpx client with
+`timeout=None`, `.venv/lib/python3.12/site-packages/google/genai/_api_client.py:1131`, where the
+Video Intelligence call has `AIRLOCK_VI_TIMEOUT_S`). The results were only in memory. The harness
+now checkpoints `eval/results.json` after every asset, `--only` merges into the file, and a
+per-asset watchdog (`AIRLOCK_EVAL_ASSET_BUDGET_S`, 1200 s) turns a hang into that gate's ERROR.
+The client timeout itself belongs in `airlock/gemini.py` (`HttpOptions(timeout=...)`), listed for
+the hygiene pass.
+
+Second run, alone, `scripts/with_env.sh uv run python scripts/eval_gates.py`, 06:20:15 to
+06:45:18 UTC, code c3bc502, exit 0, 16 Video Intelligence minutes, 32 Gemini calls, 8.2256 USD at
+list price (median 0.5183 USD per asset, n=16):
+
+```
+per gate (status):
+  rights      n=16  precision 100% (10 of 10)  recall 100% (10 of 10)
+  claim       n=5   precision 100% (3 of 3)  recall 100% (3 of 3)
+  brand       n=6   precision 100% (2 of 2)  recall 100% (2 of 2)
+  provenance  n=16  precision 100% (14 of 14)  recall 100% (14 of 14)
+per rule:
+  registry:brands:not_cleared                rights      n=6   precision n/a (0 of 0)  recall n/a (0 of 0)
+  registry:brands:unknown                    rights      n=16  precision 100% (9 of 9)  recall 90% (9 of 10)
+  registry:explicit_content                  rights      n=16  precision 0% (0 of 1)  recall n/a (0 of 0)
+  registry:faces:no_release                  rights      n=16  precision 100% (7 of 7)  recall 100% (7 of 7)
+  16 CFR 255.3                               claim       n=4   precision 100% (3 of 3)  recall 100% (3 of 3)
+  charter:exclusions                         brand       n=5   precision 100% (1 of 1)  recall 100% (1 of 1)
+  charter:mandatory_mentions                 brand       n=6   precision 100% (1 of 1)  recall 100% (1 of 1)
+  charter:palette                            brand       n=5   precision 100% (1 of 1)  recall 100% (1 of 1)
+  charter:tone                               brand       n=4   precision n/a (0 of 0)  recall n/a (0 of 0)
+  charter:typography                         brand       n=4   precision n/a (0 of 0)  recall n/a (0 of 0)
+  airlock:provenance:manifest-required       provenance  n=16  precision 100% (12 of 12)  recall 100% (12 of 12)
+  airlock:provenance:signature-valid         provenance  n=4   precision 100% (1 of 1)  recall 100% (1 of 1)
+  airlock:provenance:signer-trusted          provenance  n=3   precision 100% (1 of 1)  recall 100% (1 of 1)
+brand named on the real spots: 40% (4 of 10)
+surprise: `registry:brands:unknown` did not fire on `MacleansToot-0-29` where it must (gate status BLOCK)
+surprise: `registry:explicit_content` fired on `kodak_instamatic-31-60` where it must not: "explicit content likelihood at or above LIKELY on 1 frame(s)"
+surprise: Video Intelligence did not name the brand on 6 of 10 real spots: chevrolet-31-61 expected Chevrolet or Chevy, got DeLorean Motor Company; kodak_instamatic-31-60 expected Kodak or Instamatic, got Stanley Steemer, JanSport, Ichiran; labatts_beer-0-20 expected Labatt, got Peugeot; gilbert_slot_racers-0-30 expected Gilbert, got Mitsubishi Fuso Truck and Bus Corporation, Vauxhall Motors; MacleansToot-0-29 expected Macleans, got no brand; ScottiesTiss-0-30 expected Scotties, got Lucid Motors, Green Bay Packers
+```
+
+What the status-level 100 percent hid, now in `eval/EVAL.md` under "Surprises": the Kodak
+Instamatic family party is flagged as explicit content (VERY_LIKELY on 1 frame of 28, the policy
+blocks at LIKELY), a false positive that a status-only score counted as a correct BLOCK on both
+runs; on Macleans Video Intelligence found no logo at all and the BLOCK rests on the ten face
+tracks alone (the brand rule's recall is 9 of 10, the gate blocks by ignorance there, not by
+recognition); and the brand on screen is named on 4 of 10 real spots (Cheerios as "Honey Nut
+Cheerios", Ivory, Folgers, General Electric), the same six misnamed as on 2026-08-29. Rights median
+41.1 s (max 94.5 s, n=16), claim 20.7 s, brand 14.7 s, provenance 2 ms.

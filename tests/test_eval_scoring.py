@@ -32,7 +32,9 @@ def _asset(asset_id: str, kind: str, gates: dict, ground_truth: dict) -> dict:
 
 # Two real spots and one synthetic clip, shaped like results.json rows.
 KODAK = _asset("kodak", "real", {
-    "rights": {"status": "BLOCK", "reason": "explicit content likelihood at or above LIKELY on 2 frame(s)",
+    "rights": {"status": "BLOCK", "reason": "a logo the registry does not know at 14.61s",
+               "reasons": ["a logo the registry does not know at 14.61s", "16 face track(s) with no release on file",
+                           "explicit content likelihood at or above LIKELY on 2 frame(s)"],
                "rule_ids": ["registry:brands:unknown", "registry:explicit_content", "registry:faces:no_release"],
                "found": {"brands": [{"name": "Kodak", "how": "logo"}]}},
     "provenance": {"status": "BLOCK", "reason": "no C2PA manifest", "rule_ids": ["airlock:provenance:manifest-required"]},

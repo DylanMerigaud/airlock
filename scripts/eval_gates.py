@@ -344,6 +344,27 @@ def score_status(assets: list[dict]) -> dict[str, dict]:
     return out
 
 
+# A word the gate's reason for that rule carries, to quote the right line when a rule fires where
+# it must not (the gates write one reason per finding, in no fixed order).
+RULE_REASON_WORD = {
+    "registry:explicit_content": "explicit content", "registry:faces:no_release": "face track",
+    "registry:brands:unknown": "does not know", "registry:brands:not_cleared": "not_cleared",
+    "charter:palette": "palette", "charter:tone": "tone", "charter:exclusions": "exclusion",
+    "charter:mandatory_mentions": "mandatory mention", "charter:typography": "longer than",
+}
+
+
+def reason_for(rule: str, gate_row: dict | None) -> str:
+    """The reason line the gate wrote for this rule, else its first reason."""
+    reasons = list((gate_row or {}).get("reasons") or [])
+    word = RULE_REASON_WORD.get(rule)
+    if word:
+        for r in reasons:
+            if word in r:
+                return r
+    return reasons[0] if reasons else (gate_row or {}).get("reason", "")
+
+
 def score_rules(assets: list[dict]) -> dict[str, dict]:
     """Per rule id, over the (asset, gate) pairs where the manifest says the rule must fire or
     must not: tp (expected, fired), fn (expected, silent), fp (forbidden, fired), tn (forbidden,
@@ -365,7 +386,7 @@ def score_rules(assets: list[dict]) -> dict[str, dict]:
                 row = out.setdefault(rule, {"gate": gate, "tp": 0, "fp": 0, "tn": 0, "fn": 0, "false_positives": [], "misses": []})
                 if rule in got:
                     row["fp"] += 1
-                    row["false_positives"].append((a["asset_id"], (g or {}).get("reason", "")))
+                    row["false_positives"].append((a["asset_id"], reason_for(rule, g)))
                 else:
                     row["tn"] += 1
     for row in out.values():
