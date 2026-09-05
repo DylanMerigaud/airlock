@@ -43,7 +43,7 @@ ERROR_RATIO_BLOCK = 0.5
 ERROR_RUNS_MIN = 2
 CALIBRATION_WINDOW = "7d"
 RUN_EVENT_WINDOW_MIN = 30
-PAPERWORK_RULE_PREFIXES = ("16 CFR", "ASA ", "registry:brands:not_cleared", "registry:brands:unknown", "registry:faces:no_release", "airlock:provenance:signer-trusted")
+PAPERWORK_RULE_PREFIXES = ("16 CFR", "FTC Act", "FTC Policy Statement", "CAP Code", "ASA ", "registry:brands:not_cleared", "registry:brands:unknown", "registry:faces:no_release", "airlock:provenance:signer-trusted")
 
 
 def needs_paperwork(rule_ids: list[str]) -> bool:

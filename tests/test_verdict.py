@@ -171,3 +171,13 @@ def test_promql_last_calibration_takes_the_min_over_the_defect_series():
 
 def test_logql_asks_for_this_run_of_this_gate():
     assert logql_question("rights", "e-abc123") == '{app="airlock", gate="rights"} |= "e-abc123"'
+
+
+def test_new_claim_citations_are_paperwork_rules():
+    # T6 moved the advertiser's own claims off Part 255: a study still lifts them, so they stay paperwork.
+    from airlock.verdict import needs_paperwork
+
+    assert needs_paperwork(["FTC Act section 5 (15 U.S.C. 45)"])
+    assert needs_paperwork(["FTC Policy Statement Regarding Advertising Substantiation (1983)"])
+    assert needs_paperwork(["CAP Code 3.7"])
+    assert not needs_paperwork(["charter:exclusions"])
