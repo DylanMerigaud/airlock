@@ -31,7 +31,7 @@ interface. Each preloaded asset has its own recording:
 | Asset picked | Fixture replayed | What it shows |
 | --- | --- | --- |
 | Crest | `fixtures/run-crest-incident.jsonl` | BLOCK on content, four failing gates, an incident opened |
-| Nimbus | `fixtures/run-nimbus-block.jsonl` | Three gates PASS, claim BLOCK on 16 CFR 255.3, no human needed |
+| Nimbus | `fixtures/run-nimbus-block.jsonl` | Three gates PASS, claim BLOCK on 16 CFR 255.3. Recorded before the paperwork rule (2026-08-28 23:30 UTC, annotation 4), so its verdict says `needs_human` false where the live agent now says true and opens an incident; re-recorded in a later pass |
 | Nimbus clean | `fixtures/run-clean-pass.jsonl` | Four gates PASS and a PASS verdict, healthy and calibrated, no human needed |
 | An uploaded clip | `fixtures/run-nimbus-instrument-error.jsonl` | A gate that failed while running, so nothing is cleared |
 

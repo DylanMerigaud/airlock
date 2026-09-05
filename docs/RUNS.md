@@ -11,24 +11,8 @@ Track decision: Grafana Labs (Airlock v2). The kill criterion switches to ClickH
 only if the Agent Engine run cannot reach mcp-grafana on Cloud Run or cannot write the annotation
 after the auth options are exhausted. Not triggered.
 
-**Idea gate, run late (2026-08-29, after M1 to M4b already stood).** The plan
-(`career/hackathon-evals/BUILD-AIRLOCK-V2-2026-08-28.md` in growth-cockpit) already carried the
-result of this check as pre-existing evidence ("9 of 9 gates PASS") before the first commit; it was
-never re-run inside this repo's own `RUNS.md`, so it is logged here for the record.
-`python3 career/hackathon-evals/check.py --type idea ideas/airlock-v2.md` (growth-cockpit repo):
-
-```
-PASS  G17 zero em-dash / en-dash
-PASS  G1 corpus lu  (12 gagnants cites)
-PASS  G2 insight non-evident
-PASS  G3 vertical etroit
-PASS  G7 eligibilite copiee
-PASS  G6 demo a 50 pourcent
-PASS  G4 multi-agent  (6 agents)
-PASS  G5 primitive sponsor
-PASS  G8 track choisi
-RESULTAT: PASS mecanique
-```
+The idea file behind this build scored 9 of 9 gates on a private idea checker on 2026-08-28,
+before the first commit; the checker is not in this repository.
 
 ### Auth path chosen
 
@@ -419,7 +403,7 @@ get it. Annotations 1 to 10 and incidents 2 to 6 are the day's ledger on the sta
 
 ## M4: the console on Cloud Run
 
-Status: in progress (started 2026-08-28 23:35 UTC).
+Status: DONE 2026-08-29 (started 2026-08-28 23:35 UTC; the "M4 done" section below).
 
 ### Build
 
@@ -515,7 +499,10 @@ other than Dylan, and said as such):
 - BLOCK queue: the Crest run, with re-run.
 - Visible errors: none (page text and `[role=alert]` probed at every state).
 
-Screenshots: `docs/img/console-crest-block-2026-08-29.png`, `docs/img/console-clean-pass-2026-08-29.png`.
+Screenshots: `docs/img/console-crest-block-2026-08-29.png` and `docs/img/console-clean-pass-2026-08-29.png`
+were taken here and removed from the repository in commit 8b79fe8 when the console v3 screenshots
+replaced them; the tracked ones are `docs/img/console-v3-crest-block-2026-08-29.png` and
+`docs/img/console-v3-clean-pass-2026-08-29.png`.
 
 ### M4 done (2026-08-29, ahead of the 2026-09-03 demo date)
 
@@ -838,8 +825,9 @@ chevron onto the source of truth, the mute switch and the evidence (YouTube Stud
 decision record (rules cited, C2PA, annotation, incident, human review) under the clip; Trace and
 Queue as their own views. Every route, the SSE contract, mock mode and the fixtures unchanged.
 Verified in mock mode: build, lint, typecheck clean; no horizontal overflow at 390 px; headings,
-labels and names in order. Screenshots: `docs/img/console-v2-crest-block-2026-08-29.png`,
-`docs/img/console-v2-clean-pass-2026-08-29.png`. Deploy and the Lighthouse rerun follow.
+labels and names in order. Screenshots `docs/img/console-v2-crest-block-2026-08-29.png` and
+`docs/img/console-v2-clean-pass-2026-08-29.png` were taken here and removed in commit 8b79fe8 (the
+v3 screenshots, `docs/img/console-v3-*.png`, are the tracked ones). Deploy and the Lighthouse rerun follow.
 
 ### Console v2 deployed (2026-08-29 19:00 UTC)
 
@@ -1207,7 +1195,7 @@ Open for the human pass: whether the punch-ins read as a push towards the column
 as a wobble, since a 1.15x move on a 1920x1080 frame is a small one; whether five editing captions
 in 151 s read as honesty or as clutter; and whether the 6.40 s stretch at 43.4 s is felt as slow.
 
-## Audit after two idle days (2026-09-02, 23:50 to 00:20 UTC)
+## Audit after two idle days (2026-09-01 23:50 UTC to 2026-09-02 00:20 UTC)
 
 Dylan's ask on 2026-09-02: audit, reorient, list the best things to do now; the final video is not
 the priority. Read before writing: repo equals origin (fc9e777, clean tree), 53 tests pass, no
@@ -2357,3 +2345,168 @@ symbols, defined and referenced nowhere else in `console/src` at 4c2d0f4 (grep, 
 still says so. `scripts/grafana_bootstrap.py` (T2): `GATES` at line 18 is unused; `DASHBOARD_UID`
 and the `GRAFANA_URL` read could come from `airlock.settings`. The claim gate's KeyError (vibe 2) is
 T6's, in `airlock/gates/claim.py`, not touched here.
+
+## Evidence that reproduces, docs that tell the truth (2026-09-05)
+
+Four judges reviewed the repository and the hosted URL on 2026-09-05 (the panel of the day). Their
+"claims checked" tables found the evidence behind the evaluation not reproducible, the 100 percent
+scores measuring the status and not the rules, and a handful of statements in this file and the
+README that the code or the git history contradicts. This section fixes those; each factual fix to
+an older section is named here with its before and after, the older sections are otherwise untouched.
+
+### The eval assets come back from archive.org
+
+`scripts/fetch_assets.sh` now downloads the ten Prelinger sources of the eval set into
+`assets/real/eval/src/` and cuts the excerpts with the same `ffmpeg -ss <start> -t 30 -c copy`
+that produced the recorded hashes, then checks all 18 files. From an empty `assets/` on 2026-09-04
+(ffmpeg 8.0): 18 OK in about 4 minutes. Re-run on 2026-09-05 05:26 UTC with the files present
+(idempotent, no download, no cut):
+
+```
+$ scripts/fetch_assets.sh
+assets/real/CrestToothpa.mp4: OK
+assets/real/CrestToothpa-18-48.mp4: OK
+assets/real/eval/Cheerios1960-0-30.mp4: OK
+... (10 eval excerpts OK)
+assets/synthetic/nimbus-test-clip.mp4: OK
+assets/synthetic/veo-raw.mp4: OK
+assets/synthetic/calibration/nimbus-clean-clip.mp4: OK
+assets/synthetic/calibration/nimbus-defect-brand-red.mp4: OK
+assets/synthetic/calibration/nimbus-defect-provenance-stripped.mp4: OK
+assets/synthetic/calibration/nimbus-defect-provenance-broken.mp4: OK
+0.8 s
+```
+
+`assets/real/eval/SOURCE.md` said "only the excerpt ships" and that the sources are not kept: it
+now says what the script does.
+
+### Factual fixes to older sections of this file
+
+- Lines 14 to 31 (M1) printed the French output of a private idea checker that is not in this
+  repository (`PASS G17 zero em-dash ...`, `RESULTAT: PASS mecanique`). Replaced by one sentence: the
+  idea file scored 9 of 9 gates on a private idea checker on 2026-08-28, the checker is not in this
+  repository.
+- M4 "Status: in progress (started 2026-08-28 23:35 UTC)" stood above "M4 done (2026-08-29)".
+  Now "Status: DONE 2026-08-29 (started 2026-08-28 23:35 UTC; the M4 done section below)".
+- The M4 verification cited `docs/img/console-crest-block-2026-08-29.png` and
+  `docs/img/console-clean-pass-2026-08-29.png`; the console v2 section cited
+  `docs/img/console-v2-crest-block-2026-08-29.png` and `docs/img/console-v2-clean-pass-2026-08-29.png`.
+  All four were deleted in commit 8b79fe8 (2026-08-29, "older console screenshots dropped"); the
+  tracked screenshots are `docs/img/console-v3-crest-block-2026-08-29.png`,
+  `docs/img/console-v3-clean-pass-2026-08-29.png` and `docs/img/grafana-public-dashboard-2026-09-02.png`.
+  Both sentences now say the files were taken there and removed in 8b79fe8, and point at the tracked ones.
+- The audit heading read "Audit after two idle days (2026-09-02, 23:50 to 00:20 UTC)", a span that
+  cannot sit inside one day. The audit ran from 2026-09-01 23:50 UTC to 2026-09-02 00:20 UTC (its
+  commit f3b5d2a is dated 2026-09-01T19:15:52-05:00, that is 2026-09-02 00:15 UTC; M8 is "DONE
+  2026-09-02 (00:30 UTC)" right after it). The heading now carries both dates.
+
+### Other docs
+
+- `docs/VIDEO-SCRIPT.md` line 4 read "Duree cible: 180s" in an English document; the four header
+  labels (Espece, Duree cible, Voix, Musique) are now Kind, Target length, Voice, Music.
+- `console/README.md` described the Nimbus fixture (`fixtures/run-nimbus-block.jsonl`) as "no human
+  needed". That recording is from 2026-08-28 23:30 UTC (annotation 4), before commit b0e649a made a
+  paperwork BLOCK escalate (`needs_human` true, an incident): the live agent no longer says what the
+  fixture replays. The table now says so; the fixture is re-recorded in a later pass, with the two
+  others, on the current agent.
+
+### The eval, scored per rule, re-run on the current code
+
+`scripts/eval_gates.py` now reads its ground truth from `eval/manifest.yaml` (status per gate,
+rule ids that must fire, rule ids that must not, the brand on screen and whether a person is on
+screen for each real spot, hand-labelled from contact sheets on 2026-09-04) and scores per gate AND
+per rule id; a forbidden rule that fires is a false positive even when the BLOCK was right. Every
+percentage prints beside its count. The 2026-08-29 artifact was produced before the rights gate's
+reason wording changed (commit 8a1bea9) and scored the status only, so the whole set was re-run.
+
+First run, 05:22 UTC: 15 of 16 assets in 25 minutes, then the process hung on `veo-raw` for 32
+minutes inside a Gemini call and was killed (`sample` showed the main thread in `_ssl__SSLSocket_read`;
+the socket to Google had 14 MB sent and nothing received; google-genai builds its httpx client with
+`timeout=None`, `.venv/lib/python3.12/site-packages/google/genai/_api_client.py:1131`, where the
+Video Intelligence call has `AIRLOCK_VI_TIMEOUT_S`). The results were only in memory. The harness
+now checkpoints `eval/results.json` after every asset, `--only` merges into the file, and a
+per-asset watchdog (`AIRLOCK_EVAL_ASSET_BUDGET_S`, 1200 s) turns a hang into that gate's ERROR.
+The client timeout itself belongs in `airlock/gemini.py` (`HttpOptions(timeout=...)`), listed for
+the hygiene pass.
+
+Second run, alone, `scripts/with_env.sh uv run python scripts/eval_gates.py`, 06:20:15 to
+06:45:18 UTC, code c3bc502, exit 0, 16 Video Intelligence minutes, 32 Gemini calls, 8.2256 USD at
+list price (median 0.5183 USD per asset, n=16):
+
+```
+per gate (status):
+  rights      n=16  precision 100% (10 of 10)  recall 100% (10 of 10)
+  claim       n=5   precision 100% (3 of 3)  recall 100% (3 of 3)
+  brand       n=6   precision 100% (2 of 2)  recall 100% (2 of 2)
+  provenance  n=16  precision 100% (14 of 14)  recall 100% (14 of 14)
+per rule:
+  registry:brands:not_cleared                rights      n=6   precision n/a (0 of 0)  recall n/a (0 of 0)
+  registry:brands:unknown                    rights      n=16  precision 100% (9 of 9)  recall 90% (9 of 10)
+  registry:explicit_content                  rights      n=16  precision 0% (0 of 1)  recall n/a (0 of 0)
+  registry:faces:no_release                  rights      n=16  precision 100% (7 of 7)  recall 100% (7 of 7)
+  16 CFR 255.3                               claim       n=4   precision 100% (3 of 3)  recall 100% (3 of 3)
+  charter:exclusions                         brand       n=5   precision 100% (1 of 1)  recall 100% (1 of 1)
+  charter:mandatory_mentions                 brand       n=6   precision 100% (1 of 1)  recall 100% (1 of 1)
+  charter:palette                            brand       n=5   precision 100% (1 of 1)  recall 100% (1 of 1)
+  charter:tone                               brand       n=4   precision n/a (0 of 0)  recall n/a (0 of 0)
+  charter:typography                         brand       n=4   precision n/a (0 of 0)  recall n/a (0 of 0)
+  airlock:provenance:manifest-required       provenance  n=16  precision 100% (12 of 12)  recall 100% (12 of 12)
+  airlock:provenance:signature-valid         provenance  n=4   precision 100% (1 of 1)  recall 100% (1 of 1)
+  airlock:provenance:signer-trusted          provenance  n=3   precision 100% (1 of 1)  recall 100% (1 of 1)
+brand named on the real spots: 40% (4 of 10)
+surprise: `registry:brands:unknown` did not fire on `MacleansToot-0-29` where it must (gate status BLOCK)
+surprise: `registry:explicit_content` fired on `kodak_instamatic-31-60` where it must not: "explicit content likelihood at or above LIKELY on 1 frame(s)"
+surprise: Video Intelligence did not name the brand on 6 of 10 real spots: chevrolet-31-61 expected Chevrolet or Chevy, got DeLorean Motor Company; kodak_instamatic-31-60 expected Kodak or Instamatic, got Stanley Steemer, JanSport, Ichiran; labatts_beer-0-20 expected Labatt, got Peugeot; gilbert_slot_racers-0-30 expected Gilbert, got Mitsubishi Fuso Truck and Bus Corporation, Vauxhall Motors; MacleansToot-0-29 expected Macleans, got no brand; ScottiesTiss-0-30 expected Scotties, got Lucid Motors, Green Bay Packers
+```
+
+What the status-level 100 percent hid, now in `eval/EVAL.md` under "Surprises": the Kodak
+Instamatic family party is flagged as explicit content (VERY_LIKELY on 1 frame of 28, the policy
+blocks at LIKELY), a false positive that a status-only score counted as a correct BLOCK on both
+runs; on Macleans Video Intelligence found no logo at all and the BLOCK rests on the ten face
+tracks alone (the brand rule's recall is 9 of 10, the gate blocks by ignorance there, not by
+recognition); and the brand on screen is named on 4 of 10 real spots (Cheerios as "Honey Nut
+Cheerios", Ivory, Folgers, General Electric), the same six misnamed as on 2026-08-29. Rights median
+41.1 s (max 94.5 s, n=16), claim 20.7 s, brand 14.7 s, provenance 2 ms.
+
+### README: the claims the panel marked misleading or stale
+
+- "Every decision is a plain function under pytest; the models only read" was misleading (the claim
+  gate's decision is the model's `kind` label, the brand gate's is the model's `wordmark_seen`,
+  colours and tone words; the rule over those labels is the plain function). It now says which
+  decisions rest on measured inputs (verdict, escalation, rights, provenance) and which on
+  schema-bound model labels (claim, brand), and that a wrong label is a wrong decision.
+- The incident paragraph says the incidents are opened as drills on the free stack
+  (`AIRLOCK_INCIDENT_DRILL`, `true` unless set to `false`; `agents/pipeline/agent.py`).
+- An ADK note records that `SequentialAgent` and `ParallelAgent` are deprecated in google-adk 2.8.0
+  in favour of `Workflow` (`google/adk/agents/sequential_agent.py:78`, pytest prints both warnings);
+  `Workflow` is a `BaseNode` (`google/adk/workflow/_workflow.py:145`), not a `BaseAgent`, and Agent
+  Engine's `AdkApp` takes a `BaseAgent` root (`vertexai/agent_engines/templates/adk.py:724`), so the
+  pipeline stays on them.
+- "Run it" names the values a judge changes (project, billing account, bucket, engine resource,
+  Grafana URLs and instance ids, mcp-grafana URL, each by its env variable) and says that
+  `scripts/with_env.sh` reads the author's macOS keychain: on another machine export
+  `GRAFANA_SERVICE_ACCOUNT_TOKEN`, `GRAFANA_INFLUX_TOKEN`, `GRAFANA_LOKI_TOKEN` and `AIRLOCK_MCP_TOKEN`
+  instead. The test count left the command comment (it changes with every task; `pytest` prints it).
+- The evaluation section carries the 2026-09-05 run with n beside every percentage, the per-rule
+  table, the brand identification score (4 of 10) and the surprises above.
+
+### Devpost text: the numbers a judge can check
+
+- "48 s from upload to verdict for an 8 s clip and 119 s for a 30 s commercial" (runs D and A of
+  2026-08-28, from a GCS URI on Agent Engine, the best two) becomes the measured range with the runs
+  named: the 8 s clean clip took 38 s (cold judge on the hosted console, 2026-09-02, annotation 52;
+  again 38 s in proof execution fwlp5), 189 s from Agent Engine while another check ran (audit item
+  4, annotation 50) and 243 s on the hosted console (console v3.1 verification, annotation 55); the
+  30 s Crest excerpt took 72 s (first console verification, 2026-08-29), 78 s (cold judge, annotation
+  51) and 119 s from Agent Engine with three Video Intelligence jobs overlapping (verification A).
+  This file holds no 189 s reading for the 30 s excerpt: 189.1 s is the 8 s clip (audit item 4).
+- "The models only read" becomes "the models label, the rules decide", with what each model labels
+  under its schema.
+- Challenges: the Grafana Cloud free stack pauses after idle days and answers 503 while it wakes; the
+  scheduled proof failed on its first attempt twice for that reason (Cloud Run job executions
+  `airlock-daily-proof-877cd`, 2026-09-04 12:05 UTC, and `airlock-daily-proof-kwqbk`, 2026-09-05
+  00:04 UTC, `list_datasources` status 503, both passed on the job's retry, read from the job logs by
+  the panel's Grafana reviewer), and the keepalive job that followed (`infra/gcp/keepalive.sh`).
+- "100 percent precision and recall on every gate" carries its n per gate, the per-rule misses (9 of
+  10, 0 of 1) and the brand named on 4 of 10; "47.7 s median for the rights gate" (2026-08-29) becomes
+  41.1 s (2026-09-05).

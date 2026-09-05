@@ -1,7 +1,9 @@
 {
- "started": "2026-08-29T23:03:27.544937+00:00",
- "finished": "2026-08-29T23:37:29.156820+00:00",
+ "started": "2026-09-05T06:20:15.751853+00:00",
+ "finished": "2026-09-05T06:45:18.083892+00:00",
  "bucket": "airlock-agentic-cinema-assets",
+ "code": "c3bc502",
+ "manifest": "eval/manifest.yaml",
  "assets": [
   {
    "asset_id": "Cheerios1960-0-30",
@@ -10,15 +12,42 @@
    "local_path": "assets/real/eval/Cheerios1960-0-30.mp4",
    "gcs_uri": "gs://airlock-agentic-cinema-assets/real/eval/Cheerios1960-0-30.mp4",
    "ground_truth": {
-    "rights": "BLOCK",
-    "provenance": "BLOCK"
+    "status": {
+     "rights": "BLOCK",
+     "provenance": "BLOCK"
+    },
+    "rules_expected": {
+     "rights": [
+      "registry:brands:unknown",
+      "registry:faces:no_release"
+     ],
+     "provenance": [
+      "airlock:provenance:manifest-required"
+     ]
+    },
+    "rules_forbidden": {
+     "rights": [
+      "registry:explicit_content"
+     ]
+    },
+    "brand_names": [
+     "Cheerios"
+    ],
+    "faces": true,
+    "faces_note": "two boys at the breakfast table from 6 s, close up at 21 s"
    },
-   "wall_ms": 137674,
+   "wall_ms": 122232,
    "gates": {
     "rights": {
      "status": "BLOCK",
-     "elapsed_ms": 83130,
-     "reason": "brand Honey Nut Cheerios (unknown, logo at 5.81s, confidence 0.908)",
+     "elapsed_ms": 78169,
+     "reason": "a logo the registry does not know at 9.31s (Video Intelligence's guess: Hootsuite, confidence 0.865)",
+     "reasons": [
+      "a logo the registry does not know at 9.31s (Video Intelligence's guess: Hootsuite, confidence 0.865)",
+      "a logo the registry does not know at 3.3s (Video Intelligence's guess: HTC, confidence 0.867)",
+      "a logo the registry does not know at 5.81s (Video Intelligence's guess: Honey Nut Cheerios, confidence 0.908)",
+      "5 face track(s) with no release on file (first at 6.71s)"
+     ],
      "rule_ids": [
       "registry:brands:unknown",
       "registry:faces:no_release"
@@ -30,49 +59,130 @@
       "features": 4,
       "cost_usd": 0.5,
       "basis": "Video Intelligence: 1 min x 4 features"
+     },
+     "found": {
+      "brands": [
+       {
+        "name": "Hootsuite",
+        "how": "logo",
+        "status": "unknown",
+        "first_seen_s": 9.31,
+        "confidence": 0.865
+       },
+       {
+        "name": "HTC",
+        "how": "logo",
+        "status": "unknown",
+        "first_seen_s": 3.3,
+        "confidence": 0.867
+       },
+       {
+        "name": "Honey Nut Cheerios",
+        "how": "logo",
+        "status": "unknown",
+        "first_seen_s": 5.81,
+        "confidence": 0.908
+       }
+      ],
+      "face_tracks": 5,
+      "explicit_frames": {
+       "VERY_UNLIKELY": 27,
+       "UNLIKELY": 3
+      },
+      "text_lines": 31
      }
     },
     "claim": {
      "status": "BLOCK",
-     "elapsed_ms": 23165,
-     "reason": "5 regulated claim(s) with no substantiation on file; first at 7.8s: \"an out-of-this-world breakfast.\" (superlative, 16 CFR 255.1(a))",
+     "elapsed_ms": 20966,
+     "reason": "3 regulated claim(s) with no substantiation on file; first at 9.8s: \"that teams up V8 juice and Cheerios for flavor and energy.\" (efficacy, 16 CFR 255.1(a))",
+     "reasons": [
+      "3 regulated claim(s) with no substantiation on file; first at 9.8s: \"that teams up V8 juice and Cheerios for flavor and energy.\" (efficacy, 16 CFR 255.1(a))"
+     ],
      "rule_ids": [
       "16 CFR 255.1(a)",
-      "ASA G26-1344778 (CAP 3.1, 3.3)",
       "16 CFR 255.2(b)",
       "ASA A26-1337640 (CAP 3.1, 3.7)",
       "ASA A26-1337640 (CAP 3.7, 12.11)"
      ],
      "usage": {
       "tokens_in": 8649,
-      "tokens_out": 547,
+      "tokens_out": 439,
       "video_minutes": 0.0,
       "features": 0,
-      "cost_usd": 0.016281,
-      "basis": "gemini-2.5-pro: 8649 in, 547 out"
+      "cost_usd": 0.015201,
+      "basis": "gemini-2.5-pro: 8649 in, 439 out"
+     },
+     "found": {
+      "claims_total": 5,
+      "blocking": [
+       {
+        "quote": "that teams up V8 juice and Cheerios for flavor and energy.",
+        "kind": "efficacy",
+        "start_s": 9.8
+       },
+       {
+        "quote": "Cheerios with power protein",
+        "kind": "health",
+        "start_s": 19.8
+       },
+       {
+        "quote": "plus vitamin B1 for go power.",
+        "kind": "health",
+        "start_s": 21.8
+       }
+      ],
+      "advisory": 2
      }
     },
     "brand": {
      "status": "BLOCK",
-     "elapsed_ms": 21784,
+     "elapsed_ms": 13607,
      "reason": "mandatory mention missing: the Nimbus wordmark is never seen",
+     "reasons": [
+      "mandatory mention missing: the Nimbus wordmark is never seen",
+      "exclusion violated: no health or medical claim of any kind (V-8 juice and Cheerios for flavor and energy., at 9.0s)",
+      "exclusion violated: no health or medical claim of any kind (Cheerios with power protein, plus vitamin B1 for go power., at 19.0s)",
+      "exclusion violated: no children (Two boys are shown eating breakfast., at 7.0s)",
+      "exclusion violated: no discount or price (FREE MEGA ROCKET, at 19.0s)",
+      "exclusion violated: no discount or price (FREE OFFER FOR A CHEERIOS BOXTOP AND A V-8 LABEL, at 23.0s)",
+      "other brand on screen: Cheerios, V-8, General Mills"
+     ],
      "rule_ids": [
       "charter:exclusions",
       "charter:mandatory_mentions"
      ],
      "usage": {
-      "tokens_in": 8955,
-      "tokens_out": 478,
+      "tokens_in": 8930,
+      "tokens_out": 438,
       "video_minutes": 0.0,
       "features": 0,
-      "cost_usd": 0.003882,
-      "basis": "gemini-2.5-flash: 8955 in, 478 out"
+      "cost_usd": 0.003774,
+      "basis": "gemini-2.5-flash: 8930 in, 438 out"
+     },
+     "found": {
+      "wordmark_seen": false,
+      "other_brands_seen": [
+       "Cheerios",
+       "V-8",
+       "General Mills"
+      ],
+      "dominant_colors_hex": [
+       "#4A4A4A",
+       "#A3A3A3",
+       "#FFFFFF",
+       "#000000"
+      ],
+      "exclusion_violations": 5
      }
     },
     "provenance": {
      "status": "BLOCK",
-     "elapsed_ms": 34,
+     "elapsed_ms": 52,
      "reason": "no C2PA manifest in the asset",
+     "reasons": [
+      "no C2PA manifest in the asset"
+     ],
      "rule_ids": [
       "airlock:provenance:manifest-required"
      ],
@@ -83,6 +193,9 @@
       "features": 0,
       "cost_usd": 0.0,
       "basis": ""
+     },
+     "found": {
+      "manifest": null
      }
     }
    }
@@ -94,15 +207,40 @@
    "local_path": "assets/real/eval/chevrolet-31-61.mp4",
    "gcs_uri": "gs://airlock-agentic-cinema-assets/real/eval/chevrolet-31-61.mp4",
    "ground_truth": {
-    "rights": "BLOCK",
-    "provenance": "BLOCK"
+    "status": {
+     "rights": "BLOCK",
+     "provenance": "BLOCK"
+    },
+    "rules_expected": {
+     "rights": [
+      "registry:brands:unknown"
+     ],
+     "provenance": [
+      "airlock:provenance:manifest-required"
+     ]
+    },
+    "rules_forbidden": {
+     "rights": [
+      "registry:explicit_content",
+      "registry:faces:no_release"
+     ]
+    },
+    "brand_names": [
+     "Chevrolet",
+     "Chevy"
+    ],
+    "faces": false,
+    "faces_note": "hand-drawn line figures only, no person"
    },
-   "wall_ms": 223651,
+   "wall_ms": 132147,
    "gates": {
     "rights": {
      "status": "BLOCK",
-     "elapsed_ms": 142739,
-     "reason": "brand DeLorean Motor Company (unknown, logo at 25.02s, confidence 0.863)",
+     "elapsed_ms": 58662,
+     "reason": "a logo the registry does not know at 25.02s (Video Intelligence's guess: DeLorean Motor Company, confidence 0.863)",
+     "reasons": [
+      "a logo the registry does not know at 25.02s (Video Intelligence's guess: DeLorean Motor Company, confidence 0.863)"
+     ],
      "rule_ids": [
       "registry:brands:unknown"
      ],
@@ -113,49 +251,104 @@
       "features": 4,
       "cost_usd": 0.5,
       "basis": "Video Intelligence: 1 min x 4 features"
+     },
+     "found": {
+      "brands": [
+       {
+        "name": "DeLorean Motor Company",
+        "how": "logo",
+        "status": "unknown",
+        "first_seen_s": 25.02,
+        "confidence": 0.863
+       }
+      ],
+      "face_tracks": 0,
+      "explicit_frames": {
+       "VERY_UNLIKELY": 29
+      },
+      "text_lines": 706
      }
     },
     "claim": {
      "status": "BLOCK",
-     "elapsed_ms": 39892,
-     "reason": "2 regulated claim(s) with no substantiation on file; first at 11.5s: \"I'm going to see the 1963 Chevrolets.\" (consumer_testimonial, 16 CFR 255.2(a))",
+     "elapsed_ms": 40599,
+     "reason": "2 regulated claim(s) with no substantiation on file; first at 4.0s: \"Oh, isn't it wonderful?\" (superlative, 16 CFR 255.1(a))",
+     "reasons": [
+      "2 regulated claim(s) with no substantiation on file; first at 4.0s: \"Oh, isn't it wonderful?\" (superlative, 16 CFR 255.1(a))"
+     ],
      "rule_ids": [
-      "16 CFR 255.2(a)",
-      "16 CFR 255.2(b)",
-      "ASA A26-1337640 (CAP 3.7)",
       "16 CFR 255.1(a)",
       "ASA G26-1344778 (CAP 3.1, 3.3)"
      ],
      "usage": {
       "tokens_in": 8674,
-      "tokens_out": 706,
+      "tokens_out": 648,
       "video_minutes": 0.0,
       "features": 0,
-      "cost_usd": 0.017903,
-      "basis": "gemini-2.5-pro: 8674 in, 706 out"
+      "cost_usd": 0.017323,
+      "basis": "gemini-2.5-pro: 8674 in, 648 out"
+     },
+     "found": {
+      "claims_total": 8,
+      "blocking": [
+       {
+        "quote": "Oh, isn't it wonderful?",
+        "kind": "superlative",
+        "start_s": 4.0
+       },
+       {
+        "quote": "the wonderful new Chevrolets.",
+        "kind": "superlative",
+        "start_s": 17.1
+       }
+      ],
+      "advisory": 6
      }
     },
     "brand": {
      "status": "BLOCK",
-     "elapsed_ms": 31106,
+     "elapsed_ms": 22014,
      "reason": "mandatory mention missing: the Nimbus wordmark is never seen",
+     "reasons": [
+      "mandatory mention missing: the Nimbus wordmark is never seen",
+      "other brand on screen: Chevrolet, Chevy II, Corvair, Corvette"
+     ],
      "rule_ids": [
       "charter:exclusions",
       "charter:mandatory_mentions"
      ],
      "usage": {
-      "tokens_in": 8955,
-      "tokens_out": 275,
+      "tokens_in": 8930,
+      "tokens_out": 246,
       "video_minutes": 0.0,
       "features": 0,
-      "cost_usd": 0.003374,
-      "basis": "gemini-2.5-flash: 8955 in, 275 out"
+      "cost_usd": 0.003294,
+      "basis": "gemini-2.5-flash: 8930 in, 246 out"
+     },
+     "found": {
+      "wordmark_seen": false,
+      "other_brands_seen": [
+       "Chevrolet",
+       "Chevy II",
+       "Corvair",
+       "Corvette"
+      ],
+      "dominant_colors_hex": [
+       "#F4F1EA",
+       "#A05252",
+       "#6B8E23",
+       "#808080"
+      ],
+      "exclusion_violations": 0
      }
     },
     "provenance": {
      "status": "BLOCK",
-     "elapsed_ms": 1,
+     "elapsed_ms": 3,
      "reason": "no C2PA manifest in the asset",
+     "reasons": [
+      "no C2PA manifest in the asset"
+     ],
      "rule_ids": [
       "airlock:provenance:manifest-required"
      ],
@@ -166,6 +359,9 @@
       "features": 0,
       "cost_usd": 0.0,
       "basis": ""
+     },
+     "found": {
+      "manifest": null
      }
     }
    }
@@ -177,15 +373,40 @@
    "local_path": "assets/real/eval/ivory_soap-25-55.mp4",
    "gcs_uri": "gs://airlock-agentic-cinema-assets/real/eval/ivory_soap-25-55.mp4",
    "ground_truth": {
-    "rights": "BLOCK",
-    "provenance": "BLOCK"
+    "status": {
+     "rights": "BLOCK",
+     "provenance": "BLOCK"
+    },
+    "rules_expected": {
+     "rights": [
+      "registry:brands:unknown",
+      "registry:faces:no_release"
+     ],
+     "provenance": [
+      "airlock:provenance:manifest-required"
+     ]
+    },
+    "rules_forbidden": {
+     "rights": [
+      "registry:explicit_content"
+     ]
+    },
+    "brand_names": [
+     "Ivory"
+    ],
+    "faces": true,
+    "faces_note": "a woman throughout, a child at 3 s, a baby in the bath at 21 s"
    },
-   "wall_ms": 78603,
+   "wall_ms": 118953,
    "gates": {
     "rights": {
      "status": "BLOCK",
-     "elapsed_ms": 28564,
-     "reason": "brand Ivory (unknown, logo at 7.81s, confidence 0.913)",
+     "elapsed_ms": 58967,
+     "reason": "a logo the registry does not know at 7.81s (Video Intelligence's guess: Ivory, confidence 0.913)",
+     "reasons": [
+      "a logo the registry does not know at 7.81s (Video Intelligence's guess: Ivory, confidence 0.913)",
+      "9 face track(s) with no release on file (first at 0.0s)"
+     ],
      "rule_ids": [
       "registry:brands:unknown",
       "registry:faces:no_release"
@@ -197,51 +418,124 @@
       "features": 4,
       "cost_usd": 0.5,
       "basis": "Video Intelligence: 1 min x 4 features"
+     },
+     "found": {
+      "brands": [
+       {
+        "name": "Ivory",
+        "how": "logo",
+        "status": "unknown",
+        "first_seen_s": 7.81,
+        "confidence": 0.913
+       }
+      ],
+      "face_tracks": 9,
+      "explicit_frames": {
+       "UNLIKELY": 16,
+       "VERY_UNLIKELY": 9,
+       "POSSIBLE": 4
+      },
+      "text_lines": 3
      }
     },
     "claim": {
      "status": "BLOCK",
-     "elapsed_ms": 21561,
-     "reason": "5 regulated claim(s) with no substantiation on file; first at 10.5s: \"Ivory's natural soap\" (health, 16 CFR 255.1(a))",
+     "elapsed_ms": 35822,
+     "reason": "4 regulated claim(s) with no substantiation on file; first at 13.8s: \"Ivory cleans gently\" (efficacy, 16 CFR 255.1(a))",
+     "reasons": [
+      "4 regulated claim(s) with no substantiation on file; first at 13.8s: \"Ivory cleans gently\" (efficacy, 16 CFR 255.1(a))"
+     ],
      "rule_ids": [
       "16 CFR 255.1(a)",
-      "ASA A26-1337640 (CAP 3.7, 12.11)",
       "16 CFR 255.2(b)",
       "ASA A26-1337640 (CAP 3.1, 3.7)",
-      "16 CFR 255.3",
-      "ASA A26-1337640 (CAP 3.7)",
-      "16 CFR 255.2(a)"
+      "ASA A26-1337640 (CAP 3.7, 12.11)",
+      "ASA G26-1344778 (CAP 3.1, 3.3, 3.32)",
+      "16 CFR 255.2(a)",
+      "ASA A26-1337640 (CAP 3.7)"
      ],
      "usage": {
-      "tokens_in": 8649,
-      "tokens_out": 592,
+      "tokens_in": 8674,
+      "tokens_out": 626,
       "video_minutes": 0.0,
       "features": 0,
-      "cost_usd": 0.016731,
-      "basis": "gemini-2.5-pro: 8649 in, 592 out"
+      "cost_usd": 0.017103,
+      "basis": "gemini-2.5-pro: 8674 in, 626 out"
+     },
+     "found": {
+      "claims_total": 7,
+      "blocking": [
+       {
+        "quote": "Ivory cleans gently",
+        "kind": "efficacy",
+        "start_s": 13.8
+       },
+       {
+        "quote": "gentle regular cleaning, very basic for healthy looking skin.",
+        "kind": "health",
+        "start_s": 15.8
+       },
+       {
+        "quote": "more doctors recommending it than any other soap",
+        "kind": "comparative",
+        "start_s": 23.5
+       },
+       {
+        "quote": "Give me a lot of confidence in Ivory, you know.",
+        "kind": "consumer_testimonial",
+        "start_s": 26.8
+       }
+      ],
+      "advisory": 3
      }
     },
     "brand": {
      "status": "BLOCK",
-     "elapsed_ms": 19562,
+     "elapsed_ms": 14446,
      "reason": "mandatory mention missing: the Nimbus wordmark is never seen",
+     "reasons": [
+      "mandatory mention missing: the Nimbus wordmark is never seen",
+      "exclusion violated: no health or medical claim of any kind (for healthy looking skin, at 0.18s)",
+      "exclusion violated: no health or medical claim of any kind (And more doctors recommending it, at 0.24s)",
+      "exclusion violated: no comparison with another brand (more doctors recommending it than any other soap, at 0.24s)",
+      "exclusion violated: no children (Children playing in the yard, at 0.0s)",
+      "exclusion violated: no children (Baby being bathed, at 0.2s)",
+      "other brand on screen: IVORY"
+     ],
      "rule_ids": [
       "charter:exclusions",
       "charter:mandatory_mentions"
      ],
      "usage": {
       "tokens_in": 8955,
-      "tokens_out": 331,
+      "tokens_out": 391,
       "video_minutes": 0.0,
       "features": 0,
-      "cost_usd": 0.003514,
-      "basis": "gemini-2.5-flash: 8955 in, 331 out"
+      "cost_usd": 0.003664,
+      "basis": "gemini-2.5-flash: 8955 in, 391 out"
+     },
+     "found": {
+      "wordmark_seen": false,
+      "other_brands_seen": [
+       "IVORY"
+      ],
+      "dominant_colors_hex": [
+       "#4A5C3B",
+       "#8B7355",
+       "#F8F8F8",
+       "#E0C0C0",
+       "#D4A068"
+      ],
+      "exclusion_violations": 5
      }
     },
     "provenance": {
      "status": "BLOCK",
-     "elapsed_ms": 2,
+     "elapsed_ms": 4,
      "reason": "no C2PA manifest in the asset",
+     "reasons": [
+      "no C2PA manifest in the asset"
+     ],
      "rule_ids": [
       "airlock:provenance:manifest-required"
      ],
@@ -252,6 +546,9 @@
       "features": 0,
       "cost_usd": 0.0,
       "basis": ""
+     },
+     "found": {
+      "manifest": null
      }
     }
    }
@@ -263,15 +560,44 @@
    "local_path": "assets/real/eval/kodak_instamatic-31-60.mp4",
    "gcs_uri": "gs://airlock-agentic-cinema-assets/real/eval/kodak_instamatic-31-60.mp4",
    "ground_truth": {
-    "rights": "BLOCK",
-    "provenance": "BLOCK"
+    "status": {
+     "rights": "BLOCK",
+     "provenance": "BLOCK"
+    },
+    "rules_expected": {
+     "rights": [
+      "registry:brands:unknown",
+      "registry:faces:no_release"
+     ],
+     "provenance": [
+      "airlock:provenance:manifest-required"
+     ]
+    },
+    "rules_forbidden": {
+     "rights": [
+      "registry:explicit_content"
+     ]
+    },
+    "brand_names": [
+     "Kodak",
+     "Instamatic"
+    ],
+    "faces": true,
+    "faces_note": "party guests from 3 s, a woman in the projected photograph at 18 s"
    },
-   "wall_ms": 92876,
+   "wall_ms": 74599,
    "gates": {
     "rights": {
      "status": "BLOCK",
-     "elapsed_ms": 47139,
-     "reason": "brand Ichiran (unknown, logo at 22.12s, confidence 0.911)",
+     "elapsed_ms": 26505,
+     "reason": "a logo the registry does not know at 14.61s (Video Intelligence's guess: Stanley Steemer, confidence 0.869)",
+     "reasons": [
+      "a logo the registry does not know at 14.61s (Video Intelligence's guess: Stanley Steemer, confidence 0.869)",
+      "a logo the registry does not know at 6.01s (Video Intelligence's guess: JanSport, confidence 0.86)",
+      "a logo the registry does not know at 22.12s (Video Intelligence's guess: Ichiran, confidence 0.911)",
+      "16 face track(s) with no release on file (first at 1.6s)",
+      "explicit content likelihood at or above LIKELY on 1 frame(s)"
+     ],
      "rule_ids": [
       "registry:brands:unknown",
       "registry:explicit_content",
@@ -284,31 +610,106 @@
       "features": 4,
       "cost_usd": 0.5,
       "basis": "Video Intelligence: 1 min x 4 features"
+     },
+     "found": {
+      "brands": [
+       {
+        "name": "Stanley Steemer",
+        "how": "logo",
+        "status": "unknown",
+        "first_seen_s": 14.61,
+        "confidence": 0.869
+       },
+       {
+        "name": "JanSport",
+        "how": "logo",
+        "status": "unknown",
+        "first_seen_s": 6.01,
+        "confidence": 0.86
+       },
+       {
+        "name": "Ichiran",
+        "how": "logo",
+        "status": "unknown",
+        "first_seen_s": 22.12,
+        "confidence": 0.911
+       }
+      ],
+      "face_tracks": 16,
+      "explicit_frames": {
+       "UNLIKELY": 8,
+       "VERY_UNLIKELY": 17,
+       "VERY_LIKELY": 1,
+       "POSSIBLE": 2
+      },
+      "text_lines": 14
      }
     },
     "claim": {
      "status": "BLOCK",
-     "elapsed_ms": 18242,
-     "reason": "2 regulated claim(s) with no substantiation on file; first at 19.59s: \"Take four flash pictures without changing bulbs.\" (efficacy, 16 CFR 255.1(a))",
+     "elapsed_ms": 22388,
+     "reason": "5 regulated claim(s) with no substantiation on file; first at 6.4s: \"Drop in the film.\" (efficacy, 16 CFR 255.1(a))",
+     "reasons": [
+      "5 regulated claim(s) with no substantiation on file; first at 6.4s: \"Drop in the film.\" (efficacy, 16 CFR 255.1(a))"
+     ],
      "rule_ids": [
       "16 CFR 255.1(a)",
       "16 CFR 255.2(b)",
       "ASA A26-1337640 (CAP 3.1, 3.7)",
-      "ASA G26-1344778 (CAP 3.1, 3.3)"
+      "ASA G26-1344778 (CAP 3.1, 3.3)",
+      "ASA G26-1344778 (CAP 3.1, 3.3, 3.32)"
      ],
      "usage": {
       "tokens_in": 8391,
-      "tokens_out": 425,
+      "tokens_out": 500,
       "video_minutes": 0.0,
       "features": 0,
-      "cost_usd": 0.014739,
-      "basis": "gemini-2.5-pro: 8391 in, 425 out"
+      "cost_usd": 0.015489,
+      "basis": "gemini-2.5-pro: 8391 in, 500 out"
+     },
+     "found": {
+      "claims_total": 7,
+      "blocking": [
+       {
+        "quote": "Drop in the film.",
+        "kind": "efficacy",
+        "start_s": 6.4
+       },
+       {
+        "quote": "Pop it on.",
+        "kind": "efficacy",
+        "start_s": 12.7
+       },
+       {
+        "quote": "Take four flash pictures without changing bulbs.",
+        "kind": "efficacy",
+        "start_s": 19.5
+       },
+       {
+        "quote": "Newest Instamatic camera outfits",
+        "kind": "superlative",
+        "start_s": 24.1
+       },
+       {
+        "quote": "Only from Kodak.",
+        "kind": "comparative",
+        "start_s": 27.6
+       }
+      ],
+      "advisory": 2
      }
     },
     "brand": {
      "status": "BLOCK",
-     "elapsed_ms": 18530,
+     "elapsed_ms": 15966,
      "reason": "mandatory mention missing: the Nimbus wordmark is never seen",
+     "reasons": [
+      "mandatory mention missing: the Nimbus wordmark is never seen",
+      "exclusion violated: no children (A photo of two young girls smiling with arms raised is shown., at 0.14s)",
+      "exclusion violated: no children (A photo of a young boy dancing is shown., at 0.17s)",
+      "exclusion violated: no discount or price (On-screen text 'Less than $18' and voiceover 'Less than $18' are present., at 0.26s)",
+      "other brand on screen: Kodak, Kodacolor-X, KODAPAK, INSTAMATIC"
+     ],
      "rule_ids": [
       "charter:exclusions",
       "charter:mandatory_mentions"
@@ -320,12 +721,32 @@
       "features": 0,
       "cost_usd": 0.003677,
       "basis": "gemini-2.5-flash: 8672 in, 430 out"
+     },
+     "found": {
+      "wordmark_seen": false,
+      "other_brands_seen": [
+       "Kodak",
+       "Kodacolor-X",
+       "KODAPAK",
+       "INSTAMATIC"
+      ],
+      "dominant_colors_hex": [
+       "#101010",
+       "#F0F0F0",
+       "#D0A080",
+       "#A02020",
+       "#A07050"
+      ],
+      "exclusion_violations": 3
      }
     },
     "provenance": {
      "status": "BLOCK",
      "elapsed_ms": 2,
      "reason": "no C2PA manifest in the asset",
+     "reasons": [
+      "no C2PA manifest in the asset"
+     ],
      "rule_ids": [
       "airlock:provenance:manifest-required"
      ],
@@ -336,6 +757,9 @@
       "features": 0,
       "cost_usd": 0.0,
       "basis": ""
+     },
+     "found": {
+      "manifest": null
      }
     }
    }
@@ -347,15 +771,40 @@
    "local_path": "assets/real/eval/folgers-26-56.mp4",
    "gcs_uri": "gs://airlock-agentic-cinema-assets/real/eval/folgers-26-56.mp4",
    "ground_truth": {
-    "rights": "BLOCK",
-    "provenance": "BLOCK"
+    "status": {
+     "rights": "BLOCK",
+     "provenance": "BLOCK"
+    },
+    "rules_expected": {
+     "rights": [
+      "registry:brands:unknown",
+      "registry:faces:no_release"
+     ],
+     "provenance": [
+      "airlock:provenance:manifest-required"
+     ]
+    },
+    "rules_forbidden": {
+     "rights": [
+      "registry:explicit_content"
+     ]
+    },
+    "brand_names": [
+     "Folgers"
+    ],
+    "faces": true,
+    "faces_note": "Mrs. Olson and a young woman in the kitchen, a couple in the garden"
    },
-   "wall_ms": 133425,
+   "wall_ms": 81945,
    "gates": {
     "rights": {
      "status": "BLOCK",
-     "elapsed_ms": 85380,
-     "reason": "brand Folgers (unknown, logo at 3.3s, confidence 0.921)",
+     "elapsed_ms": 36082,
+     "reason": "a logo the registry does not know at 3.3s (Video Intelligence's guess: Folgers, confidence 0.921)",
+     "reasons": [
+      "a logo the registry does not know at 3.3s (Video Intelligence's guess: Folgers, confidence 0.921)",
+      "11 face track(s) with no release on file (first at 0.0s)"
+     ],
      "rule_ids": [
       "registry:brands:unknown",
       "registry:faces:no_release"
@@ -367,12 +816,32 @@
       "features": 4,
       "cost_usd": 0.5,
       "basis": "Video Intelligence: 1 min x 4 features"
+     },
+     "found": {
+      "brands": [
+       {
+        "name": "Folgers",
+        "how": "logo",
+        "status": "unknown",
+        "first_seen_s": 3.3,
+        "confidence": 0.921
+       }
+      ],
+      "face_tracks": 11,
+      "explicit_frames": {
+       "VERY_UNLIKELY": 19,
+       "UNLIKELY": 12
+      },
+      "text_lines": 56
      }
     },
     "claim": {
      "status": "BLOCK",
-     "elapsed_ms": 20113,
-     "reason": "7 regulated claim(s) with no substantiation on file; first at 1.8s: \"You just need the coffee with better flavor.\" (comparative, 16 CFR 255.1(a))",
+     "elapsed_ms": 20578,
+     "reason": "6 regulated claim(s) with no substantiation on file; first at 1.8s: \"You just need the coffee with better flavor.\" (comparative, 16 CFR 255.1(a))",
+     "reasons": [
+      "6 regulated claim(s) with no substantiation on file; first at 1.8s: \"You just need the coffee with better flavor.\" (comparative, 16 CFR 255.1(a))"
+     ],
      "rule_ids": [
       "16 CFR 255.1(a)",
       "ASA G26-1344778 (CAP 3.1, 3.3, 3.32)",
@@ -384,34 +853,94 @@
      ],
      "usage": {
       "tokens_in": 8674,
-      "tokens_out": 519,
+      "tokens_out": 469,
       "video_minutes": 0.0,
       "features": 0,
-      "cost_usd": 0.016033,
-      "basis": "gemini-2.5-pro: 8674 in, 519 out"
+      "cost_usd": 0.015533,
+      "basis": "gemini-2.5-pro: 8674 in, 469 out"
+     },
+     "found": {
+      "claims_total": 6,
+      "blocking": [
+       {
+        "quote": "You just need the coffee with better flavor.",
+        "kind": "comparative",
+        "start_s": 1.8
+       },
+       {
+        "quote": "And Folgers is mountain grown.",
+        "kind": "efficacy",
+        "start_s": 4.3
+       },
+       {
+        "quote": "Mountain Grown",
+        "kind": "efficacy",
+        "start_s": 5.0
+       },
+       {
+        "quote": "That's the richest coffee.",
+        "kind": "superlative",
+        "start_s": 7.9
+       },
+       {
+        "quote": "Your coffee's terrific.",
+        "kind": "consumer_testimonial",
+        "start_s": 20.5
+       },
+       {
+        "quote": "MOUNTAIN GROWN",
+        "kind": "efficacy",
+        "start_s": 28.0
+       }
+      ],
+      "advisory": 0
      }
     },
     "brand": {
      "status": "BLOCK",
-     "elapsed_ms": 18925,
+     "elapsed_ms": 15849,
      "reason": "mandatory mention missing: the Nimbus wordmark is never seen",
+     "reasons": [
+      "mandatory mention missing: the Nimbus wordmark is never seen",
+      "exclusion violated: no comparison with another brand (You just need a coffee with better flavor., at 3s)",
+      "exclusion violated: no comparison with another brand (That's the richest coffee., at 8s)",
+      "exclusion violated: no comparison with another brand (Especially the way Folgers blends it., at 10s)",
+      "exclusion violated: no comparison with another brand (Honey, you surprise me. Your coffee's terrific., at 19s)",
+      "other brand on screen: Folgers"
+     ],
      "rule_ids": [
       "charter:exclusions",
       "charter:mandatory_mentions"
      ],
      "usage": {
       "tokens_in": 8955,
-      "tokens_out": 262,
+      "tokens_out": 351,
       "video_minutes": 0.0,
       "features": 0,
-      "cost_usd": 0.003342,
-      "basis": "gemini-2.5-flash: 8955 in, 262 out"
+      "cost_usd": 0.003564,
+      "basis": "gemini-2.5-flash: 8955 in, 351 out"
+     },
+     "found": {
+      "wordmark_seen": false,
+      "other_brands_seen": [
+       "Folgers"
+      ],
+      "dominant_colors_hex": [
+       "#333333",
+       "#666666",
+       "#999999",
+       "#CCCCCC"
+      ],
+      "exclusion_violations": 4
      }
     },
     "provenance": {
      "status": "BLOCK",
-     "elapsed_ms": 1,
+     "elapsed_ms": 4,
      "reason": "no C2PA manifest in the asset",
+     "reasons": [
+      "no C2PA manifest in the asset"
+     ],
      "rule_ids": [
       "airlock:provenance:manifest-required"
      ],
@@ -422,6 +951,9 @@
       "features": 0,
       "cost_usd": 0.0,
       "basis": ""
+     },
+     "found": {
+      "manifest": null
      }
     }
    }
@@ -433,15 +965,40 @@
    "local_path": "assets/real/eval/labatts_beer-0-20.mp4",
    "gcs_uri": "gs://airlock-agentic-cinema-assets/real/eval/labatts_beer-0-20.mp4",
    "ground_truth": {
-    "rights": "BLOCK",
-    "provenance": "BLOCK"
+    "status": {
+     "rights": "BLOCK",
+     "provenance": "BLOCK"
+    },
+    "rules_expected": {
+     "rights": [
+      "registry:brands:unknown",
+      "registry:faces:no_release"
+     ],
+     "provenance": [
+      "airlock:provenance:manifest-required"
+     ]
+    },
+    "rules_forbidden": {
+     "rights": [
+      "registry:explicit_content"
+     ]
+    },
+    "brand_names": [
+     "Labatt"
+    ],
+    "faces": true,
+    "faces_note": "a couple at a restaurant table throughout"
    },
-   "wall_ms": 107777,
+   "wall_ms": 96477,
    "gates": {
     "rights": {
      "status": "BLOCK",
-     "elapsed_ms": 48356,
-     "reason": "brand Peugeot (unknown, logo at 17.72s, confidence 0.85)",
+     "elapsed_ms": 42554,
+     "reason": "a logo the registry does not know at 17.72s (Video Intelligence's guess: Peugeot, confidence 0.85)",
+     "reasons": [
+      "a logo the registry does not know at 17.72s (Video Intelligence's guess: Peugeot, confidence 0.85)",
+      "5 face track(s) with no release on file (first at 0.7s)"
+     ],
      "rule_ids": [
       "registry:brands:unknown",
       "registry:faces:no_release"
@@ -453,12 +1010,32 @@
       "features": 4,
       "cost_usd": 0.5,
       "basis": "Video Intelligence: 1 min x 4 features"
+     },
+     "found": {
+      "brands": [
+       {
+        "name": "Peugeot",
+        "how": "logo",
+        "status": "unknown",
+        "first_seen_s": 17.72,
+        "confidence": 0.85
+       }
+      ],
+      "face_tracks": 5,
+      "explicit_frames": {
+       "UNLIKELY": 11,
+       "VERY_UNLIKELY": 9
+      },
+      "text_lines": 20
      }
     },
     "claim": {
      "status": "BLOCK",
-     "elapsed_ms": 33577,
+     "elapsed_ms": 35627,
      "reason": "3 regulated claim(s) with no substantiation on file; first at 10.5s: \"It's a great new taste in beer.\" (superlative, 16 CFR 255.1(a))",
+     "reasons": [
+      "3 regulated claim(s) with no substantiation on file; first at 10.5s: \"It's a great new taste in beer.\" (superlative, 16 CFR 255.1(a))"
+     ],
      "rule_ids": [
       "16 CFR 255.1(a)",
       "ASA G26-1344778 (CAP 3.1, 3.3)",
@@ -472,29 +1049,72 @@
       "features": 0,
       "cost_usd": 0.014578,
       "basis": "gemini-2.5-pro: 6102 in, 695 out"
+     },
+     "found": {
+      "claims_total": 9,
+      "blocking": [
+       {
+        "quote": "It's a great new taste in beer.",
+        "kind": "superlative",
+        "start_s": 10.5
+       },
+       {
+        "quote": "Enjoy import quality",
+        "kind": "comparative",
+        "start_s": 13.2
+       },
+       {
+        "quote": "Brewed in U.S.A. by General Brewing Corporation, San Francisco, Calif.",
+        "kind": "organization_endorsement",
+        "start_s": 19.5
+       }
+      ],
+      "advisory": 6
      }
     },
     "brand": {
      "status": "BLOCK",
-     "elapsed_ms": 16865,
+     "elapsed_ms": 9256,
      "reason": "mandatory mention missing: the Nimbus wordmark is never seen",
+     "reasons": [
+      "mandatory mention missing: the Nimbus wordmark is never seen",
+      "exclusion violated: no discount or price (Enjoy import quality at USA prices, at 14s)",
+      "other brand on screen: Labatt's"
+     ],
      "rule_ids": [
       "charter:exclusions",
       "charter:mandatory_mentions"
      ],
      "usage": {
       "tokens_in": 6383,
-      "tokens_out": 345,
+      "tokens_out": 236,
       "video_minutes": 0.0,
       "features": 0,
-      "cost_usd": 0.002777,
-      "basis": "gemini-2.5-flash: 6383 in, 345 out"
+      "cost_usd": 0.002505,
+      "basis": "gemini-2.5-flash: 6383 in, 236 out"
+     },
+     "found": {
+      "wordmark_seen": false,
+      "other_brands_seen": [
+       "Labatt's"
+      ],
+      "dominant_colors_hex": [
+       "#8B4513",
+       "#2F4F4F",
+       "#FFFFFF",
+       "#D4AF37",
+       "#B22222"
+      ],
+      "exclusion_violations": 1
      }
     },
     "provenance": {
      "status": "BLOCK",
      "elapsed_ms": 2,
      "reason": "no C2PA manifest in the asset",
+     "reasons": [
+      "no C2PA manifest in the asset"
+     ],
      "rule_ids": [
       "airlock:provenance:manifest-required"
      ],
@@ -505,6 +1125,9 @@
       "features": 0,
       "cost_usd": 0.0,
       "basis": ""
+     },
+     "found": {
+      "manifest": null
      }
     }
    }
@@ -516,15 +1139,41 @@
    "local_path": "assets/real/eval/gilbert_slot_racers-0-30.mp4",
    "gcs_uri": "gs://airlock-agentic-cinema-assets/real/eval/gilbert_slot_racers-0-30.mp4",
    "ground_truth": {
-    "rights": "BLOCK",
-    "provenance": "BLOCK"
+    "status": {
+     "rights": "BLOCK",
+     "provenance": "BLOCK"
+    },
+    "rules_expected": {
+     "rights": [
+      "registry:brands:unknown",
+      "registry:faces:no_release"
+     ],
+     "provenance": [
+      "airlock:provenance:manifest-required"
+     ]
+    },
+    "rules_forbidden": {
+     "rights": [
+      "registry:explicit_content"
+     ]
+    },
+    "brand_names": [
+     "Gilbert"
+    ],
+    "faces": true,
+    "faces_note": "two boys on the floor seen from above at 11 to 13 s, one boy's head at 13 s"
    },
-   "wall_ms": 504260,
+   "wall_ms": 86206,
    "gates": {
     "rights": {
      "status": "BLOCK",
-     "elapsed_ms": 457941,
-     "reason": "brand Vauxhall Motors (unknown, logo at 15.02s, confidence 0.85)",
+     "elapsed_ms": 35271,
+     "reason": "a logo the registry does not know at 12.81s (Video Intelligence's guess: Mitsubishi Fuso Truck and Bus Corporation, confidence 0.865)",
+     "reasons": [
+      "a logo the registry does not know at 12.81s (Video Intelligence's guess: Mitsubishi Fuso Truck and Bus Corporation, confidence 0.865)",
+      "a logo the registry does not know at 15.02s (Video Intelligence's guess: Vauxhall Motors, confidence 0.85)",
+      "3 face track(s) with no release on file (first at 0.8s)"
+     ],
      "rule_ids": [
       "registry:brands:unknown",
       "registry:faces:no_release"
@@ -536,12 +1185,39 @@
       "features": 4,
       "cost_usd": 0.5,
       "basis": "Video Intelligence: 1 min x 4 features"
+     },
+     "found": {
+      "brands": [
+       {
+        "name": "Mitsubishi Fuso Truck and Bus Corporation",
+        "how": "logo",
+        "status": "unknown",
+        "first_seen_s": 12.81,
+        "confidence": 0.865
+       },
+       {
+        "name": "Vauxhall Motors",
+        "how": "logo",
+        "status": "unknown",
+        "first_seen_s": 15.02,
+        "confidence": 0.85
+       }
+      ],
+      "face_tracks": 3,
+      "explicit_frames": {
+       "VERY_UNLIKELY": 26,
+       "UNLIKELY": 4
+      },
+      "text_lines": 6
      }
     },
     "claim": {
      "status": "BLOCK",
-     "elapsed_ms": 17414,
-     "reason": "3 regulated claim(s) with no substantiation on file; first at 11.578s: \"featuring the exclusive new Gilbert flyover chicane.\" (efficacy, 16 CFR 255.1(a))",
+     "elapsed_ms": 20801,
+     "reason": "3 regulated claim(s) with no substantiation on file; first at 20.695s: \"Gilbert makes cars rugged enough to take this kind of punishment.\" (efficacy, 16 CFR 255.1(a))",
+     "reasons": [
+      "3 regulated claim(s) with no substantiation on file; first at 20.695s: \"Gilbert makes cars rugged enough to take this kind of punishment.\" (efficacy, 16 CFR 255.1(a))"
+     ],
      "rule_ids": [
       "16 CFR 255.1(a)",
       "16 CFR 255.2(b)",
@@ -550,34 +1226,75 @@
      ],
      "usage": {
       "tokens_in": 8649,
-      "tokens_out": 375,
+      "tokens_out": 372,
       "video_minutes": 0.0,
       "features": 0,
-      "cost_usd": 0.014561,
-      "basis": "gemini-2.5-pro: 8649 in, 375 out"
+      "cost_usd": 0.014531,
+      "basis": "gemini-2.5-pro: 8649 in, 372 out"
+     },
+     "found": {
+      "claims_total": 4,
+      "blocking": [
+       {
+        "quote": "Gilbert makes cars rugged enough to take this kind of punishment.",
+        "kind": "efficacy",
+        "start_s": 20.695
+       },
+       {
+        "quote": "And look at the greatest assortment of Gilbert cars to choose from.",
+        "kind": "superlative",
+        "start_s": 23.665
+       },
+       {
+        "quote": "The roughest, toughest, most realistic cars on the road.",
+        "kind": "superlative",
+        "start_s": 26.835
+       }
+      ],
+      "advisory": 1
      }
     },
     "brand": {
      "status": "BLOCK",
-     "elapsed_ms": 19968,
+     "elapsed_ms": 20953,
      "reason": "mandatory mention missing: the Nimbus wordmark is never seen",
+     "reasons": [
+      "mandatory mention missing: the Nimbus wordmark is never seen",
+      "exclusion violated: no children (A boy is shown smiling and two boys are seen playing with the race track., at 5s)",
+      "other brand on screen: GILBERT"
+     ],
      "rule_ids": [
       "charter:exclusions",
       "charter:mandatory_mentions"
      ],
      "usage": {
       "tokens_in": 8930,
-      "tokens_out": 327,
+      "tokens_out": 191,
       "video_minutes": 0.0,
       "features": 0,
-      "cost_usd": 0.003497,
-      "basis": "gemini-2.5-flash: 8930 in, 327 out"
+      "cost_usd": 0.003157,
+      "basis": "gemini-2.5-flash: 8930 in, 191 out"
+     },
+     "found": {
+      "wordmark_seen": false,
+      "other_brands_seen": [
+       "GILBERT"
+      ],
+      "dominant_colors_hex": [
+       "#000000",
+       "#FFFFFF",
+       "#808080"
+      ],
+      "exclusion_violations": 1
      }
     },
     "provenance": {
      "status": "BLOCK",
      "elapsed_ms": 2,
      "reason": "no C2PA manifest in the asset",
+     "reasons": [
+      "no C2PA manifest in the asset"
+     ],
      "rule_ids": [
       "airlock:provenance:manifest-required"
      ],
@@ -588,6 +1305,9 @@
       "features": 0,
       "cost_usd": 0.0,
       "basis": ""
+     },
+     "found": {
+      "manifest": null
      }
     }
    }
@@ -599,15 +1319,39 @@
    "local_path": "assets/real/eval/MacleansToot-0-29.mp4",
    "gcs_uri": "gs://airlock-agentic-cinema-assets/real/eval/MacleansToot-0-29.mp4",
    "ground_truth": {
-    "rights": "BLOCK",
-    "provenance": "BLOCK"
+    "status": {
+     "rights": "BLOCK",
+     "provenance": "BLOCK"
+    },
+    "rules_expected": {
+     "rights": [
+      "registry:brands:unknown",
+      "registry:faces:no_release"
+     ],
+     "provenance": [
+      "airlock:provenance:manifest-required"
+     ]
+    },
+    "rules_forbidden": {
+     "rights": [
+      "registry:explicit_content"
+     ]
+    },
+    "brand_names": [
+     "Macleans"
+    ],
+    "faces": true,
+    "faces_note": "a couple in the snow from 3 s, a woman's smile close up at 12 s"
    },
-   "wall_ms": 88700,
+   "wall_ms": 87780,
    "gates": {
     "rights": {
      "status": "BLOCK",
-     "elapsed_ms": 39884,
+     "elapsed_ms": 39673,
      "reason": "10 face track(s) with no release on file (first at 5.61s)",
+     "reasons": [
+      "10 face track(s) with no release on file (first at 5.61s)"
+     ],
      "rule_ids": [
       "registry:faces:no_release"
      ],
@@ -618,12 +1362,24 @@
       "features": 4,
       "cost_usd": 0.5,
       "basis": "Video Intelligence: 1 min x 4 features"
+     },
+     "found": {
+      "brands": [],
+      "face_tracks": 10,
+      "explicit_frames": {
+       "VERY_UNLIKELY": 22,
+       "UNLIKELY": 8
+      },
+      "text_lines": 12
      }
     },
     "claim": {
      "status": "BLOCK",
-     "elapsed_ms": 22377,
-     "reason": "7 regulated claim(s) with no substantiation on file; first at 9.8s: \"This is the security clean white teeth give.\" (efficacy, 16 CFR 255.1(a))",
+     "elapsed_ms": 22480,
+     "reason": "8 regulated claim(s) with no substantiation on file; first at 9.6s: \"This is the security clean white teeth give.\" (efficacy, 16 CFR 255.1(a))",
+     "reasons": [
+      "8 regulated claim(s) with no substantiation on file; first at 9.6s: \"This is the security clean white teeth give.\" (efficacy, 16 CFR 255.1(a))"
+     ],
      "rule_ids": [
       "16 CFR 255.1(a)",
       "16 CFR 255.2(b)",
@@ -632,35 +1388,104 @@
       "ASA G26-1344778 (CAP 3.1, 3.3)"
      ],
      "usage": {
-      "tokens_in": 8391,
-      "tokens_out": 582,
+      "tokens_in": 8366,
+      "tokens_out": 598,
       "video_minutes": 0.0,
       "features": 0,
-      "cost_usd": 0.016309,
-      "basis": "gemini-2.5-pro: 8391 in, 582 out"
+      "cost_usd": 0.016438,
+      "basis": "gemini-2.5-pro: 8366 in, 598 out"
+     },
+     "found": {
+      "claims_total": 8,
+      "blocking": [
+       {
+        "quote": "This is the security clean white teeth give.",
+        "kind": "efficacy",
+        "start_s": 9.6
+       },
+       {
+        "quote": "And whiter teeth is what new Macleans is for.",
+        "kind": "efficacy",
+        "start_s": 13.6
+       },
+       {
+        "quote": "FOR WHITER TEETH",
+        "kind": "efficacy",
+        "start_s": 16.5
+       },
+       {
+        "quote": "Its teaming taste tells you it's working.",
+        "kind": "efficacy",
+        "start_s": 17.5
+       },
+       {
+        "quote": "Getting your teeth cleaner, whiter.",
+        "kind": "comparative",
+        "start_s": 19.6
+       },
+       {
+        "quote": "Whiteness is the security Macleans gives.",
+        "kind": "efficacy",
+        "start_s": 22.6
+       },
+       {
+        "quote": "Gets teeth irresistibly white.",
+        "kind": "superlative",
+        "start_s": 25.3
+       },
+       {
+        "quote": "FOR WHITER TEETH",
+        "kind": "efficacy",
+        "start_s": 28.0
+       }
+      ],
+      "advisory": 0
      }
     },
     "brand": {
      "status": "BLOCK",
-     "elapsed_ms": 17208,
+     "elapsed_ms": 16247,
      "reason": "mandatory mention missing: the Nimbus wordmark is never seen",
+     "reasons": [
+      "mandatory mention missing: the Nimbus wordmark is never seen",
+      "exclusion violated: no health or medical claim of any kind (This is the security clean white teeth give., at 0.11s)",
+      "exclusion violated: no health or medical claim of any kind (And whiter teeth is what New Macleans is for., at 0.13s)",
+      "exclusion violated: no health or medical claim of any kind (Its teeming taste tells you it's working. Getting your teeth cleaner, whiter., at 0.17s)",
+      "exclusion violated: no health or medical claim of any kind (Whiteness is the security Macleans gives. Gets teeth irresistibly white., at 0.23s)",
+      "other brand on screen: Macleans"
+     ],
      "rule_ids": [
       "charter:exclusions",
       "charter:mandatory_mentions"
      ],
      "usage": {
       "tokens_in": 8672,
-      "tokens_out": 353,
+      "tokens_out": 398,
       "video_minutes": 0.0,
       "features": 0,
-      "cost_usd": 0.003484,
-      "basis": "gemini-2.5-flash: 8672 in, 353 out"
+      "cost_usd": 0.003597,
+      "basis": "gemini-2.5-flash: 8672 in, 398 out"
+     },
+     "found": {
+      "wordmark_seen": false,
+      "other_brands_seen": [
+       "Macleans"
+      ],
+      "dominant_colors_hex": [
+       "#000000",
+       "#FFFFFF",
+       "#808080"
+      ],
+      "exclusion_violations": 4
      }
     },
     "provenance": {
      "status": "BLOCK",
      "elapsed_ms": 2,
      "reason": "no C2PA manifest in the asset",
+     "reasons": [
+      "no C2PA manifest in the asset"
+     ],
      "rule_ids": [
       "airlock:provenance:manifest-required"
      ],
@@ -671,6 +1496,9 @@
       "features": 0,
       "cost_usd": 0.0,
       "basis": ""
+     },
+     "found": {
+      "manifest": null
      }
     }
    }
@@ -682,15 +1510,40 @@
    "local_path": "assets/real/eval/ScottiesTiss-0-30.mp4",
    "gcs_uri": "gs://airlock-agentic-cinema-assets/real/eval/ScottiesTiss-0-30.mp4",
    "ground_truth": {
-    "rights": "BLOCK",
-    "provenance": "BLOCK"
+    "status": {
+     "rights": "BLOCK",
+     "provenance": "BLOCK"
+    },
+    "rules_expected": {
+     "rights": [
+      "registry:brands:unknown"
+     ],
+     "provenance": [
+      "airlock:provenance:manifest-required"
+     ]
+    },
+    "rules_forbidden": {
+     "rights": [
+      "registry:explicit_content",
+      "registry:faces:no_release"
+     ]
+    },
+    "brand_names": [
+     "Scotties"
+    ],
+    "faces": false,
+    "faces_note": "hands and the tissue box only"
    },
-   "wall_ms": 109162,
+   "wall_ms": 106288,
    "gates": {
     "rights": {
      "status": "BLOCK",
-     "elapsed_ms": 60011,
-     "reason": "brand Lucid Motors (unknown, logo at 2.4s, confidence 0.915)",
+     "elapsed_ms": 58010,
+     "reason": "a logo the registry does not know at 2.4s (Video Intelligence's guess: Lucid Motors, confidence 0.915)",
+     "reasons": [
+      "a logo the registry does not know at 2.4s (Video Intelligence's guess: Lucid Motors, confidence 0.915)",
+      "a logo the registry does not know at 29.63s (Video Intelligence's guess: Green Bay Packers, confidence 0.865)"
+     ],
      "rule_ids": [
       "registry:brands:unknown"
      ],
@@ -701,31 +1554,96 @@
       "features": 4,
       "cost_usd": 0.5,
       "basis": "Video Intelligence: 1 min x 4 features"
+     },
+     "found": {
+      "brands": [
+       {
+        "name": "Lucid Motors",
+        "how": "logo",
+        "status": "unknown",
+        "first_seen_s": 2.4,
+        "confidence": 0.915
+       },
+       {
+        "name": "Green Bay Packers",
+        "how": "logo",
+        "status": "unknown",
+        "first_seen_s": 29.63,
+        "confidence": 0.865
+       }
+      ],
+      "face_tracks": 0,
+      "explicit_frames": {
+       "VERY_UNLIKELY": 28,
+       "UNLIKELY": 2
+      },
+      "text_lines": 4
      }
     },
     "claim": {
      "status": "BLOCK",
-     "elapsed_ms": 23671,
-     "reason": "4 regulated claim(s) with no substantiation on file; first at 5.59s: \"There's no other box of facial tissues like this.\" (comparative, 16 CFR 255.1(a))",
+     "elapsed_ms": 25755,
+     "reason": "5 regulated claim(s) with no substantiation on file; first at 5.5s: \"There's no other box of facial tissues like this.\" (superlative, 16 CFR 255.1(a))",
+     "reasons": [
+      "5 regulated claim(s) with no substantiation on file; first at 5.5s: \"There's no other box of facial tissues like this.\" (superlative, 16 CFR 255.1(a))"
+     ],
      "rule_ids": [
       "16 CFR 255.1(a)",
-      "ASA G26-1344778 (CAP 3.1, 3.3, 3.32)",
+      "ASA G26-1344778 (CAP 3.1, 3.3)",
       "16 CFR 255.2(b)",
       "ASA A26-1337640 (CAP 3.1, 3.7)"
      ],
      "usage": {
       "tokens_in": 8674,
-      "tokens_out": 465,
+      "tokens_out": 542,
       "video_minutes": 0.0,
       "features": 0,
-      "cost_usd": 0.015493,
-      "basis": "gemini-2.5-pro: 8674 in, 465 out"
+      "cost_usd": 0.016263,
+      "basis": "gemini-2.5-pro: 8674 in, 542 out"
+     },
+     "found": {
+      "claims_total": 7,
+      "blocking": [
+       {
+        "quote": "There's no other box of facial tissues like this.",
+        "kind": "superlative",
+        "start_s": 5.5
+       },
+       {
+        "quote": "Only Scotties give you tissues that float up gently, one at a time.",
+        "kind": "efficacy",
+        "start_s": 10.6
+       },
+       {
+        "quote": "and come out in neat handfuls too",
+        "kind": "efficacy",
+        "start_s": 14.6
+       },
+       {
+        "quote": "Only Scottie's magic oval can give you tissues that float up, smooth and easy.",
+        "kind": "efficacy",
+        "start_s": 21.5
+       },
+       {
+        "quote": "No tugging, no tearing, no extra tissues tagging along.",
+        "kind": "efficacy",
+        "start_s": 26.5
+       }
+      ],
+      "advisory": 2
      }
     },
     "brand": {
      "status": "BLOCK",
-     "elapsed_ms": 15175,
+     "elapsed_ms": 12782,
      "reason": "mandatory mention missing: the Nimbus wordmark is never seen",
+     "reasons": [
+      "mandatory mention missing: the Nimbus wordmark is never seen",
+      "exclusion violated: no comparison with another brand (There's no other box of facial tissues like this., at 5s)",
+      "exclusion violated: no comparison with another brand (Only Scotties give you tissues that float up gently, one at a time, at 10s)",
+      "exclusion violated: no comparison with another brand (Only Scotties Magic Oval can give you tissues that float up, smooth and easy., at 19s)",
+      "other brand on screen: Scotties"
+     ],
      "rule_ids": [
       "charter:exclusions",
       "charter:mandatory_mentions"
@@ -737,12 +1655,28 @@
       "features": 0,
       "cost_usd": 0.003446,
       "basis": "gemini-2.5-flash: 8955 in, 304 out"
+     },
+     "found": {
+      "wordmark_seen": false,
+      "other_brands_seen": [
+       "Scotties"
+      ],
+      "dominant_colors_hex": [
+       "#000000",
+       "#FFFFFF",
+       "#A9A9A9",
+       "#D3D3D3"
+      ],
+      "exclusion_violations": 3
      }
     },
     "provenance": {
      "status": "BLOCK",
-     "elapsed_ms": 1,
+     "elapsed_ms": 2,
      "reason": "no C2PA manifest in the asset",
+     "reasons": [
+      "no C2PA manifest in the asset"
+     ],
      "rule_ids": [
       "airlock:provenance:manifest-required"
      ],
@@ -753,6 +1687,9 @@
       "features": 0,
       "cost_usd": 0.0,
       "basis": ""
+     },
+     "found": {
+      "manifest": null
      }
     }
    }
@@ -764,15 +1701,41 @@
    "local_path": "assets/real/eval/GE_blender-0-30.mp4",
    "gcs_uri": "gs://airlock-agentic-cinema-assets/real/eval/GE_blender-0-30.mp4",
    "ground_truth": {
-    "rights": "BLOCK",
-    "provenance": "BLOCK"
+    "status": {
+     "rights": "BLOCK",
+     "provenance": "BLOCK"
+    },
+    "rules_expected": {
+     "rights": [
+      "registry:brands:unknown"
+     ],
+     "provenance": [
+      "airlock:provenance:manifest-required"
+     ]
+    },
+    "rules_forbidden": {
+     "rights": [
+      "registry:explicit_content",
+      "registry:faces:no_release"
+     ]
+    },
+    "brand_names": [
+     "General Electric",
+     "GE"
+    ],
+    "faces": false,
+    "faces_note": "the monogram, the blender and a hand pouring; no person"
    },
-   "wall_ms": 99494,
+   "wall_ms": 91500,
    "gates": {
     "rights": {
      "status": "BLOCK",
-     "elapsed_ms": 51776,
-     "reason": "brand Target Corporation (unknown, logo at 1.4s, confidence 0.855)",
+     "elapsed_ms": 47545,
+     "reason": "a logo the registry does not know at 6.61s (Video Intelligence's guess: General Electric, confidence 0.918)",
+     "reasons": [
+      "a logo the registry does not know at 6.61s (Video Intelligence's guess: General Electric, confidence 0.918)",
+      "a logo the registry does not know at 1.4s (Video Intelligence's guess: Target Corporation, confidence 0.855)"
+     ],
      "rule_ids": [
       "registry:brands:unknown"
      ],
@@ -783,12 +1746,39 @@
       "features": 4,
       "cost_usd": 0.5,
       "basis": "Video Intelligence: 1 min x 4 features"
+     },
+     "found": {
+      "brands": [
+       {
+        "name": "General Electric",
+        "how": "logo",
+        "status": "unknown",
+        "first_seen_s": 6.61,
+        "confidence": 0.918
+       },
+       {
+        "name": "Target Corporation",
+        "how": "logo",
+        "status": "unknown",
+        "first_seen_s": 1.4,
+        "confidence": 0.855
+       }
+      ],
+      "face_tracks": 0,
+      "explicit_frames": {
+       "VERY_UNLIKELY": 24,
+       "UNLIKELY": 6
+      },
+      "text_lines": 14
      }
     },
     "claim": {
      "status": "BLOCK",
-     "elapsed_ms": 19521,
-     "reason": "6 regulated claim(s) with no substantiation on file; first at 3.8s: \"It's the newest, most exciting sound in town.\" (superlative, 16 CFR 255.1(a))",
+     "elapsed_ms": 19615,
+     "reason": "5 regulated claim(s) with no substantiation on file; first at 3.7s: \"Here's the newest, most exciting sound in town.\" (superlative, 16 CFR 255.1(a))",
+     "reasons": [
+      "5 regulated claim(s) with no substantiation on file; first at 3.7s: \"Here's the newest, most exciting sound in town.\" (superlative, 16 CFR 255.1(a))"
+     ],
      "rule_ids": [
       "16 CFR 255.1(a)",
       "ASA G26-1344778 (CAP 3.1, 3.3)",
@@ -797,34 +1787,86 @@
      ],
      "usage": {
       "tokens_in": 8674,
-      "tokens_out": 484,
+      "tokens_out": 476,
       "video_minutes": 0.0,
       "features": 0,
-      "cost_usd": 0.015683,
-      "basis": "gemini-2.5-pro: 8674 in, 484 out"
+      "cost_usd": 0.015603,
+      "basis": "gemini-2.5-pro: 8674 in, 476 out"
+     },
+     "found": {
+      "claims_total": 6,
+      "blocking": [
+       {
+        "quote": "Here's the newest, most exciting sound in town.",
+        "kind": "superlative",
+        "start_s": 3.7
+       },
+       {
+        "quote": "The non-skid base is the lowest you'll ever see.",
+        "kind": "superlative",
+        "start_s": 17.0
+       },
+       {
+        "quote": "The decanter has a 36-ounce blending capacity.",
+        "kind": "efficacy",
+        "start_s": 20.5
+       },
+       {
+        "quote": "The non-spill lid is really smart.",
+        "kind": "efficacy",
+        "start_s": 24.2
+       },
+       {
+        "quote": "For blending convenience, it comes apart.",
+        "kind": "efficacy",
+        "start_s": 26.2
+       }
+      ],
+      "advisory": 1
      }
     },
     "brand": {
      "status": "BLOCK",
-     "elapsed_ms": 15710,
+     "elapsed_ms": 14904,
      "reason": "mandatory mention missing: the Nimbus wordmark is never seen",
+     "reasons": [
+      "mandatory mention missing: the Nimbus wordmark is never seen",
+      "exclusion violated: no comparison with another brand (It's the newest, most exciting sound in town., at 3s)",
+      "exclusion violated: no comparison with another brand (The non-skid base is the lowest you'll ever see., at 17s)",
+      "other brand on screen: General Electric"
+     ],
      "rule_ids": [
       "charter:exclusions",
       "charter:mandatory_mentions"
      ],
      "usage": {
-      "tokens_in": 8955,
-      "tokens_out": 155,
+      "tokens_in": 8930,
+      "tokens_out": 234,
       "video_minutes": 0.0,
       "features": 0,
-      "cost_usd": 0.003074,
-      "basis": "gemini-2.5-flash: 8955 in, 155 out"
+      "cost_usd": 0.003264,
+      "basis": "gemini-2.5-flash: 8930 in, 234 out"
+     },
+     "found": {
+      "wordmark_seen": false,
+      "other_brands_seen": [
+       "General Electric"
+      ],
+      "dominant_colors_hex": [
+       "#000000",
+       "#FFFFFF",
+       "#808080"
+      ],
+      "exclusion_violations": 2
      }
     },
     "provenance": {
      "status": "BLOCK",
      "elapsed_ms": 2,
      "reason": "no C2PA manifest in the asset",
+     "reasons": [
+      "no C2PA manifest in the asset"
+     ],
      "rule_ids": [
       "airlock:provenance:manifest-required"
      ],
@@ -835,6 +1877,9 @@
       "features": 0,
       "cost_usd": 0.0,
       "basis": ""
+     },
+     "found": {
+      "manifest": null
      }
     }
    }
@@ -846,17 +1891,50 @@
    "local_path": "assets/synthetic/nimbus-test-clip.mp4",
    "gcs_uri": "gs://airlock-agentic-cinema-assets/synthetic/nimbus-test-clip.mp4",
    "ground_truth": {
-    "rights": "PASS",
-    "provenance": "PASS",
-    "claim": "BLOCK",
-    "brand": "PASS"
+    "status": {
+     "rights": "PASS",
+     "claim": "BLOCK",
+     "brand": "PASS",
+     "provenance": "PASS"
+    },
+    "rules_expected": {
+     "claim": [
+      "16 CFR 255.3"
+     ]
+    },
+    "rules_forbidden": {
+     "rights": [
+      "registry:brands:unknown",
+      "registry:brands:not_cleared",
+      "registry:faces:no_release",
+      "registry:explicit_content"
+     ],
+     "brand": [
+      "charter:mandatory_mentions",
+      "charter:exclusions",
+      "charter:palette",
+      "charter:tone",
+      "charter:typography"
+     ],
+     "provenance": [
+      "airlock:provenance:manifest-required",
+      "airlock:provenance:signature-valid",
+      "airlock:provenance:signer-trusted"
+     ]
+    },
+    "brand_names": [],
+    "faces": null,
+    "faces_note": ""
    },
-   "wall_ms": 70622,
+   "wall_ms": 68354,
    "gates": {
     "rights": {
      "status": "PASS",
-     "elapsed_ms": 32387,
+     "elapsed_ms": 34299,
      "reason": "cleared brand(s): Nimbus; no unreleased face, no explicit content",
+     "reasons": [
+      "cleared brand(s): Nimbus; no unreleased face, no explicit content"
+     ],
      "rule_ids": [
       "registry:brands",
       "registry:faces",
@@ -869,29 +1947,63 @@
       "features": 4,
       "cost_usd": 0.5,
       "basis": "Video Intelligence: 1 min x 4 features"
+     },
+     "found": {
+      "brands": [
+       {
+        "name": "Nimbus",
+        "how": "on_screen_text",
+        "status": "cleared",
+        "first_seen_s": 0.0,
+        "confidence": null
+       }
+      ],
+      "face_tracks": 0,
+      "explicit_frames": {
+       "VERY_UNLIKELY": 6,
+       "UNLIKELY": 2
+      },
+      "text_lines": 6
      }
     },
     "claim": {
      "status": "BLOCK",
-     "elapsed_ms": 16666,
+     "elapsed_ms": 12943,
      "reason": "1 regulated claim(s) with no substantiation on file; first at 3.0s: \"Recommended by 9 out of 10 sommeliers.\" (expert_endorsement, 16 CFR 255.3)",
+     "reasons": [
+      "1 regulated claim(s) with no substantiation on file; first at 3.0s: \"Recommended by 9 out of 10 sommeliers.\" (expert_endorsement, 16 CFR 255.3)"
+     ],
      "rule_ids": [
       "16 CFR 255.3",
       "ASA A26-1337640 (CAP 3.7)"
      ],
      "usage": {
       "tokens_in": 2223,
-      "tokens_out": 196,
+      "tokens_out": 208,
       "video_minutes": 0.0,
       "features": 0,
-      "cost_usd": 0.004739,
-      "basis": "gemini-2.5-pro: 2223 in, 196 out"
+      "cost_usd": 0.004859,
+      "basis": "gemini-2.5-pro: 2223 in, 208 out"
+     },
+     "found": {
+      "claims_total": 2,
+      "blocking": [
+       {
+        "quote": "Recommended by 9 out of 10 sommeliers.",
+        "kind": "expert_endorsement",
+        "start_s": 3.0
+       }
+      ],
+      "advisory": 1
      }
     },
     "brand": {
      "status": "PASS",
-     "elapsed_ms": 12573,
+     "elapsed_ms": 11399,
      "reason": "Nimbus wordmark seen, palette, tone and exclusions respected",
+     "reasons": [
+      "Nimbus wordmark seen, palette, tone and exclusions respected"
+     ],
      "rule_ids": [
       "charter:mandatory_mentions",
       "charter:palette",
@@ -905,12 +2017,26 @@
       "features": 0,
       "cost_usd": 0.001179,
       "basis": "gemini-2.5-flash: 2504 in, 171 out"
+     },
+     "found": {
+      "wordmark_seen": true,
+      "other_brands_seen": [],
+      "dominant_colors_hex": [
+       "#FFFFFF",
+       "#A06F42",
+       "#6B9E3B",
+       "#D0D8DB"
+      ],
+      "exclusion_violations": 0
      }
     },
     "provenance": {
      "status": "PASS",
-     "elapsed_ms": 23,
+     "elapsed_ms": 33,
      "reason": "C2PA manifest verified and trusted; signed by Airlock (hackathon test); created by airlock-synthetic-asset",
+     "reasons": [
+      "C2PA manifest verified and trusted; signed by Airlock (hackathon test); created by airlock-synthetic-asset"
+     ],
      "rule_ids": [
       "airlock:provenance:manifest-required",
       "airlock:provenance:signature-valid",
@@ -923,6 +2049,16 @@
       "features": 0,
       "cost_usd": 0.0,
       "basis": ""
+     },
+     "found": {
+      "validation_state": "Trusted",
+      "issuer": "Airlock (hackathon test)",
+      "claim_generator": "airlock-synthetic-asset",
+      "failure_codes": [],
+      "assertions": [
+       "c2pa.hash.bmff.v3",
+       "c2pa.actions.v2"
+      ]
      }
     }
    }
@@ -934,17 +2070,49 @@
    "local_path": "assets/synthetic/calibration/nimbus-clean-clip.mp4",
    "gcs_uri": "gs://airlock-agentic-cinema-assets/calibration/nimbus-clean-clip.mp4",
    "ground_truth": {
-    "rights": "PASS",
-    "provenance": "PASS",
-    "claim": "PASS",
-    "brand": "PASS"
+    "status": {
+     "rights": "PASS",
+     "claim": "PASS",
+     "brand": "PASS",
+     "provenance": "PASS"
+    },
+    "rules_expected": {},
+    "rules_forbidden": {
+     "rights": [
+      "registry:brands:unknown",
+      "registry:brands:not_cleared",
+      "registry:faces:no_release",
+      "registry:explicit_content"
+     ],
+     "claim": [
+      "16 CFR 255.3"
+     ],
+     "brand": [
+      "charter:mandatory_mentions",
+      "charter:exclusions",
+      "charter:palette",
+      "charter:tone",
+      "charter:typography"
+     ],
+     "provenance": [
+      "airlock:provenance:manifest-required",
+      "airlock:provenance:signature-valid",
+      "airlock:provenance:signer-trusted"
+     ]
+    },
+    "brand_names": [],
+    "faces": null,
+    "faces_note": ""
    },
-   "wall_ms": 63598,
+   "wall_ms": 70308,
    "gates": {
     "rights": {
      "status": "PASS",
-     "elapsed_ms": 33966,
+     "elapsed_ms": 38224,
      "reason": "cleared brand(s): Nimbus; no unreleased face, no explicit content",
+     "reasons": [
+      "cleared brand(s): Nimbus; no unreleased face, no explicit content"
+     ],
      "rule_ids": [
       "registry:brands",
       "registry:faces",
@@ -957,28 +2125,56 @@
       "features": 4,
       "cost_usd": 0.5,
       "basis": "Video Intelligence: 1 min x 4 features"
+     },
+     "found": {
+      "brands": [
+       {
+        "name": "Nimbus",
+        "how": "on_screen_text",
+        "status": "cleared",
+        "first_seen_s": 0.0,
+        "confidence": null
+       }
+      ],
+      "face_tracks": 0,
+      "explicit_frames": {
+       "VERY_UNLIKELY": 7,
+       "UNLIKELY": 1
+      },
+      "text_lines": 5
      }
     },
     "claim": {
      "status": "PASS",
-     "elapsed_ms": 12100,
+     "elapsed_ms": 13092,
      "reason": "no regulated claim without substantiation (1 claim(s) read, 1 advisory)",
+     "reasons": [
+      "no regulated claim without substantiation (1 claim(s) read, 1 advisory)"
+     ],
      "rule_ids": [
       "16 CFR 255.1"
      ],
      "usage": {
       "tokens_in": 2223,
-      "tokens_out": 131,
+      "tokens_out": 106,
       "video_minutes": 0.0,
       "features": 0,
-      "cost_usd": 0.004089,
-      "basis": "gemini-2.5-pro: 2223 in, 131 out"
+      "cost_usd": 0.003839,
+      "basis": "gemini-2.5-pro: 2223 in, 106 out"
+     },
+     "found": {
+      "claims_total": 1,
+      "blocking": [],
+      "advisory": 1
      }
     },
     "brand": {
      "status": "PASS",
-     "elapsed_ms": 8614,
+     "elapsed_ms": 8476,
      "reason": "Nimbus wordmark seen, palette, tone and exclusions respected",
+     "reasons": [
+      "Nimbus wordmark seen, palette, tone and exclusions respected"
+     ],
      "rule_ids": [
       "charter:mandatory_mentions",
       "charter:palette",
@@ -992,12 +2188,26 @@
       "features": 0,
       "cost_usd": 0.001154,
       "basis": "gemini-2.5-flash: 2504 in, 161 out"
+     },
+     "found": {
+      "wordmark_seen": true,
+      "other_brands_seen": [],
+      "dominant_colors_hex": [
+       "#F8F8F8",
+       "#A0785A",
+       "#8BC34A",
+       "#E0E0E0"
+      ],
+      "exclusion_violations": 0
      }
     },
     "provenance": {
      "status": "PASS",
-     "elapsed_ms": 7,
+     "elapsed_ms": 8,
      "reason": "C2PA manifest verified and trusted; signed by Airlock (hackathon test); created by airlock-synthetic-asset",
+     "reasons": [
+      "C2PA manifest verified and trusted; signed by Airlock (hackathon test); created by airlock-synthetic-asset"
+     ],
      "rule_ids": [
       "airlock:provenance:manifest-required",
       "airlock:provenance:signature-valid",
@@ -1010,6 +2220,16 @@
       "features": 0,
       "cost_usd": 0.0,
       "basis": ""
+     },
+     "found": {
+      "validation_state": "Trusted",
+      "issuer": "Airlock (hackathon test)",
+      "claim_generator": "airlock-synthetic-asset",
+      "failure_codes": [],
+      "assertions": [
+       "c2pa.hash.bmff.v3",
+       "c2pa.actions.v2"
+      ]
      }
     }
    }
@@ -1021,14 +2241,44 @@
    "local_path": "assets/synthetic/calibration/nimbus-defect-brand-red.mp4",
    "gcs_uri": "gs://airlock-agentic-cinema-assets/calibration/nimbus-defect-brand-red.mp4",
    "ground_truth": {
-    "brand": "BLOCK"
+    "status": {
+     "rights": "PASS",
+     "brand": "BLOCK",
+     "provenance": "BLOCK"
+    },
+    "rules_expected": {
+     "brand": [
+      "charter:palette",
+      "charter:exclusions"
+     ],
+     "provenance": [
+      "airlock:provenance:manifest-required"
+     ]
+    },
+    "rules_forbidden": {
+     "rights": [
+      "registry:brands:unknown",
+      "registry:brands:not_cleared",
+      "registry:faces:no_release",
+      "registry:explicit_content"
+     ],
+     "brand": [
+      "charter:mandatory_mentions"
+     ]
+    },
+    "brand_names": [],
+    "faces": null,
+    "faces_note": ""
    },
-   "wall_ms": 78725,
+   "wall_ms": 80702,
    "gates": {
     "rights": {
      "status": "PASS",
-     "elapsed_ms": 33757,
+     "elapsed_ms": 36811,
      "reason": "cleared brand(s): Nimbus; no unreleased face, no explicit content",
+     "reasons": [
+      "cleared brand(s): Nimbus; no unreleased face, no explicit content"
+     ],
      "rule_ids": [
       "registry:brands",
       "registry:faces",
@@ -1041,12 +2291,32 @@
       "features": 4,
       "cost_usd": 0.5,
       "basis": "Video Intelligence: 1 min x 4 features"
+     },
+     "found": {
+      "brands": [
+       {
+        "name": "Nimbus",
+        "how": "on_screen_text",
+        "status": "cleared",
+        "first_seen_s": 0.0,
+        "confidence": null
+       }
+      ],
+      "face_tracks": 0,
+      "explicit_frames": {
+       "VERY_UNLIKELY": 6,
+       "UNLIKELY": 2
+      },
+      "text_lines": 3
      }
     },
     "claim": {
      "status": "PASS",
-     "elapsed_ms": 13711,
+     "elapsed_ms": 14160,
      "reason": "no regulated claim without substantiation (2 claim(s) read, 2 advisory)",
+     "reasons": [
+      "no regulated claim without substantiation (2 claim(s) read, 2 advisory)"
+     ],
      "rule_ids": [
       "16 CFR 255.1"
      ],
@@ -1057,12 +2327,25 @@
       "features": 0,
       "cost_usd": 0.004739,
       "basis": "gemini-2.5-pro: 2223 in, 196 out"
+     },
+     "found": {
+      "claims_total": 2,
+      "blocking": [],
+      "advisory": 2
      }
     },
     "brand": {
      "status": "BLOCK",
-     "elapsed_ms": 22305,
+     "elapsed_ms": 20367,
      "reason": "exclusion violated: no discount or price (SALE ENDS TONIGHT, at 0.0s)",
+     "reasons": [
+      "exclusion violated: no discount or price (SALE ENDS TONIGHT, at 0.0s)",
+      "exclusion violated: urgency (SALE ENDS TONIGHT, at 0.0s)",
+      "exclusion violated: countdown (SALE ENDS TONIGHT, at 0.0s)",
+      "exclusion violated: scarcity (SALE ENDS TONIGHT, at 0.0s)",
+      "exclusion violated: forbidden color #FF0000 (Red banner at top of screen, at 0.0s)",
+      "forbidden palette colour dominant: #FF0000"
+     ],
      "rule_ids": [
       "charter:exclusions",
       "charter:palette"
@@ -1074,12 +2357,26 @@
       "features": 0,
       "cost_usd": 0.001649,
       "basis": "gemini-2.5-flash: 2504 in, 359 out"
+     },
+     "found": {
+      "wordmark_seen": true,
+      "other_brands_seen": [],
+      "dominant_colors_hex": [
+       "#FF0000",
+       "#FFFFFF",
+       "#A06B3D",
+       "#7CBA2E"
+      ],
+      "exclusion_violations": 5
      }
     },
     "provenance": {
      "status": "BLOCK",
      "elapsed_ms": 2,
      "reason": "no C2PA manifest in the asset",
+     "reasons": [
+      "no C2PA manifest in the asset"
+     ],
      "rule_ids": [
       "airlock:provenance:manifest-required"
      ],
@@ -1090,6 +2387,9 @@
       "features": 0,
       "cost_usd": 0.0,
       "basis": ""
+     },
+     "found": {
+      "manifest": null
      }
     }
    }
@@ -1101,14 +2401,48 @@
    "local_path": "assets/synthetic/calibration/nimbus-defect-provenance-stripped.mp4",
    "gcs_uri": "gs://airlock-agentic-cinema-assets/calibration/nimbus-defect-provenance-stripped.mp4",
    "ground_truth": {
-    "provenance": "BLOCK"
+    "status": {
+     "rights": "PASS",
+     "claim": "BLOCK",
+     "brand": "PASS",
+     "provenance": "BLOCK"
+    },
+    "rules_expected": {
+     "claim": [
+      "16 CFR 255.3"
+     ],
+     "provenance": [
+      "airlock:provenance:manifest-required"
+     ]
+    },
+    "rules_forbidden": {
+     "rights": [
+      "registry:brands:unknown",
+      "registry:brands:not_cleared",
+      "registry:faces:no_release",
+      "registry:explicit_content"
+     ],
+     "brand": [
+      "charter:mandatory_mentions",
+      "charter:exclusions",
+      "charter:palette",
+      "charter:tone",
+      "charter:typography"
+     ]
+    },
+    "brand_names": [],
+    "faces": null,
+    "faces_note": ""
    },
-   "wall_ms": 72967,
+   "wall_ms": 130781,
    "gates": {
     "rights": {
      "status": "PASS",
-     "elapsed_ms": 37344,
+     "elapsed_ms": 94528,
      "reason": "cleared brand(s): Nimbus; no unreleased face, no explicit content",
+     "reasons": [
+      "cleared brand(s): Nimbus; no unreleased face, no explicit content"
+     ],
      "rule_ids": [
       "registry:brands",
       "registry:faces",
@@ -1121,12 +2455,32 @@
       "features": 4,
       "cost_usd": 0.5,
       "basis": "Video Intelligence: 1 min x 4 features"
+     },
+     "found": {
+      "brands": [
+       {
+        "name": "Nimbus",
+        "how": "on_screen_text",
+        "status": "cleared",
+        "first_seen_s": 0.0,
+        "confidence": null
+       }
+      ],
+      "face_tracks": 0,
+      "explicit_frames": {
+       "VERY_UNLIKELY": 7,
+       "UNLIKELY": 1
+      },
+      "text_lines": 6
      }
     },
     "claim": {
      "status": "BLOCK",
-     "elapsed_ms": 16113,
+     "elapsed_ms": 15666,
      "reason": "1 regulated claim(s) with no substantiation on file; first at 3.0s: \"Recommended by 9 out of 10 sommeliers.\" (expert_endorsement, 16 CFR 255.3)",
+     "reasons": [
+      "1 regulated claim(s) with no substantiation on file; first at 3.0s: \"Recommended by 9 out of 10 sommeliers.\" (expert_endorsement, 16 CFR 255.3)"
+     ],
      "rule_ids": [
       "16 CFR 255.3",
       "ASA A26-1337640 (CAP 3.7)"
@@ -1138,12 +2492,26 @@
       "features": 0,
       "cost_usd": 0.004739,
       "basis": "gemini-2.5-pro: 2223 in, 196 out"
+     },
+     "found": {
+      "claims_total": 2,
+      "blocking": [
+       {
+        "quote": "Recommended by 9 out of 10 sommeliers.",
+        "kind": "expert_endorsement",
+        "start_s": 3.0
+       }
+      ],
+      "advisory": 1
      }
     },
     "brand": {
      "status": "PASS",
-     "elapsed_ms": 10827,
+     "elapsed_ms": 11173,
      "reason": "Nimbus wordmark seen, palette, tone and exclusions respected",
+     "reasons": [
+      "Nimbus wordmark seen, palette, tone and exclusions respected"
+     ],
      "rule_ids": [
       "charter:mandatory_mentions",
       "charter:palette",
@@ -1152,17 +2520,31 @@
      ],
      "usage": {
       "tokens_in": 2504,
-      "tokens_out": 148,
+      "tokens_out": 171,
       "video_minutes": 0.0,
       "features": 0,
-      "cost_usd": 0.001121,
-      "basis": "gemini-2.5-flash: 2504 in, 148 out"
+      "cost_usd": 0.001179,
+      "basis": "gemini-2.5-flash: 2504 in, 171 out"
+     },
+     "found": {
+      "wordmark_seen": true,
+      "other_brands_seen": [],
+      "dominant_colors_hex": [
+       "#FFFFFF",
+       "#A06F42",
+       "#6B9E3B",
+       "#D0D8DB"
+      ],
+      "exclusion_violations": 0
      }
     },
     "provenance": {
      "status": "BLOCK",
-     "elapsed_ms": 1,
+     "elapsed_ms": 2,
      "reason": "no C2PA manifest in the asset",
+     "reasons": [
+      "no C2PA manifest in the asset"
+     ],
      "rule_ids": [
       "airlock:provenance:manifest-required"
      ],
@@ -1173,6 +2555,9 @@
       "features": 0,
       "cost_usd": 0.0,
       "basis": ""
+     },
+     "found": {
+      "manifest": null
      }
     }
    }
@@ -1184,14 +2569,51 @@
    "local_path": "assets/synthetic/calibration/nimbus-defect-provenance-broken.mp4",
    "gcs_uri": "gs://airlock-agentic-cinema-assets/calibration/nimbus-defect-provenance-broken.mp4",
    "ground_truth": {
-    "provenance": "BLOCK"
+    "status": {
+     "rights": "PASS",
+     "claim": "BLOCK",
+     "brand": "PASS",
+     "provenance": "BLOCK"
+    },
+    "rules_expected": {
+     "claim": [
+      "16 CFR 255.3"
+     ],
+     "provenance": [
+      "airlock:provenance:signature-valid"
+     ]
+    },
+    "rules_forbidden": {
+     "rights": [
+      "registry:brands:unknown",
+      "registry:brands:not_cleared",
+      "registry:faces:no_release",
+      "registry:explicit_content"
+     ],
+     "brand": [
+      "charter:mandatory_mentions",
+      "charter:exclusions",
+      "charter:palette",
+      "charter:tone",
+      "charter:typography"
+     ],
+     "provenance": [
+      "airlock:provenance:manifest-required"
+     ]
+    },
+    "brand_names": [],
+    "faces": null,
+    "faces_note": ""
    },
-   "wall_ms": 79189,
+   "wall_ms": 68241,
    "gates": {
     "rights": {
      "status": "PASS",
-     "elapsed_ms": 46145,
+     "elapsed_ms": 34502,
      "reason": "cleared brand(s): Nimbus; no unreleased face, no explicit content",
+     "reasons": [
+      "cleared brand(s): Nimbus; no unreleased face, no explicit content"
+     ],
      "rule_ids": [
       "registry:brands",
       "registry:faces",
@@ -1204,29 +2626,63 @@
       "features": 4,
       "cost_usd": 0.5,
       "basis": "Video Intelligence: 1 min x 4 features"
+     },
+     "found": {
+      "brands": [
+       {
+        "name": "Nimbus",
+        "how": "on_screen_text",
+        "status": "cleared",
+        "first_seen_s": 0.0,
+        "confidence": null
+       }
+      ],
+      "face_tracks": 0,
+      "explicit_frames": {
+       "VERY_UNLIKELY": 6,
+       "UNLIKELY": 2
+      },
+      "text_lines": 9
      }
     },
     "claim": {
      "status": "BLOCK",
-     "elapsed_ms": 10031,
-     "reason": "1 regulated claim(s) with no substantiation on file; first at 3.0s: \"Recommended by 9 out of 10 sommeliers.\" (expert_endorsement, 16 CFR 255.3)",
+     "elapsed_ms": 14435,
+     "reason": "1 regulated claim(s) with no substantiation on file; first at 3.2s: \"Recommended by 9 out of 10 sommeliers.\" (expert_endorsement, 16 CFR 255.3)",
+     "reasons": [
+      "1 regulated claim(s) with no substantiation on file; first at 3.2s: \"Recommended by 9 out of 10 sommeliers.\" (expert_endorsement, 16 CFR 255.3)"
+     ],
      "rule_ids": [
       "16 CFR 255.3",
       "ASA A26-1337640 (CAP 3.7)"
      ],
      "usage": {
       "tokens_in": 2223,
-      "tokens_out": 206,
+      "tokens_out": 191,
       "video_minutes": 0.0,
       "features": 0,
-      "cost_usd": 0.004839,
-      "basis": "gemini-2.5-pro: 2223 in, 206 out"
+      "cost_usd": 0.004689,
+      "basis": "gemini-2.5-pro: 2223 in, 191 out"
+     },
+     "found": {
+      "claims_total": 2,
+      "blocking": [
+       {
+        "quote": "Recommended by 9 out of 10 sommeliers.",
+        "kind": "expert_endorsement",
+        "start_s": 3.2
+       }
+      ],
+      "advisory": 1
      }
     },
     "brand": {
      "status": "PASS",
-     "elapsed_ms": 13917,
+     "elapsed_ms": 9947,
      "reason": "Nimbus wordmark seen, palette, tone and exclusions respected",
+     "reasons": [
+      "Nimbus wordmark seen, palette, tone and exclusions respected"
+     ],
      "rule_ids": [
       "charter:mandatory_mentions",
       "charter:palette",
@@ -1235,17 +2691,32 @@
      ],
      "usage": {
       "tokens_in": 2504,
-      "tokens_out": 180,
+      "tokens_out": 176,
       "video_minutes": 0.0,
       "features": 0,
-      "cost_usd": 0.001201,
-      "basis": "gemini-2.5-flash: 2504 in, 180 out"
+      "cost_usd": 0.001191,
+      "basis": "gemini-2.5-flash: 2504 in, 176 out"
+     },
+     "found": {
+      "wordmark_seen": true,
+      "other_brands_seen": [],
+      "dominant_colors_hex": [
+       "#FFFFFF",
+       "#A06F42",
+       "#8BC34A",
+       "#1F4E79",
+       "#E0E6EB"
+      ],
+      "exclusion_violations": 0
      }
     },
     "provenance": {
      "status": "BLOCK",
-     "elapsed_ms": 7,
+     "elapsed_ms": 10,
      "reason": "C2PA manifest present but validation failed: assertion.bmffHash.mismatch",
+     "reasons": [
+      "C2PA manifest present but validation failed: assertion.bmffHash.mismatch"
+     ],
      "rule_ids": [
       "airlock:provenance:signature-valid"
      ],
@@ -1256,6 +2727,18 @@
       "features": 0,
       "cost_usd": 0.0,
       "basis": ""
+     },
+     "found": {
+      "validation_state": "Invalid",
+      "issuer": "Airlock (hackathon test)",
+      "claim_generator": "airlock-synthetic-asset",
+      "failure_codes": [
+       "assertion.bmffHash.mismatch"
+      ],
+      "assertions": [
+       "c2pa.hash.bmff.v3",
+       "c2pa.actions.v2"
+      ]
      }
     }
    }
@@ -1267,17 +2750,45 @@
    "local_path": "assets/synthetic/veo-raw.mp4",
    "gcs_uri": null,
    "ground_truth": {
-    "rights": "PASS",
-    "provenance": "BLOCK",
-    "claim": "PASS",
-    "brand": "BLOCK"
+    "status": {
+     "rights": "PASS",
+     "claim": "PASS",
+     "brand": "BLOCK",
+     "provenance": "BLOCK"
+    },
+    "rules_expected": {
+     "brand": [
+      "charter:mandatory_mentions"
+     ],
+     "provenance": [
+      "airlock:provenance:signer-trusted"
+     ]
+    },
+    "rules_forbidden": {
+     "rights": [
+      "registry:brands:unknown",
+      "registry:brands:not_cleared",
+      "registry:faces:no_release",
+      "registry:explicit_content"
+     ],
+     "provenance": [
+      "airlock:provenance:manifest-required",
+      "airlock:provenance:signature-valid"
+     ]
+    },
+    "brand_names": [],
+    "faces": null,
+    "faces_note": ""
    },
-   "wall_ms": 100803,
+   "wall_ms": 85165,
    "gates": {
     "rights": {
      "status": "PASS",
-     "elapsed_ms": 66285,
+     "elapsed_ms": 50047,
      "reason": "no brand, no unreleased face, no explicit content",
+     "reasons": [
+      "no brand, no unreleased face, no explicit content"
+     ],
      "rule_ids": [
       "registry:brands",
       "registry:faces",
@@ -1290,28 +2801,47 @@
       "features": 4,
       "cost_usd": 0.5,
       "basis": "Video Intelligence: 1 min x 4 features"
+     },
+     "found": {
+      "brands": [],
+      "face_tracks": 0,
+      "explicit_frames": {
+       "VERY_UNLIKELY": 8
+      },
+      "text_lines": 0
      }
     },
     "claim": {
      "status": "PASS",
-     "elapsed_ms": 11168,
+     "elapsed_ms": 9604,
      "reason": "no regulated claim without substantiation (0 claim(s) read, 0 advisory)",
+     "reasons": [
+      "no regulated claim without substantiation (0 claim(s) read, 0 advisory)"
+     ],
      "rule_ids": [
       "16 CFR 255.1"
      ],
      "usage": {
       "tokens_in": 2223,
-      "tokens_out": 56,
+      "tokens_out": 58,
       "video_minutes": 0.0,
       "features": 0,
-      "cost_usd": 0.003339,
-      "basis": "gemini-2.5-pro: 2223 in, 56 out"
+      "cost_usd": 0.003359,
+      "basis": "gemini-2.5-pro: 2223 in, 58 out"
+     },
+     "found": {
+      "claims_total": 0,
+      "blocking": [],
+      "advisory": 0
      }
     },
     "brand": {
      "status": "BLOCK",
-     "elapsed_ms": 14399,
+     "elapsed_ms": 15662,
      "reason": "mandatory mention missing: the Nimbus wordmark is never seen",
+     "reasons": [
+      "mandatory mention missing: the Nimbus wordmark is never seen"
+     ],
      "rule_ids": [
       "charter:mandatory_mentions"
      ],
@@ -1322,12 +2852,26 @@
       "features": 0,
       "cost_usd": 0.001069,
       "basis": "gemini-2.5-flash: 2504 in, 127 out"
+     },
+     "found": {
+      "wordmark_seen": false,
+      "other_brands_seen": [],
+      "dominant_colors_hex": [
+       "#FFFFFF",
+       "#D2B48C",
+       "#8BC34A",
+       "#FDF5E6"
+      ],
+      "exclusion_violations": 0
      }
     },
     "provenance": {
      "status": "BLOCK",
-     "elapsed_ms": 12,
+     "elapsed_ms": 17,
      "reason": "C2PA signature valid but the signer is not on the trust list: Google LLC (signingCredential.untrusted)",
+     "reasons": [
+      "C2PA signature valid but the signer is not on the trust list: Google LLC (signingCredential.untrusted)"
+     ],
      "rule_ids": [
       "airlock:provenance:signer-trusted"
      ],
@@ -1338,9 +2882,22 @@
       "features": 0,
       "cost_usd": 0.0,
       "basis": ""
+     },
+     "found": {
+      "validation_state": "Valid",
+      "issuer": "Google LLC",
+      "claim_generator": "Google C2PA Core Generator Library",
+      "failure_codes": [
+       "signingCredential.untrusted"
+      ],
+      "assertions": [
+       "c2pa.actions.v2",
+       "c2pa.hash.bmff.v3"
+      ]
      }
     }
    }
   }
- ]
+ ],
+ "partial": false
 }

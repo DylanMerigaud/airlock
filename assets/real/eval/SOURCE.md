@@ -15,9 +15,13 @@ is ground truth for BLOCK on rights (unknown brand) and BLOCK on provenance (no 
 gates have no ground truth beyond "a mid-century commercial makes claims"; what they find on these
 ten is reported in `eval/EVAL.md` without being scored.
 
-The full source files (640x480, as downloaded from archive.org) are not kept locally after the
-excerpt is cut; only the excerpt ships, same convention as `assets/real/CrestToothpa-18-48.mp4`
-(`.gitignore`: `assets/real/**/*.mp4`).
+Nothing under `assets/` is committed (`.gitignore`: `assets/real/**/*.mp4`). `scripts/fetch_assets.sh`
+downloads the ten full source files (640x480, as archive.org serves them) into `assets/real/eval/src/`,
+cuts the excerpts with the command above and checks every sha256 against the values below; the
+hashes were recorded with ffmpeg 8.0, and a different ffmpeg build can write a different container
+header for the same frames (then record the new hash here and say which build produced it).
+Verified from an empty `assets/` on 2026-09-04 (18 files OK, about 4 minutes) and again on 2026-09-05
+(18 files OK).
 
 ## Cheerios1960-0-30.mp4
 
