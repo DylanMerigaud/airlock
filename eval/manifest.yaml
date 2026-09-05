@@ -1,0 +1,146 @@
+# Ground truth for scripts/eval_gates.py: the 16 assets, what each gate must say, and which rule
+# ids must fire or must not fire on each. Two layers per asset:
+#
+#   status:          expected status per gate (PASS or BLOCK); a gate absent here is reported, not scored
+#   rules_expected:  per gate, rule ids the gate must cite in a BLOCK ("the rule fires")
+#   rules_forbidden: per gate, rule ids the gate must not cite in a BLOCK
+#
+# A rule "fires" when the gate's status is BLOCK and the id is in its rule_ids; the ids a PASS lists
+# are the rules it checked and satisfied, they never count as fired. Rule id strings are the ones
+# in airlock/gates/*.py (grep rule_ids); when a gate renames one, rename it here too.
+#
+# The real spots were hand-labelled on 2026-09-04 from contact sheets of the excerpts (a frame every
+# 3 s): brand_names lists the names the rights gate may report for the brand on screen (a match
+# means Video Intelligence named the right company), faces says whether a person is on screen, and
+# explicit content is absent from every one of them. None of the ten brands is in
+# rights-registry.yaml, so registry:brands:unknown is the expected rule, and a 1950s to 1960s film
+# carries no C2PA manifest. Claim and brand have no ground truth on an unrelated real ad (no
+# charter, no substantiation file): they are reported, not scored.
+
+real:
+  - asset_id: Cheerios1960-0-30
+    brand: Cheerios
+    brand_names: [Cheerios]
+    faces: true
+    faces_note: two boys at the breakfast table from 6 s, close up at 21 s
+  - asset_id: chevrolet-31-61
+    brand: Chevrolet
+    brand_names: [Chevrolet, Chevy]
+    faces: false
+    faces_note: hand-drawn line figures only, no person
+  - asset_id: ivory_soap-25-55
+    brand: Ivory
+    brand_names: [Ivory]
+    faces: true
+    faces_note: a woman throughout, a child at 3 s, a baby in the bath at 21 s
+  - asset_id: kodak_instamatic-31-60
+    brand: Kodak
+    brand_names: [Kodak, Instamatic]
+    faces: true
+    faces_note: party guests from 3 s, a woman in the projected photograph at 18 s
+  - asset_id: folgers-26-56
+    brand: Folgers
+    brand_names: [Folgers]
+    faces: true
+    faces_note: Mrs. Olson and a young woman in the kitchen, a couple in the garden
+  - asset_id: labatts_beer-0-20
+    brand: Labatt's
+    brand_names: [Labatt]
+    faces: true
+    faces_note: a couple at a restaurant table throughout
+  - asset_id: gilbert_slot_racers-0-30
+    brand: Gilbert
+    brand_names: [Gilbert]
+    faces: true
+    faces_note: two boys on the floor seen from above at 11 to 13 s, one boy's head at 13 s
+  - asset_id: MacleansToot-0-29
+    brand: Macleans
+    brand_names: [Macleans]
+    faces: true
+    faces_note: a couple in the snow from 3 s, a woman's smile close up at 12 s
+  - asset_id: ScottiesTiss-0-30
+    brand: Scotties
+    brand_names: [Scotties]
+    faces: false
+    faces_note: hands and the tissue box only
+  - asset_id: GE_blender-0-30
+    brand: General Electric
+    brand_names: [General Electric, GE]
+    faces: false
+    faces_note: the monogram, the blender and a hand pouring; no person
+
+# Rules shared by every real spot; faces adds registry:faces:no_release to expected (faces true)
+# or to forbidden (faces false).
+real_rules:
+  status: {rights: BLOCK, provenance: BLOCK}
+  rules_expected:
+    rights: ["registry:brands:unknown"]
+    provenance: ["airlock:provenance:manifest-required"]
+  rules_forbidden:
+    rights: ["registry:explicit_content"]
+
+# Synthetic assets (SYNTHETIC.md): the same Veo clip with known overlays and a known signing state,
+# so every gate's expectation is by construction.
+synthetic:
+  - asset_id: nimbus-test-clip
+    local: assets/synthetic/nimbus-test-clip.mp4
+    gcs_uri: gs://{bucket}/synthetic/nimbus-test-clip.mp4
+    status: {rights: PASS, claim: BLOCK, brand: PASS, provenance: PASS}
+    rules_expected:
+      claim: ["16 CFR 255.3"]
+    rules_forbidden:
+      rights: ["registry:brands:unknown", "registry:brands:not_cleared", "registry:faces:no_release", "registry:explicit_content"]
+      brand: ["charter:mandatory_mentions", "charter:exclusions", "charter:palette", "charter:tone", "charter:typography"]
+      provenance: ["airlock:provenance:manifest-required", "airlock:provenance:signature-valid", "airlock:provenance:signer-trusted"]
+  - asset_id: nimbus-clean-clip
+    local: assets/synthetic/calibration/nimbus-clean-clip.mp4
+    gcs_uri: gs://{bucket}/calibration/nimbus-clean-clip.mp4
+    status: {rights: PASS, claim: PASS, brand: PASS, provenance: PASS}
+    rules_forbidden:
+      rights: ["registry:brands:unknown", "registry:brands:not_cleared", "registry:faces:no_release", "registry:explicit_content"]
+      claim: ["16 CFR 255.3"]
+      brand: ["charter:mandatory_mentions", "charter:exclusions", "charter:palette", "charter:tone", "charter:typography"]
+      provenance: ["airlock:provenance:manifest-required", "airlock:provenance:signature-valid", "airlock:provenance:signer-trusted"]
+  - asset_id: nimbus-defect-brand-red
+    local: assets/synthetic/calibration/nimbus-defect-brand-red.mp4
+    gcs_uri: gs://{bucket}/calibration/nimbus-defect-brand-red.mp4
+    # the red banner covers the top 120 px, most of the claim box with it, so claim is unscored here
+    status: {rights: PASS, brand: BLOCK, provenance: BLOCK}
+    rules_expected:
+      brand: ["charter:palette", "charter:exclusions"]
+      provenance: ["airlock:provenance:manifest-required"]
+    rules_forbidden:
+      rights: ["registry:brands:unknown", "registry:brands:not_cleared", "registry:faces:no_release", "registry:explicit_content"]
+      brand: ["charter:mandatory_mentions"]
+  - asset_id: nimbus-defect-provenance-stripped
+    local: assets/synthetic/calibration/nimbus-defect-provenance-stripped.mp4
+    gcs_uri: gs://{bucket}/calibration/nimbus-defect-provenance-stripped.mp4
+    status: {rights: PASS, claim: BLOCK, brand: PASS, provenance: BLOCK}
+    rules_expected:
+      claim: ["16 CFR 255.3"]
+      provenance: ["airlock:provenance:manifest-required"]
+    rules_forbidden:
+      rights: ["registry:brands:unknown", "registry:brands:not_cleared", "registry:faces:no_release", "registry:explicit_content"]
+      brand: ["charter:mandatory_mentions", "charter:exclusions", "charter:palette", "charter:tone", "charter:typography"]
+  - asset_id: nimbus-defect-provenance-broken
+    local: assets/synthetic/calibration/nimbus-defect-provenance-broken.mp4
+    gcs_uri: gs://{bucket}/calibration/nimbus-defect-provenance-broken.mp4
+    status: {rights: PASS, claim: BLOCK, brand: PASS, provenance: BLOCK}
+    rules_expected:
+      claim: ["16 CFR 255.3"]
+      provenance: ["airlock:provenance:signature-valid"]
+    rules_forbidden:
+      rights: ["registry:brands:unknown", "registry:brands:not_cleared", "registry:faces:no_release", "registry:explicit_content"]
+      brand: ["charter:mandatory_mentions", "charter:exclusions", "charter:palette", "charter:tone", "charter:typography"]
+      provenance: ["airlock:provenance:manifest-required"]
+  - asset_id: veo-raw
+    local: assets/synthetic/veo-raw.mp4
+    # never uploaded: read from the local file (Video Intelligence takes the bytes inline)
+    gcs_uri: null
+    status: {rights: PASS, claim: PASS, brand: BLOCK, provenance: BLOCK}
+    rules_expected:
+      brand: ["charter:mandatory_mentions"]
+      provenance: ["airlock:provenance:signer-trusted"]
+    rules_forbidden:
+      rights: ["registry:brands:unknown", "registry:brands:not_cleared", "registry:faces:no_release", "registry:explicit_content"]
+      provenance: ["airlock:provenance:manifest-required", "airlock:provenance:signature-valid"]
