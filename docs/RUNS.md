@@ -2208,3 +2208,152 @@ run 2 read 10) and its rule id list now carries `FTC Act section 5 (15 U.S.C. 45
   to follow for the efficacy, health, comparative and superlative rows.
 - README's "Every decision is a plain function; the models only read" sentence is T5's; the gates
   table and the known gaps paragraph are updated here.
+
+## Hygiene: one table, no dead code, lint and types green, config in one place (2026-09-05)
+
+What the panel found (vibe-code-detector 2, 6, 7, 8; google-cloud 4, 5, 7, 9): the gate table copied
+four times, a spike agent for an engine deleted on 2026-09-02, no Python lint or type gate (50 ruff
+findings and 8 pyright errors with the tools' defaults), two `httpx.Client`s built per gate run and
+never closed, FastMCP's private `_session_manager` reset in a test path, the MCP tools blocking the
+event loop, the calibration ledger's two provenance defects sharing one series, the same coordinates
+copied by hand across scripts, a render checker at an absolute path on one Mac, and a `/healthz`
+route Cloud Run's front end answers itself. This section is what changed and what was measured.
+Branch `worktree-agent-a6f1cff6165ef00b1`, seven commits on top of 4c2d0f4.
+
+**Before, at 4c2d0f4, the plan's configuration applied on the command line:**
+
+```
+uv run pytest -q                                                            -> 92 passed, 2 skipped, 7 warnings in 7.49s
+uv run --with ruff ruff check . --line-length 160 --select E,F,B,BLE,UP     -> Found 66 errors (33 E501, 9 BLE001, 6 UP035, 6 F401, 4 UP017, 2 UP037, 2 B905, 1 E741, 1 UP034, 1 B023, 1 B007)
+uv run --with pyright pyright airlock agents airlock_mcp scripts            -> 11 errors, 0 warnings, 0 informations
+```
+
+(The judge's 50 and 8 were ruff's default rule set and pyright without `scripts/`; the numbers above
+are the configuration now committed in `pyproject.toml`, so before and after are the same ruler.)
+
+**After, on the branch:**
+
+```
+uv run pytest -q                                          -> 106 passed, 2 skipped, 7 warnings in 2.21s
+uv run ruff check .                                       -> Found 22 errors, every one in a file another task owns (list below)
+uv run pyright airlock agents airlock_mcp scripts         -> 2 errors, both in files another task owns (list below)
+```
+
+The 22 ruff findings and 2 pyright errors left, by owner (this task did not edit these files):
+
+- T2, `agents/pipeline/agent.py`: UP035 (line 26, `collections.abc`), UP017 twice (239, 303, `datetime.UTC`),
+  E501 twice (284, 334); `agents/pipeline/__init__.py:1` F401 (`from . import agent as agent`);
+  `tests/test_pipeline_agent.py:22` E501; pyright `agent.py:438` (`gate_agents: list[BaseAgent] = [...]`).
+  A reference edit that makes all of them green together with the CHECKS import and the settings
+  module is in the session scratchpad (`t3-agent-py-reference.diff`); applied on the worktree it gave
+  `ruff check agents: All checks passed`, `pyright agents: 0 errors`, `pytest: 106 passed`, then was
+  reverted (T2 owns the file).
+- T6, `airlock/gates/rights.py`: E501 at 69, 71, 110, 114, 127; E741 at 70 (`for l in ...`); pyright
+  `rights.py:67` (`op.result(...).annotation_results` may be None). `airlock/gates/provenance.py:92` E501.
+  `tests/test_claim.py:5` E501; `tests/test_provenance.py:5` F401 (`Asset` unused), `:36` E501.
+- T5, `scripts/eval_gates.py`: UP017 at 141 and 153, B007 at 217 (`gate` unused in the loop), B023 at 253
+  (a lambda closing over the loop variable `g`, a real bug when the lambdas run after the loop), E501 at 261.
+
+**What changed, in commit order.**
+
+1. `55545e4` One `CHECKS` table. `airlock/gates/__init__.py` exports `CHECKS` (gate to function and
+   source of truth, asserted to match `GATES` order); `airlock/run.py`, `airlock/calibrate.py` and
+   `airlock_mcp/server.py` read it (the copy in `agents/pipeline/agent.py` goes with T2's merge).
+   Deleted: `agents/spike/` (four files), `tests/test_spike.py` (it tested the spike's pasted copies
+   of `tool_text` and `pick_prometheus_uid`), `scripts/push_spike_metric.py`.
+2. `b86257e` `airlock/settings.py`: project, region, bucket, engine resource, Grafana URL, datasource
+   uids, dashboard uid, the push endpoints (no default: unset means not configured), the MCP URLs and
+   bearers, the console URL, `AIRLOCK_KEYCHAIN_ACCOUNT` (default dylanmerigaud), the mute list and
+   the drill switch. Read at call time so a monkeypatch and an export both take effect;
+   `uv run python -m airlock.settings` prints every variable, its value and its origin (tokens as
+   set or unset). Callers: `assets`, `engine_client`, `grafana_mcp`, `gemini`, `calibrate`,
+   `daily_proof`, `airlock_mcp/server.py`, `scripts/airlock_mcp_client.py`,
+   `scripts/generate_synthetic_clip.py`. Shell: `scripts/with_env.sh` (account from the variable,
+   a value already in the env kept), `infra/gcp/secrets.sh` (env, then keychain, then a prompt; the
+   mcp bearer generated when absent everywhere), `infra/airlock-mcp/deploy.sh` and
+   `infra/gcp/daily_proof.sh` (the Influx and Loki coordinates as named variables with the same
+   defaults), `scripts/demo_prep.sh`. Dead symbols deleted: `assets.upload`,
+   `grafana_mcp.DEFAULT_TOOLS` (every caller passes a filter, the parameter is now required),
+   `grafana_mcp.pick_prometheus_uid`. `gemini.ask_json` raises
+   `RuntimeError("<model> returned no text: finish reason SAFETY; safety: <category>=<probability>")`
+   when the answer has no text, instead of `TypeError: the JSON object must be str` (three tests).
+3. `77586b0` One Influx pusher and one Loki pusher per process: `telemetry.shared_pushers()` builds
+   the pair from the env on first call (an `httpx.Client` each, thread-safe), `close_shared_pushers()`
+   closes them at exit; `run_gate` takes `influx` and `loki` parameters so a test hands in fakes and
+   reads back the line and the event. `InfluxPusher.push_gate_run` (unreferenced) deleted. Four tests.
+4. `f804dd4` The calibration ledger tags each line `defect=<slug>` (`trademark-and-faces`,
+   `unsubstantiated-endorsement`, `red-banner`, `manifest-stripped`, `byte-flipped`), so
+   `airlock_calibration_catches_total{gate="provenance"}` is two series and the verdict's
+   `min by () (last_over_time(...[7d]))` reads 0 when either defect's last sample is a miss. The
+   dashboard's panels 11 and 12 read `sum by (gate) (sum_over_time(...))`: unchanged in meaning, the
+   `defect` label is summed away (`scripts/grafana_bootstrap.py` untouched). `ledger_lines(rows)` is
+   the pure function; two tests assert the three series and the `min by ()` prefix.
+5. `528ac99` airlock-mcp: the seven tools are `async def` and `await asyncio.to_thread(run_gate ...)`;
+   `check_all` gathers the four. `build_mcp()` registers the tools on a fresh `FastMCP` so each app
+   owns its session manager; `create_app(server=None)` builds one; the test fixture builds one per
+   test and no private attribute is touched. Health route `/health`. `pricing.yaml` added to
+   `Dockerfile.mcp` and the build context (a tool call now prices itself like a pipeline run; it used
+   to report the missing file as a usage error). Tests: two 0.3 s gates finish together in under
+   0.55 s; two apps from two servers in one process both answer `/health`.
+6. `7759b47` `ruff` and `pyright` in the dev group; `[tool.ruff]` at 160 columns, E F B BLE UP,
+   BLE001 ignored with its reason (the envelope turns any exception into a named ERROR), E501 ignored
+   for `scripts/grafana_bootstrap.py` (one panel per line); `[tool.pyright]` basic. Findings fixed in
+   `calibrate`, `daily_proof`, `engine_client`, `brand`, `gemini`, `verdict` (three lines wrapped and
+   two `int(x or 0)` guards in `calibration_note`, no rule changed), `export_promql`, three tests,
+   `video/assemble.py` (unused `math` and `shutil`, `zip(..., strict=False)`), `video/narrate.py`.
+   README "Tests" lists the three commands; the gates section carries the palette note (google 7).
+7. `b86df56` `video/assemble.py` reads the render checker from `AIRLOCK_RENDER_CHECK`; unset prints
+   `render check skipped, no checker configured` and exits 0 with the render written; a path that
+   does not exist says so. `video/README.md` and `docs/DEMO-DAY.md` updated; `AIRLOCK_FONT` for the font.
+
+**airlock-mcp redeployed and measured.** `bash infra/airlock-mcp/deploy.sh`, 06:31 to 06:33 UTC:
+Cloud Build `86fe395b-3b7d-4d20-bb78-492031bd120c` SUCCESS in 50 s, revision `airlock-mcp-00003-qnk`
+(previous `airlock-mcp-00002-89h`), `secret airlock-mcp-server-token already in Secret Manager, left as is`.
+
+```
+before (06:31:30Z)  GET /health   -> 401 application/json          (the old app: /health was not the open path)
+                    GET /healthz  -> 404 text/html; charset=UTF-8  (Cloud Run's front end, never the container)
+after  (06:33:45Z)  GET /health   -> 200 application/json, x-cloud-trace-context present, body
+                    {"ok":true,"tools":["check_rights","check_claim","check_brand","check_provenance","check_all","verdict_rules","list_rules"]}
+                    GET /healthz  -> 404 text/html (unchanged, the front end's)
+                    POST /mcp     -> 401 without a bearer
+```
+
+Two concurrent `check_provenance` calls, each on its own MCP session, the bearer from the keychain
+and never printed (`t3_concurrency.py` in the session scratchpad; offsets from the moment both
+clients started):
+
+```
+run 1, first request after the deploy (cold instance)
+{"call": "A", "uri": "nimbus-clean-clip.mp4",  "status": "PASS",  "server_elapsed_ms": 2500, "tool_started_s": 0.63, "tool_ended_s": 6.18, "cost_usd": 0.0, "usage_error": null}
+{"call": "B", "uri": "CrestToothpa-18-48.mp4", "status": "BLOCK", "server_elapsed_ms": 2511, "tool_started_s": 0.63, "tool_ended_s": 6.15, "cost_usd": 0.0, "usage_error": null}
+{"wall_s": 6.6, "overlap_s": 5.52, "overlapped": true, "sum_of_server_elapsed_s": 5.01}
+run 2, warm
+{"call": "A", "uri": "nimbus-clean-clip.mp4",  "status": "PASS",  "server_elapsed_ms": 394, "tool_started_s": 0.51, "tool_ended_s": 3.5,  "cost_usd": 0.0, "usage_error": null}
+{"call": "B", "uri": "CrestToothpa-18-48.mp4", "status": "BLOCK", "server_elapsed_ms": 338, "tool_started_s": 0.5,  "tool_ended_s": 3.45, "cost_usd": 0.0, "usage_error": null}
+{"wall_s": 3.92, "overlap_s": 2.94, "overlapped": true, "sum_of_server_elapsed_s": 0.73}
+```
+
+The two tool windows start within 10 ms of each other and end within 50 ms of each other on both
+runs: the second call was served while the first held its gate. The gap between `server_elapsed_ms`
+(measured before the telemetry pushes) and the client's window is the two Grafana pushes and the
+MCP round trip. The old revision was not re-measured (its tools ran inline on the loop by
+construction, mcp 1.29.1 `func_metadata.py:112-115`); the unit test is the regression guard.
+`usage_error` is null and `cost_usd` 0.0 on both: `pricing.yaml` now ships in the image.
+
+**The daily proof job rebuilt with the tagged ledger.** `bash infra/gcp/daily_proof.sh`, 06:37 to
+06:39 UTC: Cloud Build `43ef31e2-35b1-4cad-a5bf-172f7be02431` SUCCESS in 42 s, job
+`airlock-daily-proof` generation 5, scheduler `0 */12 * * *` UTC updated in place. Not executed by
+hand (a calibration was not needed for this verification); the 12:00 UTC run is the first to push
+`airlock_calibration_*{gate, defect}`. The Agent Engine was not redeployed from this branch: it
+carries `airlock/` as an extra package and T2's deploy takes the merged tree.
+
+**Left for the main session and the other tasks.** `agents/pipeline/agent.py` (T2): import `CHECKS`
+from `airlock.gates`, `settings` and `shared_pushers` (the reference diff above). Console dead
+symbols, defined and referenced nowhere else in `console/src` at 4c2d0f4 (grep, definitions only):
+`StatusChip` (`console/src/components/status-chip.tsx`), `grafanaConfigured` (`src/lib/grafana.ts:11`),
+`hasTimecode` (`src/lib/timecodes.ts:40`), `RawEvent` (`src/lib/events.ts:49`),
+`@radix-ui/react-dialog` (`package.json:16`); to delete once T2's console work is merged and the grep
+still says so. `scripts/grafana_bootstrap.py` (T2): `GATES` at line 18 is unused; `DASHBOARD_UID`
+and the `GRAFANA_URL` read could come from `airlock.settings`. The claim gate's KeyError (vibe 2) is
+T6's, in `airlock/gates/claim.py`, not touched here.

@@ -26,16 +26,17 @@ import json
 import os
 import sys
 import time
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
-from typing import Any, Callable
+from typing import Any
 
-from airlock import calibrate
+from airlock import calibrate, settings
 from airlock.engine_client import describe, resource_from_env, stream_query
 from airlock.gates.base import GATES
-from airlock.telemetry import InfluxPusher, LokiPusher, line
+from airlock.telemetry import line, shared_pushers
 
-BUCKET = os.environ.get("AIRLOCK_ASSETS_BUCKET", "airlock-agentic-cinema-assets")
+BUCKET = settings.bucket()
 CLEAN_CLIP = f"gs://{BUCKET}/calibration/nimbus-clean-clip.mp4"
 PROOF_ASSET_ID = "daily-proof-nimbus-clean-clip"
 MEASUREMENT = "airlock_daily_proof"
@@ -70,7 +71,8 @@ def run_calibration() -> list[dict[str, Any]]:
     with ThreadPoolExecutor(max_workers=len(calibrate.DEFECTS)) as pool:
         rows = list(pool.map(calibrate.run_defect, calibrate.DEFECTS))
     for r in rows:
-        print(f"{r['gate']:<11} {'CAUGHT' if r['caught'] else 'MISSED':<7} {r['elapsed_ms']:>6} ms  {r['defect']}  ->  {r['got']} {r['rule_ids'][:2]}", flush=True)
+        print(f"{r['gate']:<11} {'CAUGHT' if r['caught'] else 'MISSED':<7} {r['elapsed_ms']:>6} ms  {r['defect']}  ->  {r['got']} {r['rule_ids'][:2]}",
+              flush=True)
     return rows
 
 
@@ -158,11 +160,11 @@ def proof_line(outcome: str, ts_ns: int | None = None, cost_usd: float | None = 
 
 
 def push_proof(summary: Summary) -> None:
-    if os.environ.get("GRAFANA_INFLUX_URL"):
-        InfluxPusher.from_env().push_lines([proof_line(summary.outcome, cost_usd=summary.cost_usd)])
-    if os.environ.get("GRAFANA_LOKI_URL"):
-        LokiPusher.from_env().push_event({"stage": "daily_proof", "outcome": summary.outcome,
-                                          "runtime": os.environ.get("AIRLOCK_RUNTIME", "local")}, summary.to_dict())
+    influx, loki = shared_pushers()
+    if influx is not None:
+        influx.push_lines([proof_line(summary.outcome, cost_usd=summary.cost_usd)])
+    if loki is not None:
+        loki.push_event({"stage": "daily_proof", "outcome": summary.outcome, "runtime": settings.runtime()}, summary.to_dict())
 
 
 def main(argv: list[str] | None = None) -> int:

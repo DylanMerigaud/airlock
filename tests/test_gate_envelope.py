@@ -66,7 +66,8 @@ def test_datasource_uids_are_pinned_from_env(monkeypatch):
 
 
 def test_pick_datasource_by_type_is_first_of_type():
-    text = '[{"uid": "grafanacloud-alert-state-history", "type": "loki"}, {"uid": "grafanacloud-logs", "type": "loki"}, {"uid": "grafanacloud-prom", "type": "prometheus"}]'
+    text = ('[{"uid": "grafanacloud-alert-state-history", "type": "loki"}, {"uid": "grafanacloud-logs", "type": "loki"}, '
+            '{"uid": "grafanacloud-prom", "type": "prometheus"}]')
     assert pick_datasource_uid(text, "prometheus") == "grafanacloud-prom"
     assert pick_datasource_uid(text, "loki") == "grafanacloud-alert-state-history"  # why the uid is pinned, not picked
     with pytest.raises(LookupError):

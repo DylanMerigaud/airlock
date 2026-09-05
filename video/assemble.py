@@ -17,6 +17,11 @@ then the landing hold are shortened and the assembler prints by how much. Nothin
 reach a length. Every cue time is mapped through the cuts, so the narration stays on the picture it
 describes, and the subtitles are cut one per sentence rather than one per spoken line.
 
+The render check at the end is optional: AIRLOCK_RENDER_CHECK names a script run as
+`python3 <script> --render <mp4> --limit-s 180` whose stdout says PASS or FAIL (the one used for the
+drafts in docs/RUNS.md lives outside this repository). Unset, the step prints "render check skipped,
+no checker configured" and the assembler exits 0 with the render written.
+
 Every landing gets a punch-in: 1.15x over 1.2 s, eased in and out, towards the element that
 changed, and the assembler then measures the thing the whole cut is for, the longest stretch of the
 render with neither a change of picture nor a line playing.
@@ -29,16 +34,27 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
+import os
 import re
-import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-CHECK = Path("/Users/dylanmerigaud/Code/growth-cockpit/career/hackathon-evals/check.py")
-FONT = "/System/Library/Fonts/Supplemental/Arial Bold.ttf"
+RENDER_CHECK_ENV = "AIRLOCK_RENDER_CHECK"
+FONT = os.environ.get("AIRLOCK_FONT", "/System/Library/Fonts/Supplemental/Arial Bold.ttf")
+
+
+def render_checker() -> Path | None:
+    """The render checker named by AIRLOCK_RENDER_CHECK, or None when none is configured or the path is missing."""
+    raw = os.environ.get(RENDER_CHECK_ENV, "").strip()
+    if not raw:
+        return None
+    path = Path(raw).expanduser()
+    if not path.exists():
+        print(f"render check skipped, {RENDER_CHECK_ENV}={raw} does not exist")
+        return None
+    return path
 
 ARTICLE_50 = (
     "Article 50, EU AI Act, in force 2 August 2026: providers of AI systems generating "
@@ -500,10 +516,10 @@ def build_windows(at: dict, lines: list[dict], inserts: list[dict] | None = None
         The last pair of a run is the rights gate's own wait, which `rights_wait` already names
         after the call it is blocked on, so it is not repeated here.
         """
-        landed = sorted(((at[f"{g}_done{suffix}"], g) for g in GATE_ORDER
-                         if f"{g}_done{suffix}" in at))
+        landed = sorted((at[f"{g}_done{suffix}"], g) for g in GATE_ORDER
+                        if f"{g}_done{suffix}" in at)
         out = []
-        for (t_prev, prev), (t_next, gate) in zip(landed, landed[1:]):
+        for (t_prev, prev), (t_next, gate) in zip(landed, landed[1:], strict=False):
             if gate == "rights":
                 continue
             a = max(quiet_from(f"{prev}_done{suffix}"), t_prev)
@@ -909,7 +925,7 @@ def main() -> int:
     # the same place, at the same size, for the second it takes to read either. The later one waits
     # for the earlier to have said what it says.
     labels.sort(key=lambda label: label["to"])
-    for previous, label in zip(labels, labels[1:]):
+    for previous, label in zip(labels, labels[1:], strict=False):
         if label["from"] < previous["to"]:
             label["from"] = min(previous["to"], label["to"] - 0.5)
     held_back = sum(b - a for a, b, _, kind in plan.cuts if kind not in WAIT_LABEL)
@@ -970,9 +986,14 @@ def main() -> int:
                     args.subtitle_size, labels, punch)
         size_mb = target.stat().st_size / 1024 / 1024
         print(f"\nwrote {target} ({size_mb:.1f} MB)")
-        if args.no_check or not CHECK.exists():
+        if args.no_check:
             break
-        result = run(["python3", str(CHECK), "--render", str(target), "--limit-s", "180"])
+        checker = render_checker()
+        if checker is None:
+            if not os.environ.get(RENDER_CHECK_ENV, "").strip():
+                print("render check skipped, no checker configured")
+            break
+        result = run(["python3", str(checker), "--render", str(target), "--limit-s", "180"])
         verdict_lines = (result.stdout or "").splitlines()
         print("\n".join(verdict_lines))
         if "FAIL" not in result.stdout:

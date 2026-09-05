@@ -12,14 +12,15 @@ a label: one label value per run would be one Loki stream per run.
 from __future__ import annotations
 
 import logging
-import os
 import time
 import traceback
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
-from typing import Any, Callable, Literal
+from typing import Any, Literal
 
+from airlock import settings
 from airlock.cost import estimate
-from airlock.telemetry import MEASUREMENT, InfluxPusher, LokiPusher, line
+from airlock.telemetry import MEASUREMENT, InfluxPusher, LokiPusher, line, shared_pushers
 
 log = logging.getLogger("airlock.gates")
 
@@ -59,24 +60,10 @@ class GateResult:
 GateFn = Callable[[Asset], GateResult]
 
 
-def _pushers() -> tuple[InfluxPusher | None, LokiPusher | None]:
-    """Telemetry is on when the env is there; a missing env is reported once, not swallowed."""
-    influx = loki = None
-    if os.environ.get("GRAFANA_INFLUX_URL"):
-        influx = InfluxPusher.from_env()
-    else:
-        log.warning("GRAFANA_INFLUX_URL not set: gate counters are not pushed")
-    if os.environ.get("GRAFANA_LOKI_URL"):
-        loki = LokiPusher.from_env()
-    else:
-        log.warning("GRAFANA_LOKI_URL not set: gate events are not pushed")
-    return influx, loki
-
-
 def muted(gate: str) -> bool:
     """AIRLOCK_MUTE_GATE_TELEMETRY=rights,claim silences a gate's pushes: the M3 test of the rule
     "control unavailable" (Grafana stops seeing the gate succeed, the verdict must refuse to PASS)."""
-    return gate in {x.strip() for x in os.environ.get("AIRLOCK_MUTE_GATE_TELEMETRY", "").split(",") if x.strip()}
+    return gate in settings.muted_gates()
 
 
 FAULT_TIMEOUT = "timeout"
@@ -91,16 +78,20 @@ def inject_fault(fault: str, gate: str, run_id: str | None) -> None:
     raise ValueError(f"unknown fault {fault!r} injected for gate {gate} on run {run_id}")
 
 
-def run_gate(gate: str, fn: GateFn, asset: Asset, source_of_truth: str, mute: bool | None = None, fault: str | None = None) -> GateResult:
+def run_gate(gate: str, fn: GateFn, asset: Asset, source_of_truth: str, mute: bool | None = None, fault: str | None = None,
+             influx: InfluxPusher | None = None, loki: LokiPusher | None = None) -> GateResult:
     """Run one gate with timing, counters and an event, turning any exception into ERROR.
 
     mute=True silences the pushes (the judge's "disable a gate" action); None falls back to the env.
     fault names an injected failure (FAULT_TIMEOUT) raised before the gate function runs.
+    influx and loki are the process's shared pushers unless given (a test passes its own).
     """
     is_muted = muted(gate) if mute is None else mute
-    influx, loki = (None, None) if is_muted else _pushers()
     if is_muted:
         log.warning("gate %s telemetry is MUTED", gate)
+        influx = loki = None
+    elif influx is None and loki is None:
+        influx, loki = shared_pushers()
     t0 = time.time()
     try:
         if fault:
@@ -134,8 +125,7 @@ def run_gate(gate: str, fn: GateFn, asset: Asset, source_of_truth: str, mute: bo
             fields["last_success_ts"] = int(time.time())
         influx.push_lines([line(MEASUREMENT, {"gate": gate}, fields)])
     if loki is not None:
-        loki.push_event({"gate": gate, "status": result.status, "runtime": os.environ.get("AIRLOCK_RUNTIME", "local")},
-                        loki_event(asset, result, fault))
+        loki.push_event({"gate": gate, "status": result.status, "runtime": settings.runtime()}, loki_event(asset, result, fault))
     return result
 
 

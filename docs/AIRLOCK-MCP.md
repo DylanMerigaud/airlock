@@ -5,7 +5,8 @@
 runs its gate through `airlock.gates.base.run_gate`, so a tool call pushes the same Grafana
 counters and events a pipeline run does. Inbound auth is a single bearer
 (`AIRLOCK_MCP_SERVER_TOKEN`); a request without `Authorization: Bearer <token>` gets 401,
-except `GET /healthz` which is open.
+except `GET /health` which is open. The tools are `async def` and hand the gate to a worker thread
+(`asyncio.to_thread`), so a second client is served while a rights check holds Video Intelligence.
 
 ## Tools
 
@@ -54,8 +55,9 @@ async with streamablehttp_client(url, headers=headers) as (read, write, _):
         result = await session.call_tool("check_provenance", {"gcs_uri": "gs://bucket/clip.mp4"})
 ```
 
-`scripts/airlock_mcp_client.py` is this same recipe, wired to the keychain entry
-`airlock-mcp-server-token` and the two demo assets:
+`scripts/airlock_mcp_client.py` is this same recipe, wired to the bearer (`AIRLOCK_MCP_SERVER_TOKEN`
+when set, else the keychain entry `airlock-mcp-server-token` under `AIRLOCK_KEYCHAIN_ACCOUNT`) and the
+two demo assets:
 
 ```
 uv run python scripts/airlock_mcp_client.py            # the deployed URL
@@ -74,7 +76,7 @@ telemetry pushes work even off the deployed service. `AIRLOCK_MCP_SERVER_TOKEN` 
 tokens `with_env.sh` fetches (it is the server's own bearer, not a Grafana credential); set it
 directly, or generate one and store it in the keychain the way
 `infra/airlock-mcp/deploy.sh` does. Without it set, the server refuses to start and says so.
-The server listens on `0.0.0.0:$PORT` (default 8080); `GET /healthz` and `/mcp` are both local at
+The server listens on `0.0.0.0:$PORT` (default 8080); `GET /health` and `/mcp` are both local at
 that point.
 
 ## Deploying
@@ -87,17 +89,17 @@ Idempotent: generates and stores `airlock-mcp-server-token` in the keychain and 
 if either is missing, creates the Artifact Registry repository `airlock` in `us-central1` if
 missing, builds `Dockerfile.mcp` with Cloud Build, and deploys to Cloud Run as `airlock-mcp`
 (`--allow-unauthenticated` at the network level, closed at the MCP level by the bearer). Prints
-the service URL and its `/mcp` and `/healthz` paths on completion.
+the service URL and its `/mcp` and `/health` paths on completion. The project, region, bucket and
+Grafana push coordinates are the variables `airlock/settings.py` names, with the same defaults;
+export them to deploy elsewhere.
 
 Deployed URL (`us-central1`): `https://airlock-mcp-771466810465.us-central1.run.app`.
 
-## A platform note on `/healthz`
+## Why the health route is `/health` and not `/healthz`
 
-`GET /healthz` works locally and in `docker run` (verified both ways, see `docs/RUNS.md`), but on
-Cloud Run specifically a request to that exact path gets a Google-branded 404 that never reaches
-the container (confirmed empirically: zero log lines for it, `POST`/`GET` to any other path do
-show up). Cloud Run's frontend reserves `/healthz` for its own internal probing and intercepts it
-ahead of the application; this is a documented platform behavior, not a bug in this server. The
-route stays at `/healthz` in the code, as specified, since it works everywhere except this one
-host; a health check against the deployed service should hit `/mcp` (401 without a bearer, which
-still proves the service is up) instead.
+Until 2026-09-05 the route was `/healthz`. It worked locally and in `docker run`, but on Cloud Run a
+request to that exact path gets a Google-branded 404 that never reaches the container (zero log
+lines for it, while `POST` and `GET` to any other path show up): Cloud Run's front end reserves
+`/healthz` for its own probing and intercepts it ahead of the application. The route is now
+`/health`, which the front end passes through, so `GET /health` on the deployed service answers
+from the app with `{"ok": true, "tools": [...]}` (measured in `docs/RUNS.md`, section of 2026-09-05).

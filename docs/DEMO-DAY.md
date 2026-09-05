@@ -15,9 +15,11 @@
    `crest_click.wav`, ...), drop them in `video/out/voice-human/`, and run `narrate.py` with the
    human voice directory in place of the synthesis (the option is added when the lines exist);
    `assemble.py` then does the rest, subtitles included.
-5. `python3 <cockpit>/career/hackathon-evals/check.py --render demo.mp4 --limit-s 180` must PASS.
+5. The render checker must PASS: `AIRLOCK_RENDER_CHECK=<path to check.py> uv run python video/assemble.py`
+   runs it as `python3 $AIRLOCK_RENDER_CHECK --render <mp4> --limit-s 180` (see `video/README.md`;
+   with the variable unset the assembler says "render check skipped, no checker configured").
 6. Upload unlisted on YouTube with the English subtitles; tick the video box in `docs/DEVPOST.md`
-   and rerun `check.py --type submission docs/DEVPOST.md`.
+   and rerun the same checker with `--type submission docs/DEVPOST.md`.
 
 After recording: switch the mute off and run the clean clip once so the stack returns to a
 healthy, calibrated state for the judges who try the URL.

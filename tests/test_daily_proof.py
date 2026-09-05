@@ -86,8 +86,8 @@ def test_ensure_inputs_downloads_only_what_is_missing(tmp_path):
     present = tmp_path / "assets" / "real" / "present.mp4"
     present.parent.mkdir(parents=True)
     present.write_bytes(b"x")
-    defects = [Defect("rights", "present", str(present), "gs://b/real/present.mp4", "BLOCK", "x"),
-               Defect("claim", "missing", str(tmp_path / "assets" / "synthetic" / "missing.mp4"), "gs://b/synthetic/missing.mp4", "BLOCK", "x")]
+    defects = [Defect("rights", "present", "present", str(present), "gs://b/real/present.mp4", "BLOCK", "x"),
+               Defect("claim", "missing", "missing", str(tmp_path / "assets" / "synthetic" / "missing.mp4"), "gs://b/synthetic/missing.mp4", "BLOCK", "x")]
     clean = {"claim": (str(tmp_path / "assets" / "synthetic" / "calibration" / "clean.mp4"), "gs://b/calibration/clean.mp4")}
     calls = []
 

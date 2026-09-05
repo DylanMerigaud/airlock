@@ -19,8 +19,10 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "pyright>=1.1.411",
     "pytest>=8",
     "pytest-asyncio>=0.24",
+    "ruff>=0.16.6",
 ]
 # The demo video pipeline (video/): the draft narration is synthesised, the final voice is Dylan's.
 video = [
@@ -30,6 +32,36 @@ video = [
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+
+# Lint and types, the two commands a judge runs beside pytest (README, "Tests"):
+#   uv run ruff check .
+#   uv run pyright airlock agents airlock_mcp scripts
+[tool.ruff]
+line-length = 160  # the code is written at this width (long f-strings carrying PromQL and reasons); 88 would fold every rule
+target-version = "py312"
+extend-exclude = ["console", "video/out", "assets"]
+
+[tool.ruff.lint]
+select = ["E", "F", "B", "BLE", "UP"]
+ignore = [
+    # BLE001 (blind except): the envelope's job is to turn ANY exception into a named ERROR that the
+    # verdict treats as an instrument failure (airlock/gates/base.py, the daily proof, the verdict
+    # agent). Every such catch names the exception type and message in its output; none swallows it.
+    "BLE001",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# One panel per line: the PromQL expression, the position and the thresholds read as one row of the
+# dashboard; folding them at 160 would hide the dashboard's shape.
+"scripts/grafana_bootstrap.py" = ["E501"]
+
+[tool.pyright]
+include = ["airlock", "agents", "airlock_mcp", "scripts"]
+exclude = ["**/__pycache__", ".venv", "console", "video"]
+typeCheckingMode = "basic"
+pythonVersion = "3.12"
+venvPath = "."
+venv = ".venv"
 
 [build-system]
 requires = ["hatchling"]

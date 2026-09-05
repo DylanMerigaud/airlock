@@ -22,7 +22,8 @@ def test_missing_wordmark_blocks():
 
 
 def test_health_claim_exclusion_blocks():
-    r = decide(base_findings(exclusion_violations=[{"exclusion": "no health or medical claim of any kind", "evidence": "Doctors recommend Nimbus for better sleep", "start_s": 3.0}]), CHARTER)
+    violation = {"exclusion": "no health or medical claim of any kind", "evidence": "Doctors recommend Nimbus for better sleep", "start_s": 3.0}
+    r = decide(base_findings(exclusion_violations=[violation]), CHARTER)
     assert r.status == "BLOCK"
     assert "Doctors recommend" in r.reasons[0]
 

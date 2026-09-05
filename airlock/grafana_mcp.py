@@ -15,52 +15,41 @@ list_datasources is asked only when an env value is empty.
 from __future__ import annotations
 
 import json
-import os
 from typing import Any
 
 from google.adk.agents.readonly_context import ReadonlyContext
 from google.adk.tools.mcp_tool.mcp_session_manager import StreamableHTTPConnectionParams
 from google.adk.tools.mcp_tool.mcp_toolset import McpToolset
 
-DEFAULT_TOOLS = [
-    "list_datasources",
-    "query_prometheus",
-    "query_loki_logs",
-    "create_annotation",
-    "get_annotations",
-    "create_incident",
-    "list_incidents",
-    "get_dashboard_summary",
-]
-DEFAULT_PROM_UID = "grafanacloud-prom"
-DEFAULT_LOKI_UID = "grafanacloud-logs"
+from airlock import settings
 
 
 def pinned_prometheus_uid() -> str:
     """GRAFANA_PROM_UID, or the Grafana Cloud default; empty means "ask list_datasources"."""
-    return os.environ.get("GRAFANA_PROM_UID", DEFAULT_PROM_UID)
+    return settings.prometheus_uid()
 
 
 def pinned_loki_uid() -> str:
     """GRAFANA_LOKI_UID, or the Grafana Cloud default; empty means "ask list_datasources"."""
-    return os.environ.get("GRAFANA_LOKI_UID", DEFAULT_LOKI_UID)
+    return settings.loki_uid()
 
 
 def _auth_headers(_ctx: ReadonlyContext | None = None) -> dict[str, str]:
-    token = os.environ.get("AIRLOCK_MCP_TOKEN", "")
+    token = settings.grafana_mcp_token()
     if not token:
         raise RuntimeError("AIRLOCK_MCP_TOKEN is not set")
     return {"Authorization": f"Bearer {token}"}
 
 
-def make_grafana_toolset(tool_filter: list[str] | None = None) -> McpToolset:
-    url = os.environ.get("AIRLOCK_MCP_URL", "")
+def make_grafana_toolset(tool_filter: list[str]) -> McpToolset:
+    """The mcp-grafana toolset restricted to the tools the agent will call (every caller passes a filter)."""
+    url = settings.grafana_mcp_url()
     if not url:
         raise RuntimeError("AIRLOCK_MCP_URL is not set")
     return McpToolset(
         connection_params=StreamableHTTPConnectionParams(url=url, timeout=30.0, sse_read_timeout=120.0),
         header_provider=_auth_headers,
-        tool_filter=tool_filter if tool_filter is not None else DEFAULT_TOOLS,
+        tool_filter=tool_filter,
     )
 
 
@@ -93,8 +82,3 @@ def pick_datasource_uid(datasources_text: str, ds_type: str) -> str:
         if isinstance(ds, dict) and str(ds.get("type", "")).lower() == ds_type:
             return ds["uid"]
     raise LookupError(f"no {ds_type} datasource in the answer: {datasources_text[:300]!r}")
-
-
-def pick_prometheus_uid(datasources_text: str) -> str:
-    """The uid of the first Prometheus-type datasource in a list_datasources answer (list or object)."""
-    return pick_datasource_uid(datasources_text, "prometheus")
