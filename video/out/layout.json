@@ -1,5 +1,5 @@
 {
-  "measured_at": "2026-08-30T00:42:47.582Z",
+  "measured_at": "2026-09-05T08:17:36.966Z",
   "console": "https://airlock-console-771466810465.us-central1.run.app",
   "verdict": {
     "x": 1484,
@@ -13,18 +13,18 @@
     "x": 1485,
     "y": 182,
     "w": 418,
-    "h": 405,
+    "h": 509,
     "cx": 1694,
-    "cy": 384
+    "cy": 436
   },
-  "check_rows": 6,
+  "check_rows": 7,
   "stage": {
     "x": 16,
     "y": 59,
     "w": 1456,
-    "h": 916,
+    "h": 862,
     "cx": 744,
-    "cy": 517
+    "cy": 490
   },
   "viewport": {
     "w": 1920,
