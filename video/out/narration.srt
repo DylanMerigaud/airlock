@@ -22,178 +22,178 @@ it rules.
 Every line under a gate is Grafana's word, not the gate's.
 
 6
-00:00:21,083 --> 00:00:23,760
+00:00:21,071 --> 00:00:23,748
 A real commercial with a real trademark on screen.
 
 7
-00:00:23,760 --> 00:00:27,936
+00:00:23,748 --> 00:00:27,924
 The four gates run in parallel on Vertex AI Agent Engine
 while the clip plays.
 
 8
-00:00:28,236 --> 00:00:34,201
+00:00:28,224 --> 00:00:34,189
 Provenance is a cryptographic check, not an opinion: this
 film was shot decades before C2PA existed.
 
 9
-00:00:34,701 --> 00:00:40,499
+00:00:34,489 --> 00:00:40,287
 Brand: the charter forbids health claims, comparisons and
 children, and the house wordmark is not even there.
 
 10
-00:00:40,999 --> 00:00:43,110
+00:00:40,787 --> 00:00:42,898
 Click the time and the clip goes there.
 
 11
-00:00:43,110 --> 00:00:45,492
+00:00:42,898 --> 00:00:45,280
 Every claim with its timestamp and its rule:
 
 12
-00:00:45,492 --> 00:00:51,555
+00:00:45,280 --> 00:00:51,343
 a consumer testimonial under the Endorsement Guides, an
 efficacy claim under section five with no study on file.
 
 13
-00:00:52,055 --> 00:00:52,450
+00:00:51,773 --> 00:00:52,168
 Rights:
 
 14
-00:00:52,450 --> 00:00:58,821
+00:00:52,168 --> 00:00:58,539
 Video Intelligence found the logo, the dental association's
 seal and the faces; the registry clears none of them.
 
 15
-00:01:00,963 --> 00:01:04,479
+00:00:59,039 --> 00:01:02,555
 Before it rules, the verdict asks Grafana five things about
 each
 
 16
-00:01:04,479 --> 00:01:08,214
+00:01:02,555 --> 00:01:06,290
 gate, starting with: did Loki see this gate report on this
 very run.
 
 17
-00:01:08,214 --> 00:01:14,367
+00:01:06,290 --> 00:01:12,443
 Then it writes the verdict back as an annotation, and the
 escalation opens the incident for the clearance owner.
 
 18
-00:01:14,367 --> 00:01:16,784
+00:01:12,443 --> 00:01:14,860
 Half a dollar at list price, and it says so.
 
 19
-00:01:19,959 --> 00:01:21,675
+00:01:17,026 --> 00:01:18,742
 A clean generated asset, signed.
 
 20
-00:01:21,675 --> 00:01:26,769
+00:01:18,742 --> 00:01:23,836
 Now we break the instrument on purpose: the rights gate will
 time out before it reads anything.
 
 21
-00:01:27,069 --> 00:01:29,405
+00:01:24,136 --> 00:01:26,472
 The gate fails in a millisecond and says so.
 
 22
-00:01:29,405 --> 00:01:30,998
+00:01:26,472 --> 00:01:28,065
 The other three read the clip.
 
 23
-00:01:31,998 --> 00:01:33,016
+00:01:29,582 --> 00:01:30,600
 Three gates pass.
 
 24
-00:01:33,016 --> 00:01:34,812
+00:01:30,600 --> 00:01:32,396
 And the verdict still refuses.
 
 25
-00:01:35,312 --> 00:01:37,552
+00:01:32,896 --> 00:01:35,136
 A control that failed is not a control.
 
 26
-00:01:37,552 --> 00:01:41,457
+00:01:35,136 --> 00:01:39,041
 Then the investigator, the one language model agent in the
 pipeline,
 
 27
-00:01:41,457 --> 00:01:47,774
+00:01:39,041 --> 00:01:45,358
 reads Loki through the same Grafana MCP server: this run's
 line, the previous runs, the alert that just fired.
 
 28
-00:01:48,290 --> 00:01:52,455
+00:01:45,878 --> 00:01:50,043
 It names the cause and the second it happened, and writes it
 into the incident.
 
 29
-00:01:52,455 --> 00:01:54,459
+00:01:50,043 --> 00:01:52,047
 Grafana's alert rule fires on its own.
 
 30
-00:01:55,418 --> 00:01:58,678
+00:01:53,023 --> 00:01:56,283
 A human closes the loop from the console: the incident
 resolves,
 
 31
-00:01:58,678 --> 00:02:02,854
+00:01:56,283 --> 00:02:00,459
 and the decision lands on the dashboard as an annotation
 with the reviewer's role.
 
 32
-00:02:03,424 --> 00:02:09,048
+00:02:01,020 --> 00:02:06,644
 The Nimbus test clip blocks on one claim, nine out of ten
 sommeliers, with nothing behind it.
 
 33
-00:02:09,048 --> 00:02:12,132
+00:02:06,644 --> 00:02:09,728
 The studio puts the study on file beside the asset.
 
 34
-00:02:12,132 --> 00:02:13,462
+00:02:09,728 --> 00:02:11,058
 Same clip, same gates.
 
 35
-00:02:13,762 --> 00:02:19,303
+00:02:11,358 --> 00:02:16,899
 Provenance: signed, and marked as generated, the
 machine-readable marking Article 50 asks for.
 
 36
-00:02:19,603 --> 00:02:22,113
+00:02:17,726 --> 00:02:20,236
 Claim passes and names the study it rests on.
 
 37
-00:02:22,613 --> 00:02:27,494
+00:02:20,736 --> 00:02:25,617
 Every gate seen by Grafana on this run, healthy, and
 calibrated by this morning's proof:
 
 38
-00:02:27,494 --> 00:02:33,762
+00:02:25,617 --> 00:02:31,885
 a scheduled job injects a real defect into every gate twice
 a day and a gate that misses loses its right to pass.
 
 39
-00:02:33,762 --> 00:02:36,757
+00:02:31,885 --> 00:02:34,880
 This is the PASS the reviewer no longer signs by hand.
 
 40
-00:02:37,758 --> 00:02:40,356
+00:02:35,881 --> 00:02:38,479
 Every verdict is an annotation on this dashboard.
 
 41
-00:02:40,356 --> 00:02:43,855
+00:02:38,479 --> 00:02:41,978
 Every block that needs a human is an incident that a human
 closes.
 
 42
-00:02:43,855 --> 00:02:48,521
+00:02:41,978 --> 00:02:46,644
 Every gate proves itself twice a day, and the cost of every
 check is on the same screen.
 
 43
-00:02:50,272 --> 00:02:54,917
+00:02:48,448 --> 00:02:53,093
 Nothing ships without a gate that has already caught a real
 defect, seen by Grafana.
 
 44
-00:02:54,917 --> 00:02:55,802
+00:02:53,093 --> 00:02:53,978
 That is Airlock.

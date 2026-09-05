@@ -2,140 +2,129 @@
   "draft": null,
   "output": "airlock-v6-synthetic-voice.mp4",
   "voice_caption": "synthetic voice: Google Cloud Text to Speech, en-US-Neural2-D at 1.1x",
+  "subtitle_size": 12,
+  "subtitle_right_margin_px": 432,
   "mp4": "/Users/dylanmerigaud/Code/airlock/video/out/airlock-v6-synthetic-voice.mp4",
-  "duration_s": 177.467,
-  "take_s": 286.28,
+  "duration_s": 175.616,
+  "take_s": 228.92,
   "offset_s": 0.0,
-  "head_trim_s": 1.918,
+  "head_trim_s": 2.477,
   "cuts": [
-    {
-      "name": "waiting for the brand gate",
-      "kind": "gate_wait",
-      "from_s": 36.12,
-      "to_s": 45.06
-    },
     {
       "name": "waiting for the claim gate",
       "kind": "gate_wait",
-      "from_s": 51.36,
-      "to_s": 59.0
+      "from_s": 42.76,
+      "to_s": 58.43
     },
     {
-      "name": "Crest run, waiting for Video Intelligence",
-      "kind": "run_wait",
-      "from_s": 70.06,
-      "to_s": 83.65
+      "name": "waiting for the verdict agent",
+      "kind": "verdict_wait",
+      "from_s": 76.68,
+      "to_s": 79.81
+    },
+    {
+      "name": "waiting for the investigator",
+      "kind": "investigation_wait",
+      "from_s": 96.13,
+      "to_s": 101.77
     },
     {
       "name": "waiting for the brand gate_2",
       "kind": "gate_wait",
-      "from_s": 123.09,
-      "to_s": 128.15
-    },
-    {
-      "name": "waiting for the claim gate_2",
-      "kind": "gate_wait",
-      "from_s": 128.65,
-      "to_s": 134.52
+      "from_s": 114.97,
+      "to_s": 118.54
     },
     {
       "name": "waiting for the verdict agent_2",
       "kind": "verdict_wait",
-      "from_s": 137.84,
-      "to_s": 141.65
+      "from_s": 122.87,
+      "to_s": 126.92
     },
     {
       "name": "waiting for the investigator_2",
       "kind": "investigation_wait",
-      "from_s": 154.61,
-      "to_s": 164.5
+      "from_s": 139.88,
+      "to_s": 148.86
     },
     {
       "name": "alert_insert insert, waiting for Grafana",
       "kind": "grafana_wait",
-      "from_s": 167.01,
-      "to_s": 174.87
+      "from_s": 151.38,
+      "to_s": 157.18
     },
     {
       "name": "study run, waiting for Video Intelligence",
       "kind": "run_wait",
-      "from_s": 206.69,
-      "to_s": 248.6
+      "from_s": 189.54,
+      "to_s": 191.34
     },
     {
       "name": "dashboard insert, waiting for Grafana",
       "kind": "grafana_wait",
-      "from_s": 263.75,
-      "to_s": 266.07
+      "from_s": 206.48,
+      "to_s": 208.69
     }
   ],
   "compressions": [
     {
-      "start_take_s": 36.119,
-      "end_take_s": 45.063,
-      "removed_s": 9,
+      "start_take_s": 42.764,
+      "end_take_s": 58.427,
+      "removed_s": 16,
       "kind": "gate_wait",
-      "label": "waiting for the brand gate, 9 s compressed"
+      "label": "waiting for the claim gate, 16 s compressed"
     },
     {
-      "start_take_s": 51.361,
-      "end_take_s": 59.003,
-      "removed_s": 8,
-      "kind": "gate_wait",
-      "label": "waiting for the claim gate, 8 s compressed"
+      "start_take_s": 76.679,
+      "end_take_s": 79.808,
+      "removed_s": 3,
+      "kind": "verdict_wait",
+      "label": "waiting for the verdict agent, 3 s compressed"
     },
     {
-      "start_take_s": 70.059,
-      "end_take_s": 83.648,
-      "removed_s": 14,
-      "kind": "run_wait",
-      "label": "waiting for Video Intelligence, 14 s compressed"
-    },
-    {
-      "start_take_s": 123.091,
-      "end_take_s": 128.152,
-      "removed_s": 5,
-      "kind": "gate_wait",
-      "label": "waiting for the brand gate, 5 s compressed"
-    },
-    {
-      "start_take_s": 128.652,
-      "end_take_s": 134.524,
+      "start_take_s": 96.129,
+      "end_take_s": 101.765,
       "removed_s": 6,
-      "kind": "gate_wait",
-      "label": "waiting for the claim gate, 6 s compressed"
+      "kind": "investigation_wait",
+      "label": "waiting for the investigator, 6 s compressed"
     },
     {
-      "start_take_s": 137.838,
-      "end_take_s": 141.653,
+      "start_take_s": 114.97,
+      "end_take_s": 118.542,
+      "removed_s": 4,
+      "kind": "gate_wait",
+      "label": "waiting for the brand gate, 4 s compressed"
+    },
+    {
+      "start_take_s": 122.873,
+      "end_take_s": 126.918,
       "removed_s": 4,
       "kind": "verdict_wait",
       "label": "waiting for the verdict agent, 4 s compressed"
     },
     {
-      "start_take_s": 154.615,
-      "end_take_s": 164.495,
-      "removed_s": 10,
+      "start_take_s": 139.88,
+      "end_take_s": 148.859,
+      "removed_s": 9,
       "kind": "investigation_wait",
-      "label": "waiting for the investigator, 10 s compressed"
+      "label": "waiting for the investigator, 9 s compressed"
     },
     {
-      "start_take_s": 167.014,
-      "end_take_s": 174.867,
-      "removed_s": 8,
+      "start_take_s": 151.382,
+      "end_take_s": 157.183,
+      "removed_s": 6,
       "kind": "grafana_wait",
-      "label": "waiting for Grafana to draw, 8 s compressed"
+      "label": "waiting for Grafana to draw, 6 s compressed"
     },
     {
-      "start_take_s": 206.687,
-      "end_take_s": 248.602,
-      "removed_s": 42,
+      "start_take_s": 189.538,
+      "end_take_s": 191.338,
+      "removed_s": 2,
       "kind": "run_wait",
-      "label": "waiting for Video Intelligence, 42 s compressed"
+      "label": "waiting for Video Intelligence, 2 s compressed"
     },
     {
-      "start_take_s": 263.746,
-      "end_take_s": 266.07,
+      "start_take_s": 206.483,
+      "end_take_s": 208.685,
       "removed_s": 2,
       "kind": "grafana_wait",
       "label": "waiting for Grafana to draw, 2 s compressed"
@@ -143,63 +132,57 @@
   ],
   "compression_labels": [
     {
-      "text": "waiting for the brand gate, 9 s compressed",
-      "from_s": 31.701,
-      "to_s": 34.201,
+      "text": "waiting for the claim gate, 16 s compressed",
+      "from_s": 37.787,
+      "to_s": 40.287,
       "row": 0
     },
     {
-      "text": "waiting for the claim gate, 8 s compressed",
-      "from_s": 37.999,
-      "to_s": 40.499,
+      "text": "waiting for the verdict agent, 3 s compressed",
+      "from_s": 56.039,
+      "to_s": 58.539,
       "row": 0
     },
     {
-      "text": "waiting for Video Intelligence, 14 s compressed",
-      "from_s": 49.055,
-      "to_s": 51.555,
+      "text": "waiting for the investigator, 6 s compressed",
+      "from_s": 72.36,
+      "to_s": 74.86,
       "row": 0
     },
     {
-      "text": "waiting for the brand gate, 5 s compressed",
-      "from_s": 88.498,
-      "to_s": 90.998,
+      "text": "waiting for the brand gate, 4 s compressed",
+      "from_s": 85.565,
+      "to_s": 88.065,
       "row": 0
-    },
-    {
-      "text": "waiting for the claim gate, 6 s compressed",
-      "from_s": 88.998,
-      "to_s": 91.498,
-      "row": 1
     },
     {
       "text": "waiting for the verdict agent, 4 s compressed",
-      "from_s": 92.312,
-      "to_s": 94.812,
+      "from_s": 89.896,
+      "to_s": 92.396,
       "row": 0
     },
     {
-      "text": "waiting for the investigator, 10 s compressed",
-      "from_s": 105.274,
-      "to_s": 107.774,
+      "text": "waiting for the investigator, 9 s compressed",
+      "from_s": 102.858,
+      "to_s": 105.358,
       "row": 0
     },
     {
-      "text": "waiting for Grafana to draw, 8 s compressed",
-      "from_s": 107.793,
-      "to_s": 110.293,
+      "text": "waiting for Grafana to draw, 6 s compressed",
+      "from_s": 105.381,
+      "to_s": 107.881,
       "row": 0
     },
     {
-      "text": "waiting for Video Intelligence, 42 s compressed",
-      "from_s": 139.613,
-      "to_s": 142.113,
+      "text": "waiting for Video Intelligence, 2 s compressed",
+      "from_s": 137.736,
+      "to_s": 140.236,
       "row": 0
     },
     {
       "text": "waiting for Grafana to draw, 2 s compressed",
-      "from_s": 154.757,
-      "to_s": 157.257,
+      "from_s": 152.881,
+      "to_s": 155.381,
       "row": 0
     }
   ],
@@ -209,7 +192,7 @@
     {
       "cue": "provenance_done",
       "target": "checks",
-      "at_s": 24.384,
+      "at_s": 24.645,
       "centre": [
         1085.2,
         469.6
@@ -224,7 +207,7 @@
     {
       "cue": "brand_done",
       "target": "checks",
-      "at_s": 34.701,
+      "at_s": 32.775,
       "centre": [
         1085.2,
         469.6
@@ -239,7 +222,7 @@
     {
       "cue": "seek_claim",
       "target": "stage",
-      "at_s": 41.058,
+      "at_s": 40.889,
       "centre": [
         834.8,
         490
@@ -254,7 +237,7 @@
     {
       "cue": "rights_done",
       "target": "checks",
-      "at_s": 52.055,
+      "at_s": 51.773,
       "centre": [
         1085.2,
         469.6
@@ -269,7 +252,7 @@
     {
       "cue": "verdict",
       "target": "verdict",
-      "at_s": 60.963,
+      "at_s": 59.039,
       "centre": [
         1085.2,
         469.6
@@ -284,7 +267,7 @@
     {
       "cue": "rights_done_2",
       "target": "checks",
-      "at_s": 85.921,
+      "at_s": 82.994,
       "centre": [
         1085.2,
         469.6
@@ -299,7 +282,7 @@
     {
       "cue": "brand_done_2",
       "target": "checks",
-      "at_s": 91.498,
+      "at_s": 88.565,
       "centre": [
         1085.2,
         469.6
@@ -314,7 +297,7 @@
     {
       "cue": "verdict_2",
       "target": "verdict",
-      "at_s": 95.312,
+      "at_s": 92.896,
       "centre": [
         1085.2,
         469.6
@@ -329,7 +312,7 @@
     {
       "cue": "resolved",
       "target": "checks",
-      "at_s": 116.43,
+      "at_s": 114.038,
       "centre": [
         1085.2,
         469.6
@@ -344,7 +327,7 @@
     {
       "cue": "provenance_done_3",
       "target": "checks",
-      "at_s": 126.968,
+      "at_s": 124.306,
       "centre": [
         1085.2,
         469.6
@@ -359,7 +342,22 @@
     {
       "cue": "brand_done_3",
       "target": "checks",
-      "at_s": 137.363,
+      "at_s": 134.183,
+      "centre": [
+        1085.2,
+        469.6
+      ],
+      "wanted_centre": [
+        1694,
+        436
+      ],
+      "zoom": 1.15,
+      "seconds": 1.2
+    },
+    {
+      "cue": "claim_done_3",
+      "target": "checks",
+      "at_s": 137.726,
       "centre": [
         1085.2,
         469.6
@@ -374,7 +372,7 @@
     {
       "cue": "rights_done_3",
       "target": "checks",
-      "at_s": 142.613,
+      "at_s": 140.736,
       "centre": [
         1085.2,
         469.6
@@ -389,7 +387,7 @@
     {
       "cue": "verdict_3",
       "target": "verdict",
-      "at_s": 149.965,
+      "at_s": 148.087,
       "centre": [
         1085.2,
         469.6
@@ -405,44 +403,39 @@
   "punches_dropped": [
     {
       "cue": "claim_done",
-      "at_s": 40.999,
+      "at_s": 40.787,
       "why": "seek_claim lands on it, on another centre"
     },
     {
       "cue": "provenance_done_2",
-      "at_s": 86.678,
+      "at_s": 83.503,
       "why": "inside the rights_done_2 punch, same centre"
     },
     {
       "cue": "claim_done_2",
-      "at_s": 91.998,
+      "at_s": 89.582,
       "why": "inside the brand_done_2 punch, same centre"
-    },
-    {
-      "cue": "claim_done_3",
-      "at_s": 137.617,
-      "why": "inside the brand_done_3 punch, same centre"
     }
   ],
   "pace": {
-    "longest_no_picture_no_voice_s": 2.15,
-    "starts_at_s": 58.8,
-    "voice_s": 159.71,
-    "picture_events": 57
+    "longest_no_picture_no_voice_s": 1.85,
+    "starts_at_s": 166.6,
+    "voice_s": 159.72,
+    "picture_events": 58
   },
   "overlays": [
     {
       "cue": "alert_insert",
-      "from_s": 110.79,
-      "to_s": 115.13,
-      "head_skipped_s": 8.98,
+      "from_s": 108.38,
+      "to_s": 112.74,
+      "head_skipped_s": 6.3,
       "head_skipped_on": "alert_ready (panels drawn)"
     },
     {
       "cue": "dashboard",
-      "from_s": 157.76,
-      "to_s": 170.27,
-      "head_skipped_s": 1.73,
+      "from_s": 155.88,
+      "to_s": 168.44,
+      "head_skipped_s": 2.7,
       "head_skipped_on": "dashboard_ready (panels drawn)"
     }
   ],
@@ -459,132 +452,132 @@
       "cue": "console_idle",
       "start_final_s": 12.66,
       "end_final_s": 20.51,
-      "shift_final_s": 6.647,
+      "shift_final_s": 6.666,
       "text": "Airlock: four gates, then a verdict that asks Grafana before it rules. Every line under a gate is Grafana's word, not the gate's."
     },
     {
       "cue": "crest_click",
-      "start_final_s": 21.083,
-      "end_final_s": 27.936,
+      "start_final_s": 21.071,
+      "end_final_s": 27.924,
       "shift_final_s": 0.0,
       "text": "A real commercial with a real trademark on screen. The four gates run in parallel on Vertex AI Agent Engine while the clip plays."
     },
     {
       "cue": "provenance_done",
-      "start_final_s": 28.236,
-      "end_final_s": 34.201,
-      "shift_final_s": 3.852,
+      "start_final_s": 28.224,
+      "end_final_s": 34.189,
+      "shift_final_s": 3.579,
       "text": "Provenance is a cryptographic check, not an opinion: this film was shot decades before C2PA existed."
     },
     {
       "cue": "brand_done",
-      "start_final_s": 34.701,
-      "end_final_s": 40.499,
-      "shift_final_s": 0.0,
+      "start_final_s": 34.489,
+      "end_final_s": 40.287,
+      "shift_final_s": 1.714,
       "text": "Brand: the charter forbids health claims, comparisons and children, and the house wordmark is not even there."
     },
     {
       "cue": "claim_done",
-      "start_final_s": 40.999,
-      "end_final_s": 51.555,
+      "start_final_s": 40.787,
+      "end_final_s": 51.343,
       "shift_final_s": 0.0,
       "text": "Click the time and the clip goes there. Every claim with its timestamp and its rule: a consumer testimonial under the Endorsement Guides, an efficacy claim under section five with no study on file."
     },
     {
       "cue": "rights_done",
-      "start_final_s": 52.055,
-      "end_final_s": 58.821,
+      "start_final_s": 51.773,
+      "end_final_s": 58.539,
       "shift_final_s": 0.0,
       "text": "Rights: Video Intelligence found the logo, the dental association's seal and the faces; the registry clears none of them."
     },
     {
       "cue": "verdict",
-      "start_final_s": 60.963,
-      "end_final_s": 76.784,
+      "start_final_s": 59.039,
+      "end_final_s": 74.86,
       "shift_final_s": 0.0,
       "text": "Before it rules, the verdict asks Grafana five things about each gate, starting with: did Loki see this gate report on this very run. Then it writes the verdict back as an annotation, and the escalation opens the incident for the clearance owner. Half a dollar at list price, and it says so."
     },
     {
       "cue": "fault_on",
-      "start_final_s": 79.959,
-      "end_final_s": 86.769,
+      "start_final_s": 77.026,
+      "end_final_s": 83.836,
       "shift_final_s": 0.0,
       "text": "A clean generated asset, signed. Now we break the instrument on purpose: the rights gate will time out before it reads anything."
     },
     {
       "cue": "fault_click",
-      "start_final_s": 87.069,
-      "end_final_s": 90.998,
+      "start_final_s": 84.136,
+      "end_final_s": 88.065,
       "shift_final_s": 3.677,
       "text": "The gate fails in a millisecond and says so. The other three read the clip."
     },
     {
       "cue": "gates_done_2",
-      "start_final_s": 91.998,
-      "end_final_s": 94.812,
+      "start_final_s": 89.582,
+      "end_final_s": 92.396,
       "shift_final_s": 0.0,
       "text": "Three gates pass. And the verdict still refuses."
     },
     {
       "cue": "verdict_2",
-      "start_final_s": 95.312,
-      "end_final_s": 107.774,
+      "start_final_s": 92.896,
+      "end_final_s": 105.358,
       "shift_final_s": 0.0,
       "text": "A control that failed is not a control. Then the investigator, the one language model agent in the pipeline, reads Loki through the same Grafana MCP server: this run's line, the previous runs, the alert that just fired."
     },
     {
       "cue": "investigation_note",
-      "start_final_s": 108.29,
-      "end_final_s": 114.459,
+      "start_final_s": 105.878,
+      "end_final_s": 112.047,
       "shift_final_s": 0.0,
       "text": "It names the cause and the second it happened, and writes it into the incident. Grafana's alert rule fires on its own."
     },
     {
       "cue": "resolve",
-      "start_final_s": 115.418,
-      "end_final_s": 122.854,
+      "start_final_s": 113.023,
+      "end_final_s": 120.459,
       "shift_final_s": 0.0,
       "text": "A human closes the loop from the console: the incident resolves, and the decision lands on the dashboard as an annotation with the reviewer's role."
     },
     {
       "cue": "study_click",
-      "start_final_s": 123.424,
-      "end_final_s": 133.462,
+      "start_final_s": 121.02,
+      "end_final_s": 131.058,
       "shift_final_s": 0.0,
       "text": "The Nimbus test clip blocks on one claim, nine out of ten sommeliers, with nothing behind it. The studio puts the study on file beside the asset. Same clip, same gates."
     },
     {
       "cue": "provenance_done_3",
-      "start_final_s": 133.762,
-      "end_final_s": 139.303,
-      "shift_final_s": 6.794,
+      "start_final_s": 131.358,
+      "end_final_s": 136.899,
+      "shift_final_s": 7.052,
       "text": "Provenance: signed, and marked as generated, the machine-readable marking Article 50 asks for."
     },
     {
       "cue": "claim_done_3",
-      "start_final_s": 139.603,
-      "end_final_s": 142.113,
-      "shift_final_s": 1.986,
+      "start_final_s": 137.726,
+      "end_final_s": 140.236,
+      "shift_final_s": 0.0,
       "text": "Claim passes and names the study it rests on."
     },
     {
       "cue": "rights_done_3",
-      "start_final_s": 142.613,
-      "end_final_s": 156.757,
+      "start_final_s": 140.736,
+      "end_final_s": 154.88,
       "shift_final_s": 0.0,
       "text": "Every gate seen by Grafana on this run, healthy, and calibrated by this morning's proof: a scheduled job injects a real defect into every gate twice a day and a gate that misses loses its right to pass. This is the PASS the reviewer no longer signs by hand."
     },
     {
       "cue": "dashboard",
-      "start_final_s": 157.758,
-      "end_final_s": 168.521,
+      "start_final_s": 155.881,
+      "end_final_s": 166.644,
       "shift_final_s": 0.0,
       "text": "Every verdict is an annotation on this dashboard. Every block that needs a human is an incident that a human closes. Every gate proves itself twice a day, and the cost of every check is on the same screen."
     },
     {
       "cue": "landing",
-      "start_final_s": 170.272,
-      "end_final_s": 175.802,
+      "start_final_s": 168.448,
+      "end_final_s": 173.978,
       "shift_final_s": 0.0,
       "text": "Nothing ships without a gate that has already caught a real defect, seen by Grafana. That is Airlock."
     }
@@ -617,206 +610,206 @@
     },
     {
       "text": "A real commercial with a real trademark on screen.",
-      "start_s": 21.083,
-      "end_s": 23.76
+      "start_s": 21.071,
+      "end_s": 23.748
     },
     {
       "text": "The four gates run in parallel on Vertex AI Agent Engine while the clip plays.",
-      "start_s": 23.76,
-      "end_s": 27.936
+      "start_s": 23.748,
+      "end_s": 27.924
     },
     {
       "text": "Provenance is a cryptographic check, not an opinion: this film was shot decades before C2PA existed.",
-      "start_s": 28.236,
-      "end_s": 34.201
+      "start_s": 28.224,
+      "end_s": 34.189
     },
     {
       "text": "Brand: the charter forbids health claims, comparisons and children, and the house wordmark is not even there.",
-      "start_s": 34.701,
-      "end_s": 40.499
+      "start_s": 34.489,
+      "end_s": 40.287
     },
     {
       "text": "Click the time and the clip goes there.",
-      "start_s": 40.999,
-      "end_s": 43.11
+      "start_s": 40.787,
+      "end_s": 42.898
     },
     {
       "text": "Every claim with its timestamp and its rule:",
-      "start_s": 43.11,
-      "end_s": 45.492
+      "start_s": 42.898,
+      "end_s": 45.28
     },
     {
       "text": "a consumer testimonial under the Endorsement Guides, an efficacy claim under section five with no study on file.",
-      "start_s": 45.492,
-      "end_s": 51.555
+      "start_s": 45.28,
+      "end_s": 51.343
     },
     {
       "text": "Rights:",
-      "start_s": 52.055,
-      "end_s": 52.45
+      "start_s": 51.773,
+      "end_s": 52.168
     },
     {
       "text": "Video Intelligence found the logo, the dental association's seal and the faces; the registry clears none of them.",
-      "start_s": 52.45,
-      "end_s": 58.821
+      "start_s": 52.168,
+      "end_s": 58.539
     },
     {
       "text": "Before it rules, the verdict asks Grafana five things about each",
-      "start_s": 60.963,
-      "end_s": 64.479
+      "start_s": 59.039,
+      "end_s": 62.555
     },
     {
       "text": "gate, starting with: did Loki see this gate report on this very run.",
-      "start_s": 64.479,
-      "end_s": 68.214
+      "start_s": 62.555,
+      "end_s": 66.29
     },
     {
       "text": "Then it writes the verdict back as an annotation, and the escalation opens the incident for the clearance owner.",
-      "start_s": 68.214,
-      "end_s": 74.367
+      "start_s": 66.29,
+      "end_s": 72.443
     },
     {
       "text": "Half a dollar at list price, and it says so.",
-      "start_s": 74.367,
-      "end_s": 76.784
+      "start_s": 72.443,
+      "end_s": 74.86
     },
     {
       "text": "A clean generated asset, signed.",
-      "start_s": 79.959,
-      "end_s": 81.675
+      "start_s": 77.026,
+      "end_s": 78.742
     },
     {
       "text": "Now we break the instrument on purpose: the rights gate will time out before it reads anything.",
-      "start_s": 81.675,
-      "end_s": 86.769
+      "start_s": 78.742,
+      "end_s": 83.836
     },
     {
       "text": "The gate fails in a millisecond and says so.",
-      "start_s": 87.069,
-      "end_s": 89.405
+      "start_s": 84.136,
+      "end_s": 86.472
     },
     {
       "text": "The other three read the clip.",
-      "start_s": 89.405,
-      "end_s": 90.998
+      "start_s": 86.472,
+      "end_s": 88.065
     },
     {
       "text": "Three gates pass.",
-      "start_s": 91.998,
-      "end_s": 93.016
+      "start_s": 89.582,
+      "end_s": 90.6
     },
     {
       "text": "And the verdict still refuses.",
-      "start_s": 93.016,
-      "end_s": 94.812
+      "start_s": 90.6,
+      "end_s": 92.396
     },
     {
       "text": "A control that failed is not a control.",
-      "start_s": 95.312,
-      "end_s": 97.552
+      "start_s": 92.896,
+      "end_s": 95.136
     },
     {
       "text": "Then the investigator, the one language model agent in the pipeline,",
-      "start_s": 97.552,
-      "end_s": 101.457
+      "start_s": 95.136,
+      "end_s": 99.041
     },
     {
       "text": "reads Loki through the same Grafana MCP server: this run's line, the previous runs, the alert that just fired.",
-      "start_s": 101.457,
-      "end_s": 107.774
+      "start_s": 99.041,
+      "end_s": 105.358
     },
     {
       "text": "It names the cause and the second it happened, and writes it into the incident.",
-      "start_s": 108.29,
-      "end_s": 112.455
+      "start_s": 105.878,
+      "end_s": 110.043
     },
     {
       "text": "Grafana's alert rule fires on its own.",
-      "start_s": 112.455,
-      "end_s": 114.459
+      "start_s": 110.043,
+      "end_s": 112.047
     },
     {
       "text": "A human closes the loop from the console: the incident resolves,",
-      "start_s": 115.418,
-      "end_s": 118.678
+      "start_s": 113.023,
+      "end_s": 116.283
     },
     {
       "text": "and the decision lands on the dashboard as an annotation with the reviewer's role.",
-      "start_s": 118.678,
-      "end_s": 122.854
+      "start_s": 116.283,
+      "end_s": 120.459
     },
     {
       "text": "The Nimbus test clip blocks on one claim, nine out of ten sommeliers, with nothing behind it.",
-      "start_s": 123.424,
-      "end_s": 129.048
+      "start_s": 121.02,
+      "end_s": 126.644
     },
     {
       "text": "The studio puts the study on file beside the asset.",
-      "start_s": 129.048,
-      "end_s": 132.132
+      "start_s": 126.644,
+      "end_s": 129.728
     },
     {
       "text": "Same clip, same gates.",
-      "start_s": 132.132,
-      "end_s": 133.462
+      "start_s": 129.728,
+      "end_s": 131.058
     },
     {
       "text": "Provenance: signed, and marked as generated, the machine-readable marking Article 50 asks for.",
-      "start_s": 133.762,
-      "end_s": 139.303
+      "start_s": 131.358,
+      "end_s": 136.899
     },
     {
       "text": "Claim passes and names the study it rests on.",
-      "start_s": 139.603,
-      "end_s": 142.113
+      "start_s": 137.726,
+      "end_s": 140.236
     },
     {
       "text": "Every gate seen by Grafana on this run, healthy, and calibrated by this morning's proof:",
-      "start_s": 142.613,
-      "end_s": 147.494
+      "start_s": 140.736,
+      "end_s": 145.617
     },
     {
       "text": "a scheduled job injects a real defect into every gate twice a day and a gate that misses loses its right to pass.",
-      "start_s": 147.494,
-      "end_s": 153.762
+      "start_s": 145.617,
+      "end_s": 151.885
     },
     {
       "text": "This is the PASS the reviewer no longer signs by hand.",
-      "start_s": 153.762,
-      "end_s": 156.757
+      "start_s": 151.885,
+      "end_s": 154.88
     },
     {
       "text": "Every verdict is an annotation on this dashboard.",
-      "start_s": 157.758,
-      "end_s": 160.356
+      "start_s": 155.881,
+      "end_s": 158.479
     },
     {
       "text": "Every block that needs a human is an incident that a human closes.",
-      "start_s": 160.356,
-      "end_s": 163.855
+      "start_s": 158.479,
+      "end_s": 161.978
     },
     {
       "text": "Every gate proves itself twice a day, and the cost of every check is on the same screen.",
-      "start_s": 163.855,
-      "end_s": 168.521
+      "start_s": 161.978,
+      "end_s": 166.644
     },
     {
       "text": "Nothing ships without a gate that has already caught a real defect, seen by Grafana.",
-      "start_s": 170.272,
-      "end_s": 174.917
+      "start_s": 168.448,
+      "end_s": 173.093
     },
     {
       "text": "That is Airlock.",
-      "start_s": 174.917,
-      "end_s": 175.802
+      "start_s": 173.093,
+      "end_s": 173.978
     }
   ],
   "check": [
     "PASS  G41 definition  (1920x1080)",
     "PASS  G42 cadence  (30.0 fps)",
-    "PASS  G43 duree  (177s)",
+    "PASS  G43 duree  (176s)",
     "PASS  G44 audio present  (aac)",
-    "PASS  G45 niveau audio  (-16.3 LUFS, peak -4.0)",
+    "PASS  G45 niveau audio  (-16.3 LUFS, peak -4.1)",
     "PASS  G46 silence  (plus long blanc 0.0s)",
     "PASS  G47 ouverture  (0 plage(s) de noir)",
     "",

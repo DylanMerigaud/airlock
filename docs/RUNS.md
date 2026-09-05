@@ -2880,12 +2880,12 @@ the ones above); they close when a reviewer marks them from the console.
 
 ## M5: v6, the final take (2026-09-05)
 
-Status: DONE 2026-09-05 (08:50 UTC). Commits bfd0a29, 40ce62c, a0a9fb2, dfecb82, 0a00c10, 89a4fb6, a2fce89 plus this section, on main.
+Status: DONE 2026-09-05 (08:50 UTC, take 2; retaken as take 3 at 09:15 UTC, below). Commits bfd0a29, 40ce62c, a0a9fb2, dfecb82, 0a00c10, 89a4fb6, a2fce89 plus this section, on main.
 
-The final demo video, from script v6: `video/out/airlock-v6-synthetic-voice.mp4`, 177.5 s, 55.2 MB,
-synthetic voice (Google Cloud Text to Speech, en-US-Neural2-D at 1.1, declared in the file name and in a
-caption top right over the first 8 s and the last 6 s). Not uploaded and Devpost not touched: the main
-session does that.
+The final demo video, from script v6: `video/out/airlock-v6-synthetic-voice.mp4`, 175.6 s, 55.6 MB
+(take 3; take 2 was 177.5 s, 55.2 MB), synthetic voice (Google Cloud Text to Speech, en-US-Neural2-D at
+1.1, declared in the file name and in a caption top right over the first 8 s and the last 6 s). Not
+uploaded and Devpost not touched: the main session does that.
 
 ### What changed in the pipeline for v6
 
@@ -3095,3 +3095,103 @@ the note read UTC (08:37).
 - 15 content drills (2 to 26) stay open on the stack; the two control incidents of the day (32, 33) were
   resolved from the console on camera.
 - YouTube and Devpost: not touched here.
+
+### Take 3 (2026-09-05)
+
+Retaken for two reasons, both visible in take 2's render. The claim row of run 3 read a bare "No issues
+found" while the voice said "Claim passes and names the study it rests on": the console printed a PASS
+row's first reason for BLOCK and ERROR only. Console revision `airlock-console-00015-gnr` (commit 95f9ff0)
+prints it for PASS too, so the claim row now reads "No issues found: substantiation on file: Nimbus
+sommelier preference panel, 2026-08" and the provenance row "No issues found: marked as generated
+(digitalSourceType trainedAlgorithmicMedia, the EU AI Act Article 50 machine-readable marking)". And the
+subtitle box, centred on the frame at size 13, reached into the right column during the punch-ins (the
+investigation row's tool calls at 101 s, the resolved incident line at 117 s).
+
+Before the take, read and not assumed: `latestReadyRevisionName` was `airlock-console-00015-gnr`; the
+daily proof `airlock-daily-proof-kwqbk` (00:00:29 UTC) COMPLETE 1/1; the substantiation file beside the
+asset in the bucket; `/api/health` with `calibrated: true`, `last_calibration_caught: 1` and no error in
+the 15 minute window on all four gates. Same pipeline and same script as take 2: narrate pass 0, one take
+(`node video/record.mjs`, 09:02:26 UTC, 232.0 s, 41 cues, no timeout, no note), narrate pass 2, assemble
+with `--max 178`.
+
+The three verdicts, read back from Grafana (`GET /api/annotations?tags=airlock`) after the take:
+
+- Run 1, Crest, run `e-8151a171-2415-4660-8b4e-d6ac58223c0e`: BLOCK (content), annotation 102 at 09:03:45
+  UTC; the escalation joined the open content drill 25 again (the Record read "incident 25"). The Record
+  on camera: "$0.52 at list price (rights $0.50, claim $0.02, brand $0.004, provenance $0), 17,821 tokens
+  in, 1,310 out, 1 min of video". Rights landed 46.4 s after the click (61.2 s in take 2).
+- Run 2, the clean clip with the fault, run `e-3bf63d34-ea4c-40df-bf4c-622af012dc16`: rights ERROR 2.5 s
+  after the click ("TimeoutError: Video Intelligence operation timed out after 1 s (fault injected for
+  run ...)"), the three others PASS, BLOCK (control unavailable), annotation 103 at 09:04:32 UTC, the
+  rights row "error rate 50% over 15m (2 runs)". The investigator (gemini-2.5-flash, 4 tool calls): "The
+  asset was blocked because the rights gate timed out at 2026-09-05T09:04:15.408Z. This was an injected
+  fault, and a similar injected timeout occurred earlier. The 'Airlock daily proof failed' alert is
+  currently firing. ROOT CAUSE The rights gate experienced an injected timeout error, leading to the
+  block.", citing `2026-09-05T09:04:15.408Z rights ERROR (fault: timeout)`. The escalation opened incident
+  34 (routed to the platform owner). "Mark reviewed by a human" as the platform on-call: incident 34
+  resolved, annotation 104 at 09:05:09 UTC. `/api/incidents` afterwards lists the same 15 open drills, 34
+  not among them.
+- Run 3, the test clip with its study on file, run `e-bebc34a8-a144-4cad-a42a-a66a2664744d`: four PASS,
+  PASS, annotation 105 at 09:05:44 UTC, "all 4 gates PASS, seen by Grafana, healthy and calibrated"; the
+  rights row "error rate 33% over 15m, under the 50% block line"; the DECISION NOTE "All gates passed, but
+  two system alerts are firing". Rights landed 21.5 s after the click (61.1 s in take 2), 4.8 s after
+  the claim gate, so the study run's Video Intelligence wait is 1.8 s on this take against 41.9 s.
+
+The render, with the checker on:
+
+```
+AIRLOCK_RENDER_CHECK=.../hackathon-evals/check.py uv run python video/assemble.py \
+  --output airlock-v6-synthetic-voice.mp4 --max 178 --subtitle-size 12 --subtitle-right-margin 432
+
+overlay alert_insert: 11.2s recorded, skipping 6.3s of its head on alert_ready (panels drawn), 4.4s on screen
+overlay dashboard: 14.2s recorded, skipping 2.7s of its head on dashboard_ready (panels drawn), 12.6s on screen, the last frame held 1.1s
+take 228.9s, head trim 2.5s, cut 50.8s, video 175.6s, narration ends 174.0s, render 175.6s
+  cut  15.7s waiting for the claim gate        cut   4.0s waiting for the verdict agent_2
+  cut   3.1s waiting for the verdict agent     cut   9.0s waiting for the investigator_2
+  cut   5.6s waiting for the investigator      cut   5.8s alert_insert insert, waiting for Grafana
+  cut   3.6s waiting for the brand gate_2      cut   1.8s study run, waiting for Video Intelligence
+                                               cut   2.2s dashboard insert, waiting for Grafana
+14 punch-ins of 1.15x over 1.2s  (3 dropped: claim_done under the seek, provenance_done_2 and claim_done_2 inside a punch on the same centre)
+longest stretch with no change of picture and no voice: 1.85s at 166.6s
+44 subtitle cues over 20 spoken lines
+
+wrote video/out/airlock-v6-synthetic-voice.mp4 (55.6 MB)
+PASS  G41 definition  (1920x1080)      PASS  G45 niveau audio  (-16.3 LUFS, peak -4.1)
+PASS  G42 cadence  (30.0 fps)          PASS  G46 silence  (plus long blanc 0.0s)
+PASS  G43 duree  (176s)                PASS  G47 ouverture  (0 plage(s) de noir)
+PASS  G44 audio present  (aac)         RESULTAT: PASS mecanique
+```
+
+Duration 175.6 s (ffprobe 175.600), 58,315,887 bytes. Nine labelled compressions, 50.8 s in all (106.9 s in
+take 2: the gates were faster), no hold trimmed, the voice 159.7 s of the 175.6 s, 58 changes of picture
+outside it. The pace: the longest stretch with neither a change of picture nor a line is 1.85 s, at
+166.6 s (the end of the dashboard line, before the landing line), against 2.15 s in take 2. The largest
+line shift on the take's own cues is 7.05 s (`provenance_done_3`, the same cause as take 2).
+
+Two pipeline changes came out of reading the frames, both in `video/assemble.py` and both committed with
+this take. `--subtitle-right-margin <px>` (default 0, the frame-centred subtitles of every earlier
+render): the first render of this take at size 12 alone still clipped the first letters of "incident 34
+resolved, annotation 104 written" under the resolved punch-in at 114.6 s, because a 60 character row is
+about 1090 px and the column's left edge sits at 1418 px during a punch; with 432 px kept free the box is
+centred at 744 px, the stage's own centre, and its right edge stays under 1300 px on every frame read.
+And the head of a Grafana insert is now counted from the page recording's start (`ready_at` minus
+`page_opened_at`) instead of from its end: the checker's G47 read "1 plage(s) de noir" on the first
+render, at 155.9 s, and the frame there was Grafana's "Loading ..." screen, because the dashboard page's
+recording is 14.16 s for a page that lived 15.27 s and the end-aligned skip landed 1.1 s early.
+Measured on the four page recordings of takes 2 and 3, the panels drew at 2.6, 8.0, 2.6 and 6.0 s into
+the files against `ready_at - page_opened_at` of 2.82, 8.35, 2.70 and 6.30 s, so take 2's dashboard
+insert had opened on the loading screen as well, for about 0.9 s, under blackdetect's 0.4 s floor. A
+recording that runs short of the close now holds its last frame (`eof_action=repeat`), 1.1 s here, on the
+glided dashboard.
+
+Frames read on the final render (`ffmpeg -ss`, 14 frames): the Article 50 overlay with the voice caption
+and the first subtitle centred under the stage; the claim landing of run 3 at 138.4 s (mid punch) and
+139.6 s, the row reading "No issues found: substantiation on file: Nimbus sommelier preference panel,
+2026-08" under the line "Claim passes and names the study it rests on", the provenance row "marked as
+generated"; the investigation row expanded at 98.0 s with its tool calls clear of the subtitle; the
+resolved punch at 114.6 s with "incident 34 resolved, annotation 104 written" whole; the alert insert
+opening on the drawn "Gate errors" panel at 108.5 s with the rights error at 04:04 local; the dashboard
+insert opening drawn at 155.95 s and its held last frame at 167.8 s on the daily proof panels; the
+landing at 170.0 s with the PASS card and the DECISION NOTE. No text cut off. Still there for the human
+pass: the dashboard's axis reads local time (04:04) where the console and the note read UTC (09:04), and
+the escalation of run 1 joined drill 25 again rather than opening an incident.
