@@ -713,6 +713,7 @@ def build_video(
     console: Path, overlays: list[dict], plan: CutPlan, total: float, raw_len: float,
     out_dir: Path, srt: Path, audio: Path, target: Path, subtitle_size: int,
     labels: list[dict], punch: str | None = None, voice_caption: str | None = None,
+    subtitle_right_margin_px: int = 0,
 ) -> None:
     a50 = out_dir / "article-50.txt"
     a50.write_text("\n".join(wrap(ARTICLE_50, 58)) + "\n", encoding="utf-8")
@@ -729,7 +730,7 @@ def build_video(
         head = f"trim=start={skip:.3f},setpts=PTS-STARTPTS," if skip > 0.05 else ""
         steps.append(f"[{i}:v]{head}fps=30,scale=1920:1080:flags=lanczos,setsar=1,"
                      f"setpts=PTS-STARTPTS+{start:.3f}/TB[ov{i}]")
-        steps.append(f"{current}[ov{i}]overlay=0:0:eof_action=pass:enable='between(t,{start:.3f},{end:.3f})'[b{i}]")
+        steps.append(f"{current}[ov{i}]overlay=0:0:eof_action=repeat:enable='between(t,{start:.3f},{end:.3f})'[b{i}]")
         current = f"[b{i}]"
 
     chain = []
@@ -771,10 +772,14 @@ def build_video(
             f":fontsize={VOICE_CAPTION_FONT_SIZE}:fontcolor=white:box=1:boxcolor=black@0.78"
             f":boxborderw=12:x=w-text_w-24:y=12:enable='{windows}'"
         )
+    # libass lays an SRT out in a 384x288 script box, so a right margin asked for in pixels of the
+    # 1920 frame is a fifth of that in the style. With a margin, the subtitle is centred between
+    # the left edge and that margin, i.e. under the stage and never over the right column.
+    margin_r = round(subtitle_right_margin_px * 384 / 1920)
     chain.append(
         f"subtitles={srt}:force_style='FontName=Arial,FontSize={subtitle_size},"
         "PrimaryColour=&H00FFFFFF,BackColour=&HB4000000,BorderStyle=4,Outline=0,Shadow=0,"
-        "Alignment=2,MarginV=28'"
+        f"Alignment=2,MarginV=28,MarginL=0,MarginR={margin_r}'"
     )
     chain.append("format=yuv420p")
     steps.append(f"{current}{','.join(chain)}[v]")
@@ -816,6 +821,13 @@ def main() -> int:
     # roughly 3.75 times its number: 13 renders about 49 px tall at 1080p, which is the intent of
     # the brief's "size 26". Passing 26 itself fills a third of the frame.
     ap.add_argument("--subtitle-size", type=int, default=13)
+    # The console is a 1456 px stage beside a 420 px column, and a subtitle centred on the frame
+    # reaches into that column whenever a row is long (a 60 character row is about 1090 px at
+    # size 12, and a punch-in pulls the column 67 px further left). A right margin in pixels of
+    # the frame keeps the subtitle box centred under the stage instead; 0 keeps it centred on
+    # the frame.
+    ap.add_argument("--subtitle-right-margin", type=int, default=0,
+                    help="pixels of the frame kept free on the right of the subtitles (default 0)")
     ap.add_argument("--tone-dbfs", type=float, default=ROOM_TONE_DBFS)
     ap.add_argument("--no-check", action="store_true")
     args = ap.parse_args()
@@ -847,16 +859,26 @@ def main() -> int:
         # blank tab ever reaches the render; the console take, with the verdict on it, plays
         # underneath until then. The black head is the fallback for a page whose panels never drew.
         skip, source = leading_black(path), "blank tab"
-        ready, closed = entry.get("ready_at"), entry["closed_at"]
+        ready, closed, opened = entry.get("ready_at"), entry["closed_at"], entry.get("page_opened_at")
+        on_ready = False
         if ready is not None and closed - ready > 0.5:
-            wanted = length - (closed - ready)
+            # Where `ready_at` sits in the file is counted from its head, because Playwright's page
+            # video starts when the page is created and ends wherever its last frame was flushed.
+            # Measured on the four page recordings of takes 2 and 3 (2026-09-05): the panels were
+            # drawn at 2.6, 8.0, 2.6 and 6.0 s into the files, against `ready_at - page_opened_at`
+            # of 2.82, 8.35, 2.70 and 6.30 s; counting from the file's end instead missed by up to
+            # 1.1 s and opened both dashboard inserts on the "Loading ..." screen. A file that then
+            # runs short of `closed_at` holds its last frame (eof_action=repeat in build_video).
+            wanted = (ready - opened) if opened is not None else length - (closed - ready)
             if wanted > skip + 0.05:
                 skip, source = wanted, f"{entry.get('ready_cue', 'the ready cue')} (panels drawn)"
+                on_ready = True
         if skip > length - 1.0:
-            skip, source = 0.0, "nothing skipped"
+            skip, source, on_ready = 0.0, "nothing skipped", False
         end = max(0.0, closed - offset)
+        start = max(0.0, ready - offset) if on_ready else max(0.0, end - (length - skip))
         overlays.append({"path": path, "skip": skip, "source": source, "cue": entry["cue"],
-                         "window": (max(0.0, end - (length - skip)), end),
+                         "window": (start, end),
                          "open_s": max(0.0, entry["page_opened_at"] - offset),
                          "ready_s": None if ready is None else max(0.0, ready - offset),
                          "glide_s": (None if entry.get("glide_from") is None
@@ -865,8 +887,10 @@ def main() -> int:
                                         else max(0.0, entry["glide_to"] - offset)),
                          "name": f"{entry['cue']} insert, waiting for Grafana"})
         if skip > 0.05:
+            short = (end - start) - (length - skip)
+            held = f", the last frame held {short:.1f}s" if short > 0.05 else ""
             print(f"overlay {entry['cue']}: {length:.1f}s recorded, skipping {skip:.1f}s of its "
-                  f"head on {source}, {length - skip:.1f}s on screen")
+                  f"head on {source}, {end - start:.1f}s on screen{held}")
 
     head = max(0.0, at_video.get("stake", 0.0) - 0.4)
 
@@ -1047,7 +1071,8 @@ def main() -> int:
     for attempt in range(1, 4):
         audio = build_audio(placed, out_dir, total, tone)
         build_video(console, overlays, plan, total, raw_len, out_dir, srt, audio, target,
-                    args.subtitle_size, labels, punch, voice_caption)
+                    args.subtitle_size, labels, punch, voice_caption,
+                    subtitle_right_margin_px=args.subtitle_right_margin)
         size_mb = target.stat().st_size / 1024 / 1024
         print(f"\nwrote {target} ({size_mb:.1f} MB)")
         if args.no_check:
@@ -1072,6 +1097,8 @@ def main() -> int:
         "draft": None if args.output else number,
         "output": target.name,
         "voice_caption": voice_caption,
+        "subtitle_size": args.subtitle_size,
+        "subtitle_right_margin_px": args.subtitle_right_margin,
         "mp4": str(target),
         "duration_s": round(total, 3),
         "take_s": round(raw_len, 3),

@@ -46,8 +46,13 @@ opens the URL afterwards.
 uv run --group video python video/narrate.py             # 0. the voice, before the take
 node video/record.mjs                                    # 1. the take
 uv run --group video python video/narrate.py             # 2. the narration on the take's cues
-uv run python video/assemble.py --output airlock-v6-synthetic-voice.mp4   # 3. the render and the check
+uv run python video/assemble.py --output airlock-v6-synthetic-voice.mp4 --max 178 \
+    --subtitle-size 12 --subtitle-right-margin 432                 # 3. the render and the check
 ```
+
+The final was rendered with those three flags (take 3, 2026-09-05): `--max 178` because script v6 carries
+160 s of voice and the render is voice-bound, `--subtitle-size 12` and `--subtitle-right-margin 432` so
+the subtitles sit centred under the stage and never over the right column (see step 3).
 
 The narration is synthesised twice and that is on purpose: the recorder holds the verdict card for
 exactly as long as the line spoken over it, and it reads that length out of `narration.json`. Run 0
@@ -136,7 +141,12 @@ cues the take actually produced.
 3. **`video/assemble.py`** converts the take to 1920x1080 at 30 fps constant H.264, lays each
    Grafana page over the take from its `ready_at` to the moment it closed, so an insert opens on a
    drawn dashboard and never on a loading one and the console take plays underneath until then (a
-   page whose panels never drew falls back to skipping the black head blackdetect measures), burns
+   page whose panels never drew falls back to skipping the black head blackdetect measures). Where
+   `ready_at` sits in the page's own recording is counted from the recording's head, because
+   Playwright starts that file when the page is created and ends it wherever its last frame was
+   flushed: on the four page recordings of takes 2 and 3 the file's end was off by up to 1.1 s, and
+   counting from it had opened both dashboard inserts on Grafana's "Loading ..." screen. A recording
+   that runs short of the moment the page closed holds its last frame. It burns
    the Article 50 overlay over the first 5 s
    and the subtitles from `narration.json`, mixes the narration at its cue times over a quiet room
    tone, normalises to -16 LUFS integrated with the true peak under -1 dBTP, plays a punch-in on
@@ -175,7 +185,12 @@ cues the take actually produced.
    v6 carries 160 s of voice under a 180 s limit and pays for every second of waiting kept). The
    subtitles are one cue per sentence rather than one per spoken line, each sentence taking its
    share of that line's wav duration, wrapped at about 60 characters over two rows at most, while
-   the narration audio stays one wav per line. The claim
+   the narration audio stays one wav per line. A 60 character row is about 1090 px at size 12 and
+   the right column starts at 1485 px (1418 during a punch-in), so a subtitle centred on the frame
+   reaches into the column's text whenever the Record segment or an expanded row runs to the bottom
+   of it (take 2 clipped the resolved incident line); `--subtitle-right-margin <px>` keeps that many
+   pixels free on the right and centres the subtitles in what is left, 432 putting them under the
+   stage's own centre. The claim
    seek the recorder plays right after the claim gate lands is never inside a compressed stretch:
    that window starts at `seek_done`, because what gets compressed has to be waiting and nothing
    else. Every cue time is mapped through the cuts before the narration is placed, so a line
@@ -202,7 +217,8 @@ cues the take actually produced.
    take; a clip playing on the stage is deliberately not one, so a run's own dead seconds count in
    full.
 
-   Flags: `--min`, `--max`, `--draft <n>`, `--subtitle-size`, `--tone-dbfs`, `--no-check`.
+   Flags: `--min`, `--max`, `--draft <n>`, `--output <name>`, `--subtitle-size`,
+   `--subtitle-right-margin <px>`, `--tone-dbfs`, `--no-check`.
 
 ## What lands in `video/out/`
 
