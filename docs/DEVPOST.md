@@ -34,11 +34,13 @@ clean clip, and a gate whose defect slipped through loses its right to PASS unti
 
 ## How I built it
 
-All decision logic is plain, unit-tested Python (64 tests, none of them calls a model): the four
+All decision logic is plain, unit-tested Python (179 tests, none of them calls a model): the four
 gate decisions, the two verdict rules, the escalation rule. Google ADK is the runtime envelope: a
 SequentialAgent whose first step is a ParallelAgent of the four gates (each a BaseAgent around a
-plain function, run in a thread so they really overlap), then a verdict BaseAgent, then an
-escalation BaseAgent, deployed on Vertex AI Agent Engine. The models label, the rules decide:
+plain function, run in a thread so they really overlap), then a verdict BaseAgent, then the one
+LlmAgent of the pipeline, the investigator (gemini-2.5-flash with the mcp-grafana toolset, six tool
+calls at most, a fallback note on any failure, the verdict never depends on it), then an escalation
+BaseAgent, deployed on Vertex AI Agent Engine. The models label, the rules decide:
 gemini-2.5-pro extracts every claim with its timestamps, quote and kind under a JSON schema (flash
 mis-scales video timestamps, measured), gemini-2.5-flash reads the asset against the charter under
 a schema (wordmark seen, dominant colours, tone words); the claim and brand decisions are plain
