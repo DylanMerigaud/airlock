@@ -40,7 +40,7 @@ SAMPLE_RATE = 24_000
 # The read is at 1.1: the script is cut for pace and a line has to be over before the picture it
 # describes is, so the words come faster rather than the beats getting longer.
 SPEAKING_RATE = 1.1
-MIN_GAP_S = 0.4
+MIN_GAP_S = 0.3
 # Text to Speech hands back a fifth of a second of silence at each end of every line. Eighteen
 # lines of that is four seconds of nothing, and worse, it is four seconds that push the next line
 # off the picture it belongs to, because a line never starts before the one before it has ended.

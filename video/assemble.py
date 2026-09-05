@@ -63,7 +63,7 @@ ARTICLE_50 = (
     "and detectable as artificially generated"
 )
 ARTICLE_50_S = 5.0
-MIN_GAP_S = 0.4
+MIN_GAP_S = 0.3
 GATE_ORDER = ("rights", "claim", "brand", "provenance")
 TAIL_PAD_S = 1.2
 
@@ -126,11 +126,12 @@ COMPRESSION_FONT_SIZE = 28
 # How much of a wait survives its own cut. Half a second: enough that the viewer sees the picture
 # the caption is talking about, short enough that no wait is ever a stretch of nothing.
 WAIT_KEEP_S = 0.5
-# A caption costs 2.5 s of the picture, so the two new kinds only earn one when they take out four
-# seconds or more. Under that the stretch stays in the render, where it is a few seconds of a clip
-# playing under a row that reads "Checking", and it is counted in the pace measurement like
-# everything else.
-SMALL_WAIT_S = 4.0
+# A caption costs 2.5 s of the picture, so the smaller kinds only earn one when they take out this
+# much or more (draft 5 asked for four seconds; script v6 carries 160 s of voice under a 180 s
+# limit, and the render pays for every second of waiting kept). Under that the stretch stays in the
+# render, where it is a couple of seconds of a clip playing under a row that reads "Checking", and
+# it is counted in the pace measurement like everything else.
+SMALL_WAIT_S = 2.5
 # When compressing every wait leaves the render under the length it is meant to reach, whole waits
 # go back on the picture, shortest first. Only short ones: a wait given back is a stretch of the
 # render with nothing happening in it, and past this it costs the video more than the seconds are
@@ -1056,7 +1057,7 @@ def main() -> int:
         print("\n".join(verdict_lines))
         if "FAIL" not in result.stdout:
             break
-        if "G46" in result.stdout and "blanc" in result.stdout and attempt < 3:
+        if re.search(r"FAIL\s+G46", result.stdout) and attempt < 3:
             tone += 5.0
             print(f"\nsilence still detected, raising the room tone to {tone:.0f} dBFS and rebuilding")
             continue

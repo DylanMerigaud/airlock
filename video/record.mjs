@@ -62,14 +62,13 @@ const STAKE_HOLD_MS = 5_500;
 // A beat is held for as long as the line spoken over it, which is measured and not assumed:
 // video/out/narration.json from the previous narration carries every wav's duration. The
 // fallbacks are for a first run, before any narration exists.
-const LINE_MARGIN_MS = 1_000;
+const LINE_MARGIN_MS = 500;
 const HOLD_MAX_MS = 20_000;
 const ALERT_INSERT_MS = 4_000;
 // The dashboard insert lasts the dashboard line (10.8 s at 1.1x) and the landing the landing line
 // plus the render's tail; the assembler trims either only when the render is over its maximum.
 const DASHBOARD_INSERT_MS = 11_000;
 const LANDING_HOLD_MS = 7_000;
-const RECORD_HOLD_MIN_MS = 3_000;
 // The resolved incident is held on camera for this long before the reviewer's next gesture (the
 // fault switched off) plays under the rest of the resolve line.
 const RESOLVED_HOLD_MS = 4_500;
@@ -501,15 +500,26 @@ async function waitSettled(page, suffix) {
     note(`the run${suffix} did not settle in ${SETTLE_TIMEOUT_MS / 1000} s, moving on without the incident id`);
     s = await snapshot(page);
   }
-  const escalation = escalationFromLine(s.rows.escalation?.line) || { incident: null, attached: false };
-  const investigationLine = s.rows.investigation?.line || null;
+  // The rows are off screen while the Record segment is up: the incident id is then read off the
+  // Record's header ("annotation N, incident M") and whether it was opened or joined is unknown.
+  let escalation = escalationFromLine(s.rows.escalation?.line);
+  let source = "the escalation row";
+  if (!escalation && s.segment === "record") {
+    const record = await recordSnapshot(page).catch(() => ({}));
+    const m = /incident ([^\s,]+)/.exec(record.ids || "");
+    escalation = { incident: m ? m[1] : null, attached: null };
+    source = "the Record header";
+  }
+  escalation = escalation || { incident: null, attached: false };
   return cue(`escalation_done${suffix}`, {
     incident: escalation.incident,
     attached: escalation.attached,
     escalation: s.rows.escalation?.line || null,
-    investigation: investigationLine,
+    investigation: s.rows.investigation?.line || null,
     detail: escalation.incident
-      ? `incident ${escalation.incident} ${escalation.attached ? "joined" : "opened"}`
+      ? `incident ${escalation.incident} ${
+          escalation.attached === null ? `read off ${source}` : escalation.attached ? "joined" : "opened"
+        }`
       : `no incident (${(s.rows.escalation?.line || "no escalation line").slice(0, 80)})`,
   });
 }
@@ -742,7 +752,7 @@ async function markReviewed(page) {
     await select.selectOption({ label: REVIEWER_ROLE }).catch((error) =>
       note(`could not sign as ${REVIEWER_ROLE}: ${error.message}`),
     );
-    await sleep(600);
+    await sleep(250);
   } else {
     note("no Signing as select on the Record segment");
   }
@@ -843,26 +853,26 @@ async function runTake() {
     if (!OPTS.mock && (verdict1.status !== "BLOCK" || verdict1.motive !== "content")) {
       note(`verdict expected BLOCK (content), got ${verdict1.status} (${verdict1.motive})`);
     }
-    // The verdict line runs while the investigator and the escalation land under the card; the
-    // Record segment then shows the cost line and the incident id for the end of that line.
-    const settled1 = await waitSettled(page, "");
+    // The verdict line runs while the investigator and the escalation land under the card; half
+    // way through it the Record segment comes on with the cost line and the annotation id, and the
+    // incident id joins them there when the escalation lands.
     const verdictLine = lineSeconds("verdict", 16);
-    await holdUntil(verdict1.t + verdictLine * 0.55);
+    await holdUntil(verdict1.t + verdictLine * 0.5);
     const record = await openRecord(page);
+    const settled1 = await waitSettled(page, "");
     if (settled1.incident && record.ids && !record.ids.includes(settled1.incident)) {
-      note(`the Record ids (${record.ids}) do not name incident ${settled1.incident}`);
+      log(`the incident id (${settled1.incident}) landed on the Record after it opened`);
     }
-    await holdUntil(Math.max(verdict1.t + verdictLine + LINE_MARGIN_MS / 1000, now() + RECORD_HOLD_MIN_MS / 1000));
+    await holdUntil(Math.max(verdict1.t + verdictLine + LINE_MARGIN_MS / 1000, now() + 1.5));
     const grafana = dashboardUrl(record.href);
     log(`Grafana inserts will show ${grafana}`);
     await segment(page, "Checks");
 
     // 4. The clean clip with a fault injected into the rights gate, on camera.
     await clickAsset(page, "Nimbus clean clip");
-    await sleep(700);
     const fault = await setFault(page, true);
     cue("fault_on", { detail: fault.toggled ? "Inject a fault switched on for the rights gate" : "already on" });
-    await sleep(1_800);
+    await sleep(1_500);
     await fault.close();
     await holdUntil(cues.find((entry) => entry.cue === "fault_on").t + Math.max(3, lineSeconds("fault_on", 7) * 0.5));
     await clickRun(page);
@@ -905,12 +915,11 @@ async function runTake() {
       incident: settled2.incident,
       detail: `${record2.ids || "no ids"}; ${(record2.investigation || "no investigation section").slice(0, 160)}`,
     });
-    await sleep(2_500);
+    await sleep(2_000);
     grafanaVideos.push(
       await visitGrafana(context, grafana, "Gate errors (per 5 min)", ALERT_INSERT_MS, "alert_insert",
         "alert_ready"),
     );
-    await sleep(500);
     await markReviewed(page);
     await sleep(RESOLVED_HOLD_MS);
 
@@ -923,7 +932,6 @@ async function runTake() {
     await off.close();
     await holdForLine("resolve", 8);
     await clickAsset(page, "Nimbus test clip, study on file");
-    await sleep(700);
     await clickRun(page);
     cue("study_click", { detail: "Run airlock on the test clip with its study on file" });
     await watchGates(page, "_3");
