@@ -104,9 +104,17 @@ def describe(author: str, d: dict[str, Any], t: float) -> str:
         head = (f"[{t:6.1f}s] {author:<16} VERDICT {d.get('status')} ({d.get('motive')}) needs_human={d.get('needs_human')} "
                 f"annotation={d.get('annotation_id')} {d.get('elapsed_ms')} ms")
         return head + "".join(f"\n{'':>26}{r[:200]}" for r in d.get("reasons", []))
+    if st == "investigation":
+        if d.get("tool"):
+            return f"[{t:6.1f}s] {author:<16} investigation  step {d.get('step')}: {d.get('tool')} {str(d.get('args') or '')[:120]}"
+        if d.get("conclusion") or d.get("note"):
+            return f"[{t:6.1f}s] {author:<16} INVESTIGATION {d.get('kind') or ''} {str(d.get('conclusion') or d.get('note'))[:220]}"
+        return f"[{t:6.1f}s] {author:<16} investigation  {json.dumps(d)[:160]}"
     if st == "escalation":
         if d.get("opened"):
             return f"[{t:6.1f}s] {author:<16} INCIDENT {d.get('incident_id')} {d.get('incident_url')}"
+        if d.get("attached"):
+            return f"[{t:6.1f}s] {author:<16} JOINED INCIDENT {d.get('incident_id')} {d.get('incident_url')}"
         if d.get("fallback"):
             return (f"[{t:6.1f}s] {author:<16} FALLBACK needs-human annotation {d.get('fallback_annotation_id')} "
                     f"(incident API: {str(d.get('incident_raw'))[:120]})")

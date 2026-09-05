@@ -36,6 +36,7 @@ gcloud run deploy airlock-console \
   --allow-unauthenticated \
   --port 8080 \
   --memory 1Gi \
+  --max-instances 3 \
   --cpu 1 \
   --timeout 900 \
   --set-env-vars "$ENV_VARS" \

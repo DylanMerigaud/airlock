@@ -1,4 +1,8 @@
-export type PresetId = "crest" | "nimbus" | "clean";
+export type PresetId = "crest" | "nimbus" | "substantiated" | "clean";
+
+/** The one bucket a run may read: presets, uploads and the calibration set all live there. A gs:// URI
+ *  elsewhere is refused, so the public run route cannot be pointed at someone else's object. */
+export const ASSETS_BUCKET = process.env.AIRLOCK_ASSETS_BUCKET || "airlock-agentic-cinema-assets";
 
 export type PresetAsset = {
   id: PresetId;
@@ -35,6 +39,17 @@ export const PRESET_ASSETS: PresetAsset[] = [
       "Expected: rights pass, claim block on 16 CFR 255.3, brand pass, provenance pass.",
   },
   {
+    id: "substantiated",
+    name: "Nimbus test clip, study on file",
+    origin: "synthetic",
+    provenance: "Veo 3.1 on Vertex AI, C2PA signed; a substantiation file beside it",
+    duration: "8 s",
+    gcs: "gs://airlock-agentic-cinema-assets/synthetic/nimbus-test-clip-substantiated.mp4",
+    poster: "/posters/nimbus.jpg",
+    expectation:
+      "Expected: the same clip as the test clip, with the sommelier study on file beside it in the bucket: claim PASS naming the study.",
+  },
+  {
     id: "clean",
     name: "Nimbus clean clip",
     origin: "synthetic",
@@ -52,7 +67,9 @@ export function presetById(id: string): PresetAsset | undefined {
 }
 
 export function resolveAsset(input: string): string | null {
-  if (input.startsWith("gs://")) return input;
+  if (input.startsWith("gs://")) {
+    return input.startsWith(`gs://${ASSETS_BUCKET}/`) && !input.includes("..") ? input : null;
+  }
   const preset = presetById(input);
   return preset ? preset.gcs : null;
 }

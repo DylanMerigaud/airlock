@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { assetIdFor, PRESET_ASSETS, resolveAsset } from "@/lib/assets";
+import { assetIdFor, ASSETS_BUCKET, PRESET_ASSETS, resolveAsset } from "@/lib/assets";
+import { callerKey, RUN_LIMIT_PER_HOUR, takeRunToken } from "@/lib/run-limit";
 import { GATE_ORDER, type FaultKind, type FaultMap, type GateName } from "@/lib/events";
 
 export const runtime = "nodejs";
@@ -244,8 +245,19 @@ export async function POST(request: Request) {
   if (!gcsUri) {
     const names = PRESET_ASSETS.map((a) => a.id).join(", ");
     return NextResponse.json(
-      { error: `Unknown asset "${asset}". Use ${names}, or a gs:// URI.` },
+      { error: `Unknown asset "${asset}". Use ${names}, or a gs:// URI in the ${ASSETS_BUCKET} bucket.` },
       { status: 400 },
+    );
+  }
+
+  // Every run spends real quota (about half a dollar at list price, one to three minutes of Video
+  // Intelligence), and the route is public: a caller gets a few runs per hour, not a firehose.
+  const caller = callerKey(request);
+  const allowed = takeRunToken(caller);
+  if (!allowed.ok) {
+    return NextResponse.json(
+      { error: `Too many runs from this address: ${RUN_LIMIT_PER_HOUR} per hour. Try again in ${allowed.retryAfterS} s.` },
+      { status: 429, headers: { "Retry-After": String(allowed.retryAfterS) } },
     );
   }
 
