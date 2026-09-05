@@ -26,6 +26,13 @@ Grafana sees is labelled and does not read as a normal console or calibration ru
 
 Fetch the assets first: scripts/fetch_assets.sh (the excerpts are cut from archive.org and hash
 checked; the synthetic clips come from the GitHub release).
+
+results.json is rewritten after every asset, and --only replaces just those assets' rows in the
+existing file (the other rows stay, with the run's earlier start time), so a run cut short or a
+re-run of one asset never loses the rest. A watchdog (AIRLOCK_EVAL_ASSET_BUDGET_S, default 1200 s
+per asset) turns a gate that hangs into a recorded ERROR: on 2026-09-05 the first run of the day
+hung for 32 minutes on veo-raw inside a Gemini call whose HTTP client has no timeout
+(google-genai leaves httpx at timeout=None), where the Video Intelligence call at least has one.
 """
 
 from __future__ import annotations
@@ -35,6 +42,7 @@ import json
 import os
 import pathlib
 import re
+import signal
 import statistics
 import subprocess
 import sys
@@ -56,6 +64,7 @@ MANIFEST_PATH = EVAL_DIR / "manifest.yaml"
 RESULTS_PATH = EVAL_DIR / "results.json"
 EVAL_MD_PATH = EVAL_DIR / "EVAL.md"
 GATES_DIR = ROOT / "airlock" / "gates"
+ASSET_BUDGET_S = float(os.environ.get("AIRLOCK_EVAL_ASSET_BUDGET_S", "1200"))
 
 # Surprises from earlier runs of this eval, kept so a re-run that no longer shows them still
 # records that they happened (date, asset, what was seen). The current run's own surprises are
@@ -192,6 +201,32 @@ def summarize_evidence(gate: str, result: GateResult) -> dict[str, Any]:
     return {}
 
 
+class asset_watchdog:
+    """SIGALRM after ASSET_BUDGET_S: the alarm raises TimeoutError in the main thread, inside
+    whatever gate is running, and run_gate records it as that gate's ERROR (an instrument that
+    hangs is an instrument that failed). Disarmed on exit; a no-op when the budget is 0."""
+
+    def __init__(self, asset_id: str, budget_s: float = ASSET_BUDGET_S):
+        self.asset_id = asset_id
+        self.budget_s = budget_s
+        self._previous = None
+
+    def _fire(self, signum, frame):  # noqa: ARG002
+        raise TimeoutError(f"eval watchdog: {self.asset_id} exceeded {self.budget_s:.0f} s (AIRLOCK_EVAL_ASSET_BUDGET_S)")
+
+    def __enter__(self):
+        if self.budget_s > 0:
+            self._previous = signal.signal(signal.SIGALRM, self._fire)
+            signal.alarm(int(self.budget_s))
+        return self
+
+    def __exit__(self, *exc):
+        if self.budget_s > 0:
+            signal.alarm(0)
+            signal.signal(signal.SIGALRM, self._previous)
+        return False
+
+
 def run_one(spec: AssetSpec) -> dict:
     from airlock.run import run_all  # noqa: PLC0415  (imports the gate modules and their cloud clients)
 
@@ -203,7 +238,8 @@ def run_one(spec: AssetSpec) -> dict:
         return base | {"error": "local file missing", "gates": {}}
     asset = Asset(asset_id=spec.asset_id, path=str(local), gcs_uri=spec.gcs_uri)
     t0 = time.perf_counter()
-    results: list[GateResult] = run_all(asset)
+    with asset_watchdog(spec.asset_id):
+        results: list[GateResult] = run_all(asset)
     wall_ms = int((time.perf_counter() - t0) * 1000)
     gates = {}
     for r in results:
@@ -227,9 +263,24 @@ def code_version() -> str:
         return "unknown"
 
 
-def run_eval(specs: list[AssetSpec]) -> dict:
-    started = datetime.now(timezone.utc).isoformat()
-    rows = []
+def merge_rows(previous: list[dict], fresh: list[dict], order: list[str]) -> list[dict]:
+    """The fresh rows replace the previous rows of the same asset; everything else stays, in
+    manifest order (unknown ids last, in their old order)."""
+    by_id = {r["asset_id"]: r for r in previous}
+    by_id.update({r["asset_id"]: r for r in fresh})
+    rank = {asset_id: i for i, asset_id in enumerate(order)}
+    return [by_id[k] for k in sorted(by_id, key=lambda k: (rank.get(k, len(order)), k))]
+
+
+def run_eval(specs: list[AssetSpec], previous: dict | None = None, order: list[str] | None = None,
+             checkpoint: pathlib.Path | None = RESULTS_PATH) -> dict:
+    """Run the specs one at a time. After every asset the payload so far is merged into
+    `previous` (the results.json on disk, when there is one) and written to `checkpoint`."""
+    started = (previous or {}).get("started") or datetime.now(timezone.utc).isoformat()
+    prev_rows = list((previous or {}).get("assets") or [])
+    order = order or [s.asset_id for s in specs]
+    rows: list[dict] = []
+    payload: dict = {}
     for i, spec in enumerate(specs, 1):
         print(f"[{i}/{len(specs)}] {spec.asset_id} ...", flush=True)
         t0 = time.perf_counter()
@@ -240,9 +291,16 @@ def run_eval(specs: list[AssetSpec]) -> dict:
             if g:
                 print(f"    {gate:<11} {g['status']:<6} {g['elapsed_ms']:>7} ms  {g['reason'][:120]}", flush=True)
         print(f"    wall {int((time.perf_counter() - t0) * 1000):>7} ms", flush=True)
-    finished = datetime.now(timezone.utc).isoformat()
-    return {"started": started, "finished": finished, "bucket": BUCKET, "code": code_version(),
-            "manifest": str(MANIFEST_PATH.relative_to(ROOT)), "assets": rows}
+        payload = {"started": started,
+                   "finished": datetime.now(timezone.utc).isoformat(), "bucket": BUCKET, "code": code_version(),
+                   "manifest": str(MANIFEST_PATH.relative_to(ROOT)), "assets": merge_rows(prev_rows, rows, order),
+                   "partial": i < len(specs)}
+        if checkpoint is not None:
+            checkpoint.write_text(json.dumps(payload, indent=1))
+    if not payload:
+        payload = {"started": started, "finished": started, "bucket": BUCKET, "code": code_version(),
+                   "manifest": str(MANIFEST_PATH.relative_to(ROOT)), "assets": prev_rows, "partial": False}
+    return payload
 
 
 # --- scoring, over whatever ran (results.json need not be freshly produced) ---
@@ -441,7 +499,8 @@ def write_eval_md(payload: dict) -> None:
     lines.append("```")
     lines.append("")
     lines.append(f"Run: {payload['started']} to {payload['finished']} (UTC), code `{payload.get('code', 'unknown')}`, "
-                 f"ground truth `{payload.get('manifest', 'eval/manifest.yaml')}`. Bucket: `{payload['bucket']}`.")
+                 f"ground truth `{payload.get('manifest', 'eval/manifest.yaml')}`. Bucket: `{payload['bucket']}`."
+                 + (" PARTIAL: the run that wrote this was cut before its last asset." if payload.get("partial") else ""))
     lines.append("")
     lines.append("Every percentage is printed beside the count it is made of. BLOCK is the positive class: a")
     lines.append("gate exists to catch the case it should block. A rule fires when its gate BLOCKs citing it;")
@@ -631,7 +690,12 @@ def main() -> None:
     os.environ["AIRLOCK_RUNTIME"] = "eval"
     EVAL_DIR.mkdir(parents=True, exist_ok=True)
     (EVAL_DIR / "logs").mkdir(parents=True, exist_ok=True)
-    payload = run_eval(specs)
+    previous = None
+    if args.only and RESULTS_PATH.exists():
+        previous = json.loads(RESULTS_PATH.read_text())
+        if previous.get("manifest") is None:
+            previous = None  # a results.json from before the manifest carries no per-rule ground truth: start over
+    payload = run_eval(specs, previous=previous, order=[s.asset_id for s in load_manifest()])
     RESULTS_PATH.write_text(json.dumps(payload, indent=1))
     write_eval_md(payload)
     print_summary(payload)

@@ -4,9 +4,12 @@ No gate runs here and nothing reaches the cloud."""
 from __future__ import annotations
 
 import importlib.util
+import json
 import pathlib
 import re
 import sys
+
+import pytest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
@@ -168,3 +171,41 @@ def test_eval_md_prints_n_beside_every_percentage(tmp_path, monkeypatch):
     for m in re.finditer(r"\d+%", text):
         tail = text[m.end():m.end() + 2]
         assert tail == " (", f"a bare percentage at {m.start()}: {text[m.start() - 20:m.end() + 20]!r}"
+
+
+def test_only_rerun_replaces_its_rows_and_keeps_the_rest_in_manifest_order():
+    previous = [{"asset_id": "b", "gates": {"rights": {"status": "PASS"}}}, {"asset_id": "a", "gates": {}}, {"asset_id": "zzz", "gates": {}}]
+    fresh = [{"asset_id": "b", "gates": {"rights": {"status": "BLOCK"}}}]
+    merged = eg.merge_rows(previous, fresh, order=["a", "b"])
+    assert [r["asset_id"] for r in merged] == ["a", "b", "zzz"]
+    assert merged[1]["gates"]["rights"]["status"] == "BLOCK"
+
+
+def test_run_eval_checkpoints_after_every_asset_and_marks_the_file_partial(tmp_path, monkeypatch):
+    seen = []
+
+    def fake_run_one(spec):
+        seen.append(spec.asset_id)
+        return {"asset_id": spec.asset_id, "kind": spec.kind, "gates": {}, "ground_truth": spec.ground_truth()}
+
+    monkeypatch.setattr(eg, "run_one", fake_run_one)
+    monkeypatch.setattr(eg, "code_version", lambda: "test")
+    specs = [eg.AssetSpec("x", "synthetic", "no/file", None), eg.AssetSpec("y", "synthetic", "no/file", None)]
+    checkpoint = tmp_path / "results.json"
+    payload = eg.run_eval(specs, previous={"started": "earlier", "assets": [{"asset_id": "w", "gates": {}}]}, order=["w", "x", "y"], checkpoint=checkpoint)
+    assert seen == ["x", "y"]
+    assert payload["partial"] is False and payload["started"] == "earlier"
+    assert [r["asset_id"] for r in payload["assets"]] == ["w", "x", "y"]
+    on_disk = json.loads(checkpoint.read_text())
+    assert on_disk == payload
+
+
+def test_watchdog_turns_a_hang_into_a_timeout_error():
+    import time
+    with pytest.raises(TimeoutError, match="eval watchdog: slow exceeded 1 s"):
+        with eg.asset_watchdog("slow", budget_s=1):
+            time.sleep(3)
+    # disarmed after the block: a later sleep is not interrupted
+    with eg.asset_watchdog("fast", budget_s=1):
+        pass
+    time.sleep(1.2)
