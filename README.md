@@ -166,9 +166,12 @@ catches again, and every run in between is a BLOCK "uncalibrated control".
 animation. The clip is the stage (it plays while the gates read it) with every timestamped finding
 marked on the scrubber, Frame.io style; beside it the verdict, then a segmented control: Checks (one
 status line per gate, YouTube Studio's Checks step, the calibration line read from Grafana under
-each and a "mute telemetry" switch inside the row to disable a gate and watch the verdict refuse),
-Findings (the thread, a click on a time seeks the clip) and Record (the rules cited, the C2PA line,
-the annotation and the incident). Two more views: the Trace (raw agent events) and the BLOCK queue.
+each, a "mute telemetry" switch inside the row to darken a gate and an "inject a fault" switch to
+break it, and watch the verdict refuse either way), Findings (the thread, a click on a time seeks the
+clip) and Record (the rules cited, the C2PA line, the investigator's note with the Loki lines it
+cites, the annotation and the incident, and the button that resolves the incident and writes the
+reviewed annotation). Two more views: the Trace (raw agent events, the investigator's tool calls)
+and the Queue (Grafana's open incidents).
 Lighthouse on the hosted URL: accessibility 100. Mock mode
 (`AIRLOCK_MOCK=1`) replays recorded runs so it builds and runs without a credential
 (`console/README.md`).

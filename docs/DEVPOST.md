@@ -113,9 +113,15 @@ the airlock: expect four BLOCKs, the verdict citing 16 CFR 255.2(a) and the miss
 an annotation on the public dashboard, and an incident. A check takes one to three minutes; the
 rights gate waits for the Video Intelligence API, which slows down when several checks overlap. Pick the Nimbus test clip (synthetic,
 labelled): expect rights, brand and provenance PASS, claim BLOCK on "Recommended by 9 out of 10
-sommeliers" under 16 CFR 255.3. Pick the Nimbus clean clip: expect the PASS, earned by four healthy,
-calibrated gates. Switch a gate's "mute telemetry" on and rerun after 15 minutes: the verdict refuses
-to PASS whatever the gates say, because Grafana no longer sees the control succeed. Public dashboard:
+sommeliers" under 16 CFR 255.3, and a decision note from the investigator. Pick "Nimbus test clip,
+study on file": the same clip with its substantiation file beside it in the bucket, claim PASS naming
+the study, a PASS verdict. Pick the Nimbus clean clip: the PASS, earned by four gates seen by Grafana
+on this run, healthy and calibrated. Then break the control on purpose: open the rights row, switch
+"Inject a fault" on and rerun; the gate fails before it spends anything, the verdict refuses ("control
+unavailable"), the investigator reads Loki and names the failure with its timestamp, the "Airlock gate
+errors" alert fires, and an incident opens that you can resolve from the Record segment (the
+reviewed annotation lands on the dashboard). Or switch "Mute telemetry" on and rerun: Loki never sees
+that gate report for this run, so the verdict refuses at once, whatever the gate said. Public dashboard:
 https://narrowsubmarine1895.grafana.net/public-dashboards/97860661238c4536a743e0d858aef845
 
 ## Devpost draft
