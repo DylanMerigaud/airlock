@@ -396,7 +396,9 @@ class VerdictAgent(BaseAgent):
 # INVESTIGATION_TOOL_BUDGET tool calls, INVESTIGATION_MODEL_CALLS model turns and
 # INVESTIGATION_BUDGET_S of wall time, and any failure becomes a deterministic fallback note.
 INVESTIGATOR_MODEL = "gemini-2.5-flash"
-INVESTIGATION_TOOLS = ["query_loki_logs", "query_prometheus", "alerting_manage_rules"]  # mcp-grafana 1.3.0 names the alert rule tool alerting_manage_rules (list, get, create, update, delete); the budget refuses anything but list and get
+# mcp-grafana 1.3.0 names its alert rule tool alerting_manage_rules (operations list, get, versions, create,
+# update, delete); the budget refuses anything but the read operations.
+INVESTIGATION_TOOLS = ["query_loki_logs", "query_prometheus", "alerting_manage_rules"]
 ALERT_RULE_READ_OPERATIONS = ("list", "get")
 INVESTIGATION_TOOL_BUDGET = 6
 INVESTIGATION_MODEL_CALLS = 8
