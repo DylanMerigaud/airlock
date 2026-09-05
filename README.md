@@ -23,15 +23,26 @@ Four gates read the asset, each against a named source of truth:
 | brand | gemini-2.5-flash reads the asset against `charter.yaml` | a missing wordmark, an exclusion, a forbidden colour, the wrong tone |
 | provenance | c2pa-python verifies the C2PA manifest against `trust/trust-anchors.pem` | no manifest, a broken signature, an untrusted signer |
 
-Then the verdict agent asks Grafana, through MCP, four PromQL questions about each gate before it
-rules: error rate over 15 minutes, seconds since the last success, injected defects caught over 7
-days, and whether the last calibration run caught its defect. Two rules, both plain Python:
+Then the verdict agent asks Grafana, through MCP, five questions about each gate before it rules:
+whether Loki holds this run's event of the gate (LogQL `{app="airlock", gate="rights"} |= "<run id>"`,
+retried while Loki ingests), then four PromQL questions: error ratio over 15 minutes and the runs it
+rests on, seconds since the last success (informational), injected defects caught over 7 days, and
+whether the last calibration run caught its defect. Two rules, both plain Python:
 
-- **R1, control unavailable.** A gate with errors in the window, or whose last success Grafana
-  cannot see within 15 minutes, forces BLOCK. The gate's own PASS does not count; Grafana's view of
-  it does.
+- **R1, control unavailable.** A gate whose event for this run Grafana cannot see, or whose own
+  result is an error, or whose recent runs are mostly errors (at least half of at least two runs in
+  15 minutes), forces BLOCK. The gate's own PASS does not count; Grafana's view of this run does. A
+  muted gate pushes nothing, so Loki never sees its run and R1 fires by construction, on the run the
+  judge muted, with no wait.
 - **R2, uncalibrated.** A gate that has caught no injected defect, or whose last calibration run
   missed, is advisory: its PASS cannot contribute to a PASS verdict.
+
+When Grafana Cloud itself is starting (the free stack pauses after idle days and answers 503 for about
+two minutes), the verdict waits for it, up to three minutes, and says how long it waited; beyond that
+the verdict is an ERROR "instrument error" that leaves its own sample in Grafana through the Influx
+endpoint. The input may also inject a fault (`{"fault": {"rights": "timeout"}}`): the gate fails
+before it spends anything, the error lands in Loki and in the counters like a real one, and the
+verdict must catch it through Grafana.
 
 The verdict is written back to Grafana as an annotation. When only a human can lift the BLOCK (a
 control in a bad state, or missing paperwork such as a substantiation, a licence, a release), the
@@ -95,8 +106,10 @@ last calibration failed (`docs/RUNS.md`, verification C).
 Since 2026-09-02 the control proves itself on a schedule: a Cloud Run job (`python -m
 airlock.daily_proof`, `infra/gcp/daily_proof.sh`) runs the full calibration and then the clean clip
 through the deployed pipeline at 00:00 and 12:00 UTC, and pushes `airlock_daily_proof_total` with the
-outcome. A failed proof is not retried into a pass: the gate that missed loses its right to PASS on
-its own until a calibration catches again, and every run in between is a BLOCK "uncalibrated control".
+outcome. A failed proof is not retried into a pass (the Cloud Run job runs with `--max-retries=0`
+since 2026-09-05; before that, one retry turned two proofs that met a paused Grafana Cloud into
+passes, `docs/RUNS.md`): the gate that missed loses its right to PASS on its own until a calibration
+catches again, and every run in between is a BLOCK "uncalibrated control".
 
 ## The console
 

@@ -1655,6 +1655,259 @@ Read back through the Grafana query API: `sum by (outcome) (sum_over_time(airloc
 Devpost's "Try it" paragraph now says a check takes one to three minutes and why (`docs/DEVPOST.md`);
 the Devpost page itself is refreshed from that file before the Submit click.
 
+## The verdict judges THIS run: Loki read, per-run proof, wake retry, pinned datasources, fault injection (2026-09-05)
+
+Status: DONE 2026-09-05 (05:25 UTC). Branch `worktree-agent-a0811822c608040e0`, commits 0fa6dbf, 3cbe70c, aad8c00 plus this section.
+
+Why. The panel of 2026-09-05 (four judges, reports in the session scratchpad) defeated the headline
+rule live: with the rights gate muted, the verdict said PASS at 03:25 UTC and again at 03:28 UTC
+(annotation 66, "all 4 gates PASS, healthy and calibrated"), because R1 read `seconds since any
+success of the gate in 7d` and tolerated 900 s: it measured whether anyone had run the gate in the
+last 15 minutes, not whether this run reported. Loki held the proof of the gap (brand, claim and
+provenance events for the asset at 03:27:53, no rights event) and nothing read it. Around it: the
+Grafana Cloud free stack paused twice before the scheduled proof (executions `airlock-daily-proof-877cd`
+at 2026-09-04 12:05 UTC and `airlock-daily-proof-kwqbk` at 2026-09-05 00:04 UTC, attempt 0 failed on
+`getDataSources (status 503)`, attempt 1 passed because the job had `--max-retries=1`, while the README
+said a failed proof is never retried into a pass), the "fail" tile painted those failures green, the
+Prometheus datasource was picked by list order on a stack that has two, a verdict that failed on the
+Grafana side left no sample anywhere, and `error_rate > 0` froze every asset for 15 minutes after one
+transient error.
+
+What changed (`airlock/gates/base.py`, `airlock/verdict.py`, `airlock/grafana_mcp.py`,
+`agents/pipeline/agent.py`, `infra/gcp/daily_proof.sh`, `scripts/grafana_bootstrap.py`, tests):
+
+- Run identity. `Asset.run_id` is the ADK invocation id; every gate's Loki event carries `run_id`
+  in its JSON body (labels unchanged: app, gate, status, runtime, so no stream per run), and the
+  `running` and `done` events of the trace carry it too. Inputs and gate results live under `temp:`
+  state keys, scoped to the invocation, so a second message in one session is a new run.
+- Five questions per gate. Before the PromQL, the verdict asks Loki through mcp-grafana
+  (`query_loki_logs`) for this run's event of the gate, `{app="airlock", gate="<gate>"} |= "<run_id>"`
+  over the last 31 minutes, limit 20, newest first; a gate not yet seen is asked again after 3 s, three
+  times, the wait shared by all unseen gates. Then the PromQL: the error ratio over 15 m and the number
+  of runs it rests on (a new expr, `runs_15m`), seconds since last success (informational now: it feeds
+  the health line and the console, not the rule), catches over 7 d, and the last calibration as
+  `min by () (last_over_time(...))` so that, once the ledger carries one series per defect, a gate with
+  two defects reads as caught only when both last samples are catches (same value today with one
+  series per gate; checked on the stack, below).
+- R1 fires when this run's event is not seen in Loki (None, an unreadable answer, counts as not seen),
+  or the gate's own result is ERROR (the reason carries the gate's error text; the rule ids carry both
+  `R1-control-unavailable` and `instrument-error`), or the 15 m error ratio is at least 0.5 over at
+  least 2 runs. Staleness alone no longer blocks: the run itself is the freshness proof. A muted gate
+  pushes nothing to Loki, so its run event is not seen, so R1 fires by construction, on the run the
+  judge muted, with no 15-minute wait. `decide()` no longer returns "instrument error"; that motive is
+  the verdict agent's own failure (Grafana unreachable beyond the wake budget).
+- Grafana wake retry. `GrafanaWaiter` retries any MCP call whose answer text or exception matches
+  `status 503`, `HTTP 503`, `"code":"Loading"`, `instance is loading` or `connection refused`, every
+  10 s for up to 180 s (a bare `503` is not a marker: `seconds_since_success` can legitimately answer
+  503). When it waited, the verdict yields `{"stage": "grafana", "note": "Grafana Cloud was starting,
+  waited N s"}` and the verdict payload carries the same `note`. Beyond the budget the verdict is
+  ERROR "instrument error" as before, and now pushes `airlock_verdict{status="ERROR",
+  motive="instrument_error"}` through the Influx endpoint before re-raising.
+- Pinned datasources. `GRAFANA_PROM_UID` (default `grafanacloud-prom`) and `GRAFANA_LOKI_UID`
+  (default `grafanacloud-logs`), in `.agent_engine_config.json` and `.env.example`; `list_datasources`
+  is asked only when a value is empty. On this stack "first Loki datasource" would have been
+  `grafanacloud-alert-state-history`.
+- Fault injection. The input may carry `{"fault": {"rights": "timeout"}}`: `run_gate` raises
+  `TimeoutError("Video Intelligence operation timed out after 1 s (fault injected for run <run_id>)")`
+  before the gate function runs, nothing is spent, the ERROR lands in Loki (body field `fault:
+  "timeout"`) and in the errors counter like a real one; the `running` and `done` events say
+  `"fault": "timeout"`.
+- `infra/gcp/daily_proof.sh` deploys the job with `--max-retries=0`; the live job was updated the same
+  way. `scripts/grafana_bootstrap.py` panel 16 gets a field override by display name `fail`: green at 0,
+  red from 1; the `pass` thresholds and the range are unchanged.
+- Tests: `uv run pytest -q` = 87 passed, 2 skipped (was 62 passed). `tests/test_verdict.py` covers every
+  rule branch (a muted PASS gate not seen BLOCKs control unavailable with needs_human; the same gate seen
+  PASSes; Loki unreadable fails closed; staleness alone passes; 1 error in 3 runs passes, 1 in 2 blocks,
+  1 in 1 passes; a gate ERROR is R1 with the error in the reason; five PromQL keys; the LogQL).
+  `tests/test_gate_envelope.py`: run_id in the Loki body, the injected fault becomes ERROR with the
+  message and spends nothing, the pins. `tests/test_pipeline_agent.py`: the Loki answer parser, the wake
+  markers, the waiter with a fake sleep.
+
+### Facts read from the stack before the code (2026-09-05, 04:05 to 04:10 UTC)
+
+`GET $GRAFANA_URL/api/datasources` (`scripts/with_env.sh`, a script in the session scratchpad):
+
+```
+{"uid": "grafanacloud-alert-state-history", "type": "loki", "name": "grafanacloud-narrowsubmarine1895-alert-state-history"}
+{"uid": "grafanacloud-logs", "type": "loki", "name": "grafanacloud-narrowsubmarine1895-logs"}
+{"uid": "grafanacloud-prom", "type": "prometheus", "name": "grafanacloud-narrowsubmarine1895-prom", "isDefault": true}
+{"uid": "grafanacloud-usage", "type": "prometheus", "name": "grafanacloud-usage"}
+{"uid": "grafanacloud-usage-insights", "type": "loki", "name": "grafanacloud-narrowsubmarine1895-usage-insights"}
+(plus infinity, k6, cardinality, graphite, knowledgegraph, profiles, traces)
+```
+
+mcp-grafana 1.3.0 on Cloud Run, tools listed through the ADK `McpToolset` (43 tools; the server
+exposes the incident, loki, prometheus, tempo, dashboard and annotation toolsets). `query_loki_logs`
+input schema, the names the verdict uses:
+
+```
+datasourceUid (string, required), logql (string), startRfc3339 (string, RFC3339 or relative, e.g. 'now-1h'),
+endRfc3339 (string), limit (integer, default 10, max 100), direction ('forward' | 'backward', default backward),
+queryType ('range' | 'instant'), format ('full' | 'compact'), stepSeconds (integer)
+```
+
+Two lessons that cost one call each: a Python `datetime.isoformat()` with microseconds is refused
+("parsing start time: syntax error: unexpected tDIGIT at character 25"), so the agent sends
+`%Y-%m-%dT%H:%M:%SZ`; and the ADK toolset applies `header_provider` only when it has a context, so a
+standalone script passes the bearer through `StreamableHTTPConnectionParams(headers=...)`. Answer
+shape, one line per entry, newest first:
+
+```
+{"data":[{"timestamp":"\"1788566913325404907\"","line":"{\"asset_id\": \"daily-proof-nimbus-clean-clip\", \"gate\": \"rights\", \"status\": \"PASS\", ...}","labels":{"app":"airlock","gate":"rights","runtime":"agent-engine","service_name":"airlock","status":"PASS"}}],"metadata":{"linesReturned":2,"maxLinesAllowed":20,...}}
+```
+
+The five PromQL questions, instant-queried on `grafanacloud-prom` for the provenance gate (04:55 UTC):
+
+```
+error_rate_15m           None   sum(sum_over_time(airlock_gate_errors_total{gate="provenance"}[15m])) / clamp_min(sum(sum_over_time(airlock_gate_runs_total{gate="provenance"}[15m])), 1)
+runs_15m                 None   sum(sum_over_time(airlock_gate_runs_total{gate="provenance"}[15m]))
+seconds_since_success    5237   time() - max(max_over_time(airlock_gate_last_success_ts{gate="provenance"}[7d]))
+calibration_catches_7d   24     sum(sum_over_time(airlock_calibration_catches_total{gate="provenance"}[7d]))
+last_calibration_caught  1      min by () (last_over_time(airlock_calibration_catches_total{gate="provenance"}[7d]))
+```
+
+### Local smoke run, nothing spent (04:49 to 04:52 UTC)
+
+`scripts/with_env.sh uv run adk run agents/pipeline '{"gcs_uri": "gs://.../calibration/nimbus-clean-clip.mp4", "asset_id": "nimbus-clean-clip", "mute": [all four], "fault": {all four: "timeout"}}'`:
+the four gates ERROR in 0 to 1 ms with the injected TimeoutError, push nothing (muted), the verdict
+reads Loki four times plus three retries (`seen_this_run 0.0` on every gate), asks the twenty PromQL
+questions, rules BLOCK control unavailable with the four reasons "control unavailable (instrument
+error: TimeoutError: ... (fault injected for run e-905709fd-...); NOT seen by Grafana for this run)",
+writes the annotation and opens drill incident 27 (`Airlock needs a human: control unavailable on
+nimbus-clean-clip`, label `control-unavailable`, 04:52:44 UTC). No Video Intelligence or Gemini call
+was made, so no other task's run was contended.
+
+### Deploy (05:13:52 to 05:17:20 UTC)
+
+`scripts/with_env.sh uv run adk deploy agent_engine --project airlock-agentic-cinema --region us-central1 --agent_engine_id 1737023312967499776 agents/pipeline`
+
+```
+Reading agent platform config from .../agents/pipeline/.agent_engine_config.json
+Overriding display_name in agent platform config with pipeline
+Deploying to Agent Platform...
+Deployed to Agent Platform: projects/airlock-agentic-cinema/locations/us-central1/reasoningEngines/1737023312967499776
+```
+
+The engine id is unchanged (the console and the daily proof point at it). The CLI now overrides the
+display name with the folder name (`pipeline`); cosmetic, `--display_name airlock` restores it on the
+next deploy.
+
+### Verification 1: the clean clip with rights muted (05:17:32 UTC, 60.5 s)
+
+`uv run python scripts/query_agent_engine.py projects/771466810465/locations/us-central1/reasoningEngines/1737023312967499776 '{"gcs_uri":"gs://airlock-agentic-cinema-assets/calibration/nimbus-clean-clip.mp4","mute":["rights"]}'`
+
+```
+[   3.6s] rights_gate      running  rights  (telemetry muted)
+[   6.3s] provenance_gate  PASS      603 ms  C2PA manifest verified and trusted; signed by Airlock (hackathon test); created by airlock-synthetic-asset
+[  15.4s] brand_gate       PASS    10000 ms  Nimbus wordmark seen, palette, tone and exclusions respected
+[  17.2s] claim_gate       PASS    11944 ms  no regulated claim without substantiation (1 claim(s) read, 1 advisory)
+[  32.0s] rights_gate      PASS    28204 ms  cleared brand(s): Nimbus; no unreleased face, no explicit content
+[  46.8s] verdict  grafana  rights      NOT seen by Grafana for this run; caught 12 injected defect(s) in 7d  {'seen_this_run': 0.0, 'error_rate_15m': None, 'runs_15m': None, 'seconds_since_success': 6503.14, 'calibration_catches_7d': 12.0, 'last_calibration_caught': 1.0}
+[  48.0s] verdict  grafana  claim       seen by Grafana for this run, last success 32 s ago; caught 12 injected defect(s) in 7d  {'seen_this_run': 1.0, 'error_rate_15m': 0.0, 'runs_15m': 1.0, ...}
+[  49.4s] verdict  grafana  brand       seen by Grafana for this run, last success 34 s ago; caught 12 injected defect(s) in 7d  {'seen_this_run': 1.0, 'error_rate_15m': 0.0, 'runs_15m': 1.0, ...}
+[  50.8s] verdict  grafana  provenance  seen by Grafana for this run, last success 46 s ago; caught 24 injected defect(s) in 7d  {'seen_this_run': 1.0, 'error_rate_15m': 0.0, 'runs_15m': 1.0, ...}
+[  51.8s] verdict  VERDICT BLOCK (control unavailable) needs_human=True annotation=69 18962 ms
+                   rights: control unavailable (NOT seen by Grafana for this run)
+[  54.2s] escalation INCIDENT 28
+```
+
+The rights gate said PASS in 28 s; its last success in Grafana was 6503 s old, which the old rule
+would have blocked on and the new one reports without ruling on; the verdict blocked because Loki
+holds no rights event for run `e-e03b0db4-1b67-4f1a-9d7e-996e2be148a7`, after three retries (the 9 s
+of the verdict's 19 s). No 15-minute wait, no dependence on other judges' runs.
+
+### Verification 2: the same clip, unmuted (05:18:42 UTC, 55.1 s)
+
+`... '{"gcs_uri":"gs://airlock-agentic-cinema-assets/calibration/nimbus-clean-clip.mp4"}'`
+
+```
+[   3.7s] provenance_gate  PASS      145 ms
+[  13.1s] brand_gate       PASS     9828 ms
+[  19.9s] claim_gate       PASS    16685 ms
+[  43.5s] rights_gate      PASS    40411 ms  cleared brand(s): Nimbus; no unreleased face, no explicit content
+[  46.5s] verdict  grafana  rights      seen by Grafana for this run, last success 3 s ago; caught 12 injected defect(s) in 7d  {'seen_this_run': 1.0, 'error_rate_15m': 0.0, 'runs_15m': 1.0, 'seconds_since_success': 3.9, ...}
+[  47.7s] verdict  grafana  claim       seen by Grafana for this run, last success 29 s ago; caught 12 injected defect(s) in 7d  {'seen_this_run': 1.0, 'error_rate_15m': 0.0, 'runs_15m': 2.0, ...}
+[  48.9s] verdict  grafana  brand       seen by Grafana for this run, last success 36 s ago; caught 12 injected defect(s) in 7d  {'seen_this_run': 1.0, 'error_rate_15m': 0.0, 'runs_15m': 2.0, ...}
+[  50.1s] verdict  grafana  provenance  seen by Grafana for this run, last success 47 s ago; caught 24 injected defect(s) in 7d  {'seen_this_run': 1.0, 'error_rate_15m': 0.0, 'runs_15m': 2.0, ...}
+[  51.0s] verdict  VERDICT PASS (content) needs_human=False annotation=70 6769 ms
+                   all 4 gates PASS, seen by Grafana, healthy and calibrated
+[  51.3s] escalation escalation: no human needed: verdict PASS on content
+```
+
+The rights event pushed at 43.5 s was found in Loki on the first attempt 3 s later; the whole verdict
+took 6.8 s for 4 Loki reads, 20 PromQL questions and the annotation (the old verdict took 6.0 to
+6.4 s for 16 PromQL, RUNS M8).
+
+### Verification 3: a timeout injected on rights (05:19:44 UTC, 30.8 s)
+
+`... '{"gcs_uri":"gs://airlock-agentic-cinema-assets/calibration/nimbus-clean-clip.mp4","fault":{"rights":"timeout"}}'`
+
+```
+[   7.7s] rights_gate      ERROR       0 ms  TimeoutError: Video Intelligence operation timed out after 1 s (fault injected for run e-e67b84b0-d5ad-4af7-88fc-7aa3ce448a35)
+[   8.2s] provenance_gate  PASS      127 ms
+[  17.6s] brand_gate       PASS     9586 ms
+[  17.9s] claim_gate       PASS    10144 ms
+[  20.7s] verdict  grafana  rights      seen by Grafana for this run, error rate 50% over 15m (2 runs), last success 40 s ago; caught 12 injected defect(s) in 7d  {'seen_this_run': 1.0, 'error_rate_15m': 0.5, 'runs_15m': 2.0, ...}
+[  21.8s] verdict  grafana  claim       seen by Grafana for this run, last success 4 s ago; ...  {'seen_this_run': 1.0, 'error_rate_15m': 0.0, 'runs_15m': 3.0, ...}
+[  22.9s] verdict  grafana  brand       seen by Grafana for this run, last success 7 s ago; ...  {'seen_this_run': 1.0, 'error_rate_15m': 0.0, 'runs_15m': 3.0, ...}
+[  24.1s] verdict  grafana  provenance  seen by Grafana for this run, last success 17 s ago; ...  {'seen_this_run': 1.0, 'error_rate_15m': 0.0, 'runs_15m': 3.0, ...}
+[  25.0s] verdict  VERDICT BLOCK (control unavailable) needs_human=True annotation=71 6336 ms
+                   rights: control unavailable (instrument error: TimeoutError: Video Intelligence operation timed out after 1 s (fault injected for run e-e67b84b0-d5ad-4af7-88fc-7aa3ce448a35); seen by Grafana for this run, error rate 50% over 15m (2 runs), last success 40 s ago)
+[  27.3s] escalation INCIDENT 29
+```
+
+The gate spent nothing (0 ms, `video_minutes 0.0, cost_usd 0.0` in its event), the ERROR reached Loki
+with the run id, and both R1 clauses agree: the gate's own ERROR, and 1 error over the 2 rights runs
+of the last 15 minutes (this one and verification 2). The rights event read back from Loki through
+`query_loki_logs` for that run id, 05:22 UTC:
+
+```
+{"asset_id": "nimbus-clean-clip", "run_id": "e-e67b84b0-d5ad-4af7-88fc-7aa3ce448a35", "gate": "rights", "status": "ERROR", "reasons": ["TimeoutError: Video Intelligence operation timed out after 1 s (fault injected for run e-e67b84b0-d5ad-4af7-88fc-7aa3ce448a35)"], "evidence": [{"traceback": "... File \"/app/airlock/gates/base.py\", line 90, in inject_fault ..."}], "rule_ids": [], "elapsed_ms": 0, ..., "usage": {"tokens_in": 0, "tokens_out": 0, "video_minutes": 0.0, "features": 0, "cost_usd": 0.0, "basis": "Video Intelligence: 0 min x 0 features"}, "fault": "timeout"}
+```
+
+### Read back (05:22 to 05:24 UTC)
+
+Annotations through `GET /api/annotations?dashboardUID=airlock-gates&tags=airlock` (the text now names the run):
+
+```
+{"id": 69, "time": 1788585510904, "tags": ["airlock", "verdict", "block", "nimbus-clean-clip", "agent-engine"], "text": "BLOCK (control unavailable) nimbus-clean-clip run e-e03b0db4-1b67-4f1a-9d7e-996e2be148a7: rights: control unavailable (NOT seen by Grafana for this run)"}
+{"id": 70, "time": 1788585576422, "tags": ["airlock", "verdict", "pass", "nimbus-clean-clip", "agent-engine"], "text": "PASS (content) nimbus-clean-clip run e-5e68e52f-a746-492d-8eee-66daca6b03a4: all 4 gates PASS, seen by Grafana, healthy and calibrated"}
+{"id": 71, "time": 1788585612873, "tags": ["airlock", "verdict", "block", "nimbus-clean-clip", "agent-engine"], "text": "BLOCK (control unavailable) nimbus-clean-clip run e-e67b84b0-d5ad-4af7-88fc-7aa3ce448a35: rights: control unavailable (instrument error: TimeoutError: Video Intelligence operation timed out after 1 s (fault injected for run e-e67b84b0-..."}
+```
+
+Incidents through `IncidentsService.GetIncident`: 28 (`active`, drill, "Airlock needs a human: control
+unavailable on nimbus-clean-clip", 05:18:33 UTC, label `control-unavailable`) and 29 (same title,
+05:20:14 UTC). They stay open: closing and deduplicating them is the next task (T2).
+
+The daily proof job: `gcloud run jobs update airlock-daily-proof --region us-central1 --max-retries=0`,
+then `describe`: `maxRetries 0, taskCount 1, generation 4` (the image is unchanged; the next
+`bash infra/gcp/daily_proof.sh` rebuilds it with this code and the same flag).
+
+The dashboard: `scripts/with_env.sh .venv/bin/python scripts/grafana_bootstrap.py` answered
+`{"prometheus_uid": "grafanacloud-prom", "dashboard_uid": "airlock-gates", "version": 7}`; read back,
+panel 16 carries `overrides: [{"matcher": {"id": "byName", "options": "fail"}, "properties": [{"id": "thresholds", "value": {"steps": [{"color": "green"}, {"color": "red", "value": 1}]}}, ...]}]`
+and the public dashboard answers 200 at version 7.
+
+### Two deviations from the plan, named
+
+- "Seen" means Grafana holds this run's event of the gate, whatever its status (the plan said "a line
+  with status not ERROR"). The verdicts are identical either way, because the Loki line IS the gate's
+  result: an ERROR line comes with an ERROR result, and the gate-ERROR clause of R1 fires. The honest
+  wording avoids a health line saying "NOT seen" about an event Grafana does hold (verification 3
+  reads "seen by Grafana for this run" next to the instrument error).
+- The plan counted five questions; there are five kinds and six expressions, because the error ratio
+  needs the number of runs behind it (`runs_15m`) to tell one error in two runs from one in three.
+  `promql_questions()` returns five keys (the console's export, T4, reads whatever it returns).
+
+### Left to the next tasks
+
+- The console (T4) does not yet show `seen_this_run`, the `fault` of the running event or the wake
+  `note`; the event shapes are additive (`run_id`, `seen_this_run`, `fault`, `note`), every old field
+  is still there.
+- Incidents 27 to 29 are open drills on the same asset and motive: dedupe and close (T2).
+- The investigator that reads these Loki lines and names the cause in the incident (T2).
+- The `--display_name airlock` on the next deploy.
+
 ## Console: one PromQL source, the fault switch, legibility (2026-09-05)
 
 Two judges of the 2026-09-05 panel found the console's TypeScript copy of the verdict's PromQL had

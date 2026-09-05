@@ -48,12 +48,14 @@ find "$BUILD_CTX" -name __pycache__ -type d -prune -exec rm -rf {} +
 
 gcloud builds submit --project="$PROJECT" --tag="$IMAGE" "$BUILD_CTX"
 
-# Step 4: the job (deploy creates it or updates it). One task, 30 minutes, one retry: the rights gate's
-# Video Intelligence call alone can take three minutes when calls contend.
+# Step 4: the job (deploy creates it or updates it). One task, 30 minutes (the rights gate's Video
+# Intelligence call alone can take three minutes when calls contend), no retry: a failed proof stays a
+# failed proof. With one retry, the two proofs that met a paused Grafana Cloud stack (2026-09-04 12:05
+# UTC and 2026-09-05 00:04 UTC) were retried into passes; the verdict now waits for the stack itself.
 gcloud run jobs deploy "$JOB" \
   --project="$PROJECT" --region="$REGION" \
   --image="$IMAGE" \
-  --tasks=1 --task-timeout=1800 --cpu=1 --memory=2Gi --max-retries=1 \
+  --tasks=1 --task-timeout=1800 --cpu=1 --memory=2Gi --max-retries=0 \
   --set-env-vars="AIRLOCK_PROJECT=${PROJECT},AIRLOCK_ASSETS_BUCKET=airlock-agentic-cinema-assets,AIRLOCK_RUNTIME=daily-proof,AGENT_ENGINE_RESOURCE=${ENGINE},GRAFANA_INFLUX_URL=https://prometheus-prod-67-prod-us-west-0.grafana.net/api/v1/push/influx/write,GRAFANA_INFLUX_USER=3546988,GRAFANA_LOKI_URL=https://logs-prod-021.grafana.net,GRAFANA_LOKI_USER=1769169" \
   --set-secrets="GRAFANA_INFLUX_TOKEN=grafana-influx-token:latest,GRAFANA_LOKI_TOKEN=grafana-influx-token:latest" \
   --quiet

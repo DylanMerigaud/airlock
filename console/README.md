@@ -3,7 +3,9 @@
 The surface a brand-safety reviewer opens: watch the clip, run it through the four Airlock
 gates, and read every finding against the second of the clip it was read at. The console never
 shows a PASS that Grafana could not back: every check row carries what the instrument itself
-reports, and a gate that has never caught an injected defect is marked ADVISORY.
+reports, the verdict row says whether Grafana saw each gate's event for this very run (the verdict
+asks Loki for it, so a muted gate blocks on the run that muted it), and a gate that has never
+caught an injected defect is marked ADVISORY.
 
 Three views in the top bar. **Review** is one screen: above 1100 px wide it fits the viewport
 with no page scroll. The clip holds the left with its scrubber, one marker per timestamped
