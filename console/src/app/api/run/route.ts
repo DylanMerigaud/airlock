@@ -18,6 +18,15 @@ function sse(event: string | null, data: unknown): Uint8Array {
   return encoder.encode(`${head}data: ${JSON.stringify(data)}\n\n`);
 }
 
+/** An SSE comment: no event, no data, ignored by EventSource and by the console's own parser, but a
+ *  byte on the wire. A proxy that closes an idle connection sees one every KEEPALIVE_MS instead of the
+ *  silence the rights gate leaves for up to 600 s (found live, third panel, 2026-09-05: a run finished
+ *  server-side while the viewer's own network dropped the stream and never learned it). */
+const KEEPALIVE_MS = 15_000;
+function keepaliveComment(): Uint8Array {
+  return encoder.encode(": keepalive\n\n");
+}
+
 type Relay = {
   push: (author: string, text: string) => void;
   fail: (message: string) => void;
@@ -294,6 +303,7 @@ export async function POST(request: Request) {
 
       write(sse("open", { asset: gcsUri, mock, mute, fault: faults, ts: 0 }));
 
+      const keepalive = setInterval(() => write(keepaliveComment()), KEEPALIVE_MS);
       try {
         if (mock) {
           await replayFixture(fixtureFor(asset), relay, request.signal);
@@ -302,6 +312,8 @@ export async function POST(request: Request) {
         }
       } catch (error) {
         relay.fail(error instanceof Error ? error.message : String(error));
+      } finally {
+        clearInterval(keepalive);
       }
 
       write(sse("done", { elapsed_ms: Date.now() - startedAt }));

@@ -80,7 +80,7 @@ output, listening on `$PORT`). The script prints the service URL when it is done
 
 | Route | What it does |
 | --- | --- |
-| `POST /api/run` | Resolves the asset to a `gs://` URI, calls Vertex AI Agent Engine `streamQuery`, relays every ADK event to the browser as SSE. Upstream timeout 15 minutes, nothing buffered. |
+| `POST /api/run` | Resolves the asset to a `gs://` URI, calls Vertex AI Agent Engine `streamQuery`, relays every ADK event to the browser as SSE. Upstream timeout 15 minutes, nothing buffered. An SSE comment every 15 s keeps a proxy's idle timeout from closing the connection during a silent gate (the rights gate can run 30 to 600 s with nothing to relay); a viewer who still loses the stream has no way back yet (the run keeps going server-side, said in `docs/RUNS.md`). |
 | `POST /api/upload` | One MP4 up to 50 MB into `gs://$AIRLOCK_ASSETS_BUCKET/uploads/`. The browser refuses clips over 30 s before the upload starts. |
 | `GET /api/health` | The verdict's PromQL per gate (error ratio and runs over 15 minutes, seconds since success, calibration catches over 7d, whether the last calibration caught), read from `src/lib/promql.json`, which `scripts/export_promql.py` writes from `airlock.verdict.promql_questions` (a test fails on drift). Cached 20 s. |
 | `GET /api/incidents` | Grafana Incident's open Airlock incidents (drills included), the Queue tab. The preview API returns no labels, so the route reads each incident back (`IncidentsService.GetIncident`, at most 20 per refresh, in parallel) for its `owner` label. |
