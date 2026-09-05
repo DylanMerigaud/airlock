@@ -245,6 +245,7 @@ video/out/voice/
 video/out/*.mp4
 video/out/*.wav
 video/out/logs/
+video/out/frames/
 
 # Claude Code worktrees (agents build in isolated checkouts here)
 /.claude/

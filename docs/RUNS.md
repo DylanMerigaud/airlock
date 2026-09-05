@@ -2877,3 +2877,221 @@ the ones above); they close when a reviewer marks them from the console.
   attached escalation as `escalation: None` (T3 owns the file; the change is in the report).
 - The console's mock fixtures predate the investigator: in `AIRLOCK_MOCK=1` the investigation row says
   "No investigation on this run (recorded before the investigator existed)" until Phase C re-records them.
+
+## M5: v6, the final take (2026-09-05)
+
+Status: DONE 2026-09-05 (08:50 UTC). Commits bfd0a29, 40ce62c, a0a9fb2, dfecb82, 0a00c10, a2fce89 plus this section, on main.
+
+The final demo video, from script v6: `video/out/airlock-v6-synthetic-voice.mp4`, 177.5 s, 55.2 MB,
+synthetic voice (Google Cloud Text to Speech, en-US-Neural2-D at 1.1, declared in the file name and in a
+caption top right over the first 8 s and the last 6 s). Not uploaded and Devpost not touched: the main
+session does that.
+
+### What changed in the pipeline for v6
+
+- `video/record.mjs`: no `--prep`, no muted run, no staleness wait, no ASA path. The control beat is the
+  "Inject a fault" switch on the rights row, thrown on camera (`fault_on`), the run (`fault_click`), the
+  rights row landing ERROR (`rights_error`, also `rights_done_2`), the last of the three other gates
+  (`gates_done_2`), the verdict (`verdict_2`), the investigation row expanded so its tool calls list on
+  camera (`investigation`), the escalation (`escalation_done_2`, incident id), the Record with the
+  investigator's note and the Loki line it cites (`investigation_note`), a 4 s Grafana insert
+  (`alert_insert`), "Mark reviewed by a human" signed as the platform on-call (`resolve`, then `resolved`
+  with the incident status and the reviewed annotation id). Run 3 is the fourth preset, "Nimbus test
+  clip, study on file" (`study_click`, the four landings, `verdict_3`), after the fault is switched off
+  (`fault_off`). Run 1 keeps its cues; the Record comes on camera halfway through the verdict line
+  (`record_open`, the cost line and the annotation id read into the cue log; the incident id lands on it
+  when the escalation does). The verdict cue is the card filling, not the run ending: the run now keeps
+  working after the verdict (the investigator, then the escalation), which `waitSettled` watches
+  separately. Every hold is the length of the line spoken over it, read out of `narration.json`. Every
+  cue the recorder can write is in its `CUE_NAMES` array and `cue()` refuses any other.
+- `video/narrate.py`: checks every `(cue xxx)` of the script against `CUE_NAMES` before synthesising
+  anything and exits on a name the recorder never writes; `tests/test_video_cues.py` does the same in
+  the suite (three tests: the script's cues are written, every voice line names a cue, an unknown cue is
+  reported). Line gap 0.3 s (was 0.4).
+- `video/assemble.py`: a fifth labelled kind, "waiting for the investigator, N s compressed" (after the
+  verdict line has been said and before the escalation lands, runs 1 and 2 only); the rights wait starts
+  once the line about the last landed gate has been said (draft 5 started it at the landing, which
+  pushed the rights line seven seconds off the rights landing); waits go back on the picture while the
+  voice outlasts the picture, not only under `--min`; the small waits earn a caption from 2.5 s of wait
+  (was 4 s: script v6 carries 160 s of voice under a 180 s limit); two captions that would overlap stack
+  in two rows instead of the later one waiting; the synthetic voice caption; `--output <name>`; punch
+  centres re-measured on the seven-row console (checks 1694,436; stage 744,490; the right-column
+  punches still clamp to 1085,470); the G46 retry fires on a FAIL of G46 only (it fired on the word
+  "blanc" in a passing line before).
+- `docs/VIDEO-SCRIPT.md`: one cue name changed, the run-2 beat "Brand, claim and provenance land PASS"
+  is on `gates_done_2` (the last of the three to land) instead of `provenance_done_2`: provenance lands
+  first on the fault run, one second after the rights ERROR, and the line "Three gates pass" would have
+  been said with one gate green. No words changed.
+- `video/README.md` and `docs/DEMO-DAY.md` rewritten for v6 (no preparation run, the pre-take checks,
+  the three commands, the synthetic voice).
+
+### Before the take
+
+- `gcloud run jobs executions list --job=airlock-daily-proof --region=us-central1 --limit=2`:
+  `airlock-daily-proof-kwqbk` 2026-09-05 00:00:29 UTC, COMPLETE 1/1 (completion 00:08:50 UTC,
+  succeededCount 1); `airlock-daily-proof-877cd` 2026-09-04 12:00:23 UTC, COMPLETE 1/1. The console's
+  `/api/health` read `calibrated: true, last_calibration_caught: 1` on all four gates.
+- `gcloud storage ls gs://airlock-agentic-cinema-assets/synthetic/nimbus-test-clip-substantiated.mp4.substantiation.yaml`
+  answered the object.
+- The alert list `https://narrowsubmarine1895.grafana.net/alerting/list` redirects a fresh browser to
+  `/login` (probed with Playwright at 07:55 UTC), so the alert insert shows the public dashboard on its
+  "Gate errors (per 5 min)" panel, `from=now-1h`, which carries the rights error the "Airlock gate
+  errors" rule fires on. The alert list itself is not in the video.
+- The live DOM measured at 1920x1080 before any selector was written: four preset cards plus the two
+  stage buttons carry `aria-pressed`; seven `button[aria-controls="check-<name>"]` rows (rights, claim,
+  brand, provenance, verdict, investigation, escalation); two `button[role="switch"]` in the expanded
+  rights row named "Mute telemetry" and "Inject a fault"; the segments Checks, Findings, Record; the
+  views Review, Trace, Queue.
+- A dry run of the whole pipeline against the mock console (`AIRLOCK_MOCK=1 pnpm dev --port 3111`,
+  `node record.mjs --mock`) before spending anything: 161 s take, 40 cues, every selector answered (the
+  mock replays a PASS for the clean clip, so the fault, the incident and the review were exercised on
+  the live take only).
+- Other sessions were running the console during the morning (annotations 90 to 93 at 07:46 to 07:48
+  UTC, a fault run among them): the rights gate read `degraded: error rate 14 percent` at 07:52 and the
+  take waited for the 15 minute window to clear.
+
+### Take 1 (08:18:00 UTC, 263 s, 41 cues, no timeout, no note), rendered 190 s: retaken
+
+Crest BLOCK content at 96.5 s (annotation 94, joined open incident 25), fault run BLOCK control
+unavailable at 147.2 s (annotation 95, joined open incident 32, resolved from the console at 181.1 s,
+annotation 96), study run PASS at 230.3 s (annotation 97). The render came out at 189.6 s against the
+checker's 180 s (G43 FAIL, every other gate PASS), with 73.7 s of waiting compressed and 7.5 s more off
+the dashboard hold: 160 s of voice, and the picture between lines was 5.4 s between the verdict line
+and the fault switch (the recorder waited for the escalation before opening the Record, then held the
+Record 3 s), 2.5 to 3.7 s of small waits under the 4 s caption threshold in four places, sleeps around
+the gestures. The tightening above came out of that render; the take itself was clean.
+
+### Take 2, the final (08:35:31 UTC, 289.4 s, 41 cues, no timeout, no note)
+
+```
+   2.32 stake                          142.15 verdict_2  BLOCK, control unavailable, needs a human
+   7.93 console_idle                   147.50 investigation  query_loki_logs {app="airlock", gate="rights", run_id="e-15eda915-..."}
+  23.00 crest_click                    165.00 escalation_done_2  incident 33 opened, routed to the platform owner
+  26.30 provenance_done  BLOCK          165.01 investigation_note  annotation 99, incident 33
+  45.56 brand_done       BLOCK          175.37 alert_insert  panels drawn 8.4 s after the page opened
+  59.50 claim_done       BLOCK          179.99 resolve  Mark reviewed by a human, platform on-call
+  59.56 seek_claim  the clip to 7 s     181.00 resolved  incident 33 resolved, annotation 100 written
+  62.59 seek_done                      185.59 fault_off
+  84.15 rights_done      BLOCK          188.00 study_click
+  93.06 verdict  BLOCK, content, needs a human   191.54 provenance_done_3  PASS
+ 101.01 record_open  annotation 98, $0.52 at list price   201.94 brand_done_3  PASS
+ 110.36 escalation_done  incident 25 (joined, read off the Record)   202.19 claim_done_3  PASS
+ 112.05 fault_on                       249.10 rights_done_3  PASS
+ 115.48 fault_click                    256.45 verdict_3  PASS
+ 118.01 rights_error  Check failed: TimeoutError ... (fault injected for run e-15eda915-2933-4a9a-886d-5d71288a6042)
+ 118.77 provenance_done_2  PASS        266.57 dashboard  panels drawn 2.8 s after the page opened
+ 128.65 brand_done_2       PASS        279.08 escalation_done_3  no human needed: verdict PASS on content
+ 135.02 claim_done_2       PASS, gates_done_2   279.08 landing  holding on the PASS verdict
+                                       286.09 end
+```
+
+The three verdicts, read back from Grafana (`GET /api/annotations?tags=airlock`):
+
+- Run 1, Crest, run `e-e54eca64-1202-412e-90c5-617d72ac8b87`: BLOCK (content), annotation 98 at 08:37:03
+  UTC, the escalation joined the open content drill 25 on the Crest clip. The Record on camera:
+  "This check: $0.52 at list price (rights $0.50, claim $0.02, brand $0.004, provenance $0), 17,821 tokens
+  in, 1,331 out, 1 min of video". Every gate row under the card: "seen by Grafana for this run".
+- Run 2, the clean clip with the fault, run `e-15eda915-2933-4a9a-886d-5d71288a6042`: rights ERROR in
+  2.5 s ("TimeoutError: Video Intelligence operation timed out after 1 s (fault injected for run ...)"),
+  the three others PASS, BLOCK (control unavailable), annotation 99 at 08:37:52 UTC; the rights row read
+  "seen by Grafana for this run, error rate 50% over 15m (2 runs)", the words of the script. The
+  investigator (gemini-2.5-flash, 5 tool calls): "The `rights` gate failed at 2026-09-05T08:37:28.645Z
+  due to a fault-injected timeout. This type of error has been recurring in the `rights` gate over the
+  last 24 hours, always as an injected fault. The 'Airlock daily proof failed' alert is currently
+  firing. ROOT CAUSE The rights gate timed out due to an injected fault at 2026-09-05T08:37:28.645Z,
+  causing the asset to be blocked.", citing the Loki line `2026-09-05T08:37:28.645Z rights ERROR (fault:
+  timeout)`. The escalation opened incident 33 ("Airlock needs a human: control unavailable on
+  nimbus-clean-clip, routed to the platform owner"). "Mark reviewed by a human" signed as the platform
+  on-call answered in 1.0 s: incident 33 resolved, annotation 100 at 08:38:32 UTC ("reviewed by a human
+  (platform on-call): BLOCK (control unavailable) nimbus-clean-clip run e-15eda915-... [incident 33
+  resolved]"). `/api/incidents` afterwards lists 15 open drills, 33 not among them.
+- Run 3, the test clip with its study on file, run `e-9ad63d63-c911-4d9d-9ae3-5761b4f77944`: four PASS,
+  PASS, annotation 101 at 08:39:46 UTC, "all 4 gates PASS, seen by Grafana, healthy and calibrated"; the
+  rights row "error rate 33% over 15m, under the 50% block line" (the take's own fault run in the
+  window); the investigator's DECISION NOTE "The verdict is PASS, but two alert rules are firing" (the
+  gate errors rule on the injected fault, the daily proof rule on the failed attempt of 00:04 UTC, both
+  true). The claim gate's Loki line for the run: `PASS, "no regulated claim without substantiation (2
+  claim(s) read, 2 advisory); substantiation on file: Nimbus sommelier preference panel, 2026-08
+  (SYNTHETIC: a fictional study written for the Airlock demo, no such panel exists)"`.
+
+Timings: the rights gate landed 61.2 s after the click on Crest (24.7 s after the claim gate), failed
+2.5 s after the click with the fault, and landed 61.1 s after the click on the study run (46.9 s after
+the claim gate); the investigator and the escalation took 17.3 s after the verdict (run 1), 22.9 s (run
+2), 22.6 s (run 3); the Grafana pages drew in 8.4 s and 2.8 s. The clip played on the stage through the three runs (no note).
+
+### The render
+
+`AIRLOCK_RENDER_CHECK=/Users/dylanmerigaud/Code/growth-cockpit/career/hackathon-evals/check.py uv run python video/assemble.py --output airlock-v6-synthetic-voice.mp4 --max 178`
+
+```
+cut plan: every wait compressed to 0.5 s, the two holds protected
+take 286.3s, head trim 1.9s, cut 106.9s, video 177.5s, narration ends 175.8s, render 177.5s
+  cut   8.9s from the waiting for the brand gate  (labelled)
+  cut   7.6s from the waiting for the claim gate  (labelled)
+  cut  13.6s from the Crest run, waiting for Video Intelligence  (labelled)
+  cut   5.1s from the waiting for the brand gate_2  (labelled)
+  cut   5.9s from the waiting for the claim gate_2  (labelled)
+  cut   3.8s from the waiting for the verdict agent_2  (labelled)
+  cut   9.9s from the waiting for the investigator_2  (labelled)
+  cut   7.9s from the alert_insert insert, waiting for Grafana  (labelled)
+  cut  41.9s from the study run, waiting for Video Intelligence  (labelled)
+  cut   2.3s from the dashboard insert, waiting for Grafana  (labelled)
+13 punch-ins of 1.15x over 1.2s  (4 dropped: claim_done under the seek, provenance_done_2, claim_done_2, claim_done_3 inside a punch on the same centre)
+longest stretch with no change of picture and no voice: 2.15s at 58.8s
+44 subtitle cues over 20 spoken lines
+voice caption over the first 8 s and the last 6 s: synthetic voice: Google Cloud Text to Speech, en-US-Neural2-D at 1.1x
+
+wrote /Users/dylanmerigaud/Code/airlock/video/out/airlock-v6-synthetic-voice.mp4 (55.2 MB)
+PASS  G41 definition  (1920x1080)      PASS  G45 niveau audio  (-16.3 LUFS, peak -4.0)
+PASS  G42 cadence  (30.0 fps)          PASS  G46 silence  (plus long blanc 0.0s)
+PASS  G43 duree  (177s)                PASS  G47 ouverture  (0 plage(s) de noir)
+PASS  G44 audio present  (aac)         RESULTAT: PASS mecanique
+```
+
+Ten labelled compressions, 106.9 s in all, no hold trimmed, the voice 159.7 s of the 177.5 s, 57 changes
+of picture outside it. The pace: the longest stretch with neither a change of picture nor a line is
+2.15 s, at 58.8 s (the end of the rights line, before the verdict card fills), against 6.40 s in draft 5.
+The largest line shift on the take's own cues is 6.79 s (`provenance_done_3`: the study_click line is
+10 s and provenance lands 3.5 s after the click), 3.85 s on `provenance_done` and 3.68 s on
+`fault_click` for the same reason; every other line starts on its cue.
+
+Frames read at the landings and the inserts (`ffmpeg -ss`, 16 frames): the Article 50 overlay with the
+voice caption top right; the provenance landing punched towards the Checks column; the brand caption
+"waiting for the brand gate, 9 s compressed"; the seek to 7 s with "21% fewer cavities" on the stage and
+the Findings thread; the BLOCK content card with "seen by Grafana for this run" under every gate; the
+Record with annotation 98 and the $0.52 line; the rights row expanded with "Inject a fault" on; the
+rights ERROR with the amber "TIMEOUT FAULT INJECTED" badge; the two stacked captions of the fault run
+("waiting for the brand gate, 5 s compressed" over "waiting for the claim gate, 6 s compressed"); the
+BLOCK control unavailable card with "error rate 50% over 15m (2 runs)"; the investigation row expanded
+with its tool calls; the Record's Investigation section with the ROOT CAUSE and the cited Loki line;
+the dashboard insert on the "Gate errors (per 5 min)" panel with the rights error at 08:37 and the
+annotation markers; "Reviewed by a human (platform on-call). incident 33 resolved, annotation 100
+written"; the PASS card; the dashboard insert; the landing with the DECISION NOTE and the voice caption.
+No text cut off. Two things a human pass may still weigh: the subtitle box covers the lower part of the
+right column during the punch-ins (the investigation row's tool calls list at 101 s, the resolved line
+at 117 s are partly under it), and the dashboard's axis reads local time (03:37) where the console and
+the note read UTC (08:37).
+
+### What could not be done, and what is left to the human pass
+
+- The "Airlock gate errors" alert list is not on camera: it needs a Grafana login the recorder's fresh
+  browser cannot have. The insert shows the public dashboard's "Gate errors" panel with the error the
+  rule fires on; the investigator's note names the rules it read.
+- The claim row of run 3 reads "No issues found" on the Checks list: the console prints the first
+  reason only for BLOCK and ERROR rows, so "Claim lands PASS naming the study" is true in the gate's
+  result (above) and in the Findings attestations, not on the row the camera shows. A console change
+  (a PASS row showing its first reason) is the fix, out of this task's scope.
+- The escalation of run 1 joined the open content drill 25 rather than opening one (the dedupe reads
+  every open incident of the same title); the Record read "incident 25", the script's "opens the
+  incident" is said over it.
+- The investigator's note of run 2 names the "Airlock daily proof failed" alert, not "Airlock gate
+  errors": the gate errors rule evaluates every 60 s and had not fired yet when the investigator read
+  the rules 20 s after the error; the daily proof rule was firing on the failed attempt of the 00:04 UTC
+  execution (inside its 13 h window), as `alerting_manage_rules` reported. Both statements are true on
+  the stack at that moment; the dashboard insert carries the error the gate rule fires on.
+- The `--max` for this render is 178 (the assembler's default is 170): the script carries 159.7 s of
+  voice at 1.1, so the render is voice-bound at 177.5 s and no hold was trimmed; under 176 the
+  assembler would have shortened the dashboard insert under its own line.
+- 15 content drills (2 to 26) stay open on the stack; the two control incidents of the day (32, 33) were
+  resolved from the console on camera.
+- YouTube and Devpost: not touched here.
