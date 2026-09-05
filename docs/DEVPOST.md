@@ -16,9 +16,15 @@ through MCP, four PromQL questions about each gate before it is allowed to rule:
 the last calibration run caught its defect. A gate Grafana cannot see succeed forces a BLOCK
 "control unavailable"; a gate that never caught a real defect is advisory and cannot contribute to
 a PASS. The verdict is written back to the Grafana dashboard as an annotation, and when only a
-human can lift the BLOCK, an incident is opened in Grafana IRM. On the demo assets it takes 48 s
-from upload to verdict for an 8 s clip and 119 s for a 30 s commercial, and every check reports
-what it cost at list price (tokens, video minutes, dollars), pushed to Grafana beside the verdict.
+human can lift the BLOCK, an incident is opened in Grafana IRM (as a drill on the free stack). A
+check takes one to four minutes, almost all of it the Video Intelligence operation: measured on the
+hosted console, the 8 s clean clip took 38 s (`docs/RUNS.md`, the cold judge pass of 2026-09-02,
+annotation 52) and 243 s (the console v3.1 verification the same night, annotation 55), and 189 s
+from Agent Engine while another check ran (audit item 4, annotation 50); the 30 s Crest excerpt took
+72 s (first console verification, 2026-08-29) and 78 s (cold judge, annotation 51) on the console
+and 119 s from Agent Engine with three Video Intelligence jobs overlapping (verification A). Every
+check reports what it cost at list price (tokens, video minutes, dollars), pushed to Grafana beside
+the verdict.
 The control also proves itself twice a day: a scheduled job re-runs every injected defect and one
 clean clip, and a gate whose defect slipped through loses its right to PASS until it catches again.
 
@@ -28,9 +34,12 @@ All decision logic is plain, unit-tested Python (64 tests, none of them calls a 
 gate decisions, the two verdict rules, the escalation rule. Google ADK is the runtime envelope: a
 SequentialAgent whose first step is a ParallelAgent of the four gates (each a BaseAgent around a
 plain function, run in a thread so they really overlap), then a verdict BaseAgent, then an
-escalation BaseAgent, deployed on Vertex AI Agent Engine. The models only read: gemini-2.5-pro
-extracts claims with timestamps (flash mis-scales video timestamps, measured), gemini-2.5-flash
-reads the charter. The Video Intelligence API finds logos, faces, text and explicit content; the
+escalation BaseAgent, deployed on Vertex AI Agent Engine. The models label, the rules decide:
+gemini-2.5-pro extracts every claim with its timestamps, quote and kind under a JSON schema (flash
+mis-scales video timestamps, measured), gemini-2.5-flash reads the asset against the charter under
+a schema (wordmark seen, dominant colours, tone words); the claim and brand decisions are plain
+functions over those labels, so a wrong label is a wrong decision, which is what the calibration
+ledger exists to catch. The Video Intelligence API finds logos, faces, text and explicit content; the
 c2pa-python library verifies manifests. Grafana is reached through the open-source mcp-grafana
 server deployed on Cloud Run in streamable HTTP mode behind its own bearer, from ADK's McpToolset
 with a header provider; the gates push their counters through Grafana Cloud's Influx line-protocol
@@ -53,13 +62,24 @@ API calls until the app is opened once, so the escalation carries a fallback ann
 Intelligence API takes 30 s alone and 108 s when three jobs overlap, which is why the gates run in
 parallel and the real demo asset is a 30 s excerpt. And a self-issued C2PA signer validates as
 "untrusted" until it is on the reader's trust list, which is the correct behaviour and became the
-trust list feature.
+trust list feature. And the Grafana Cloud free stack pauses after idle days and answers 503 while it
+wakes: the scheduled proof failed on its first attempt twice for that reason (Cloud Run job
+executions `airlock-daily-proof-877cd` at 2026-09-04 12:05 UTC and `airlock-daily-proof-kwqbk` at
+2026-09-05 00:04 UTC, `list_datasources` answered status 503) and passed on the job's retry,
+so a Cloud Scheduler job now GETs the console health route every 30 minutes to keep the stack awake
+(`infra/gcp/keepalive.sh`).
 
 ## Accomplishments
 
-An evaluation on 16 assets (10 more real Prelinger commercials and 6 synthetic clips): 100 percent
-precision and recall on every gate against the stated ground truth, a median of 0.52 USD per 30 s
-spot at list price, 47.7 s median for the rights gate and 2 ms for provenance (`eval/EVAL.md`). And
+An evaluation on 16 assets (10 more real Prelinger commercials and 6 synthetic clips), reproducible
+from the repository (`scripts/fetch_assets.sh` cuts the excerpts from archive.org and checks their
+hashes) and scored per gate and per rule against a hand-labelled manifest: by status, 100 percent
+precision and recall on every gate (rights 10 of 10 on n=16, claim 3 of 3 on n=5, brand 2 of 2 on
+n=6, provenance 14 of 14 on n=16); per rule, every expected rule fired except the unknown-brand rule
+on one spot where Video Intelligence found no logo (9 of 10), and one forbidden rule fired (explicit
+content on a 1963 family party, 0 of 1); the brand on screen was named on 4 of 10 real spots. A
+median of 0.52 USD per 30 s spot at list price (n=16), 41.1 s median for the rights gate and 2 ms
+for provenance (`eval/EVAL.md`, run of 2026-09-05, the misses in its "Surprises" section). And
 annotations and incidents on the Grafana stack from the first day, each one a verdict a judge can
 read back: the real 1960s commercial blocked on four gates, the run with the rights telemetry dark
 for 16 minutes blocked as "control unavailable" although every gate had passed, the run after a

@@ -1786,3 +1786,24 @@ Cheerios", Ivory, Folgers, General Electric), the same six misnamed as on 2026-0
   instead. The test count left the command comment (it changes with every task; `pytest` prints it).
 - The evaluation section carries the 2026-09-05 run with n beside every percentage, the per-rule
   table, the brand identification score (4 of 10) and the surprises above.
+
+### Devpost text: the numbers a judge can check
+
+- "48 s from upload to verdict for an 8 s clip and 119 s for a 30 s commercial" (runs D and A of
+  2026-08-28, from a GCS URI on Agent Engine, the best two) becomes the measured range with the runs
+  named: the 8 s clean clip took 38 s (cold judge on the hosted console, 2026-09-02, annotation 52;
+  again 38 s in proof execution fwlp5), 189 s from Agent Engine while another check ran (audit item
+  4, annotation 50) and 243 s on the hosted console (console v3.1 verification, annotation 55); the
+  30 s Crest excerpt took 72 s (first console verification, 2026-08-29), 78 s (cold judge, annotation
+  51) and 119 s from Agent Engine with three Video Intelligence jobs overlapping (verification A).
+  This file holds no 189 s reading for the 30 s excerpt: 189.1 s is the 8 s clip (audit item 4).
+- "The models only read" becomes "the models label, the rules decide", with what each model labels
+  under its schema.
+- Challenges: the Grafana Cloud free stack pauses after idle days and answers 503 while it wakes; the
+  scheduled proof failed on its first attempt twice for that reason (Cloud Run job executions
+  `airlock-daily-proof-877cd`, 2026-09-04 12:05 UTC, and `airlock-daily-proof-kwqbk`, 2026-09-05
+  00:04 UTC, `list_datasources` status 503, both passed on the job's retry, read from the job logs by
+  the panel's Grafana reviewer), and the keepalive job that followed (`infra/gcp/keepalive.sh`).
+- "100 percent precision and recall on every gate" carries its n per gate, the per-rule misses (9 of
+  10, 0 of 1) and the brand named on 4 of 10; "47.7 s median for the rights gate" (2026-08-29) becomes
+  41.1 s (2026-09-05).
