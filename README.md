@@ -4,7 +4,7 @@ Studios ship dozens of generated assets a week, and nobody can prove which one w
 which rule, and whether the check itself was working. Airlock answers one question per asset:
 can this ship, on what proof, and was the control that said so in a state to say it?
 
-Try it, no login: https://airlock-console-771466810465.us-central1.run.app (pick an asset, run the airlock, read the trace; the two demo assets and a clean one that PASSes, or upload a 30 s clip).
+Try it, no login: https://airlock-console-771466810465.us-central1.run.app (pick an asset, run the airlock, read the trace; four presets: a real 1960s commercial that blocks, a synthetic test clip that blocks on one claim, the same clip with its study on file that passes, a clean clip that passes; or upload a 30 s clip; break the control with the fault switch and watch the verdict refuse).
 
 ![The reviewer console after the Crest commercial ran, one screen: the clip on the stage with the findings marked on the scrubber, the verdict and the checks list with one status line per gate on the right, the stats in the footer](docs/img/console-v3-crest-block-2026-08-29.png)
 
@@ -191,14 +191,14 @@ General Electric; `assets/real/eval/SOURCE.md`, fetched and cut by `scripts/fetc
 the 6 synthetic clips. The ground truth is `eval/manifest.yaml`: the expected status per gate, the
 rule ids that must fire and must not fire on each asset, and for the real spots the brand on screen
 and whether a person is on screen (hand-labelled from contact sheets). A percentage never travels
-without its count. `eval/EVAL.md`, run of 2026-09-05:
+without its count. `eval/EVAL.md`, run of 2026-09-05 09:30 UTC on the shipped gates:
 
 | gate | n | precision | recall | median latency | max |
 |---|---|---|---|---|---|
-| rights | 16 | 100% (10 of 10) | 100% (10 of 10) | 41.1 s | 94.5 s |
-| claim | 5 | 100% (3 of 3) | 100% (3 of 3) | 20.7 s | 40.6 s |
-| brand | 6 | 100% (2 of 2) | 100% (2 of 2) | 14.7 s | 22.0 s |
-| provenance | 16 | 100% (14 of 14) | 100% (14 of 14) | 2 ms | 52 ms |
+| rights | 16 | 100% (10 of 10) | 100% (10 of 10) | 41.2 s | 87.8 s |
+| claim | 5 | 100% (3 of 3) | 100% (3 of 3) | 22.0 s | 300.5 s (one call hung and the 300 s client timeout ended it as an ERROR) |
+| brand | 6 | 100% (2 of 2) | 100% (2 of 2) | 16.0 s | 30.8 s |
+| provenance | 16 | 100% (14 of 14) | 100% (14 of 14) | 6 ms | 86 ms |
 
 That is the status. Scored per rule, where a forbidden rule that fires is a false positive even when
 the BLOCK was right, the same run reads:
@@ -220,7 +220,7 @@ Brand identification, scored apart from the BLOCK: the rights gate named the bra
 not know; a rights desk would still need the name.
 
 Cost at list price (`pricing.yaml`, Billing Catalog SKUs read 2026-08-29): median 0.52 USD per
-30 s spot (n=16), 8.23 USD for the whole run (16 Video Intelligence minutes, 32 Gemini calls); the
+30 s spot (n=16), 8.21 USD for the whole run (16 Video Intelligence minutes, 31 Gemini calls); the
 Video Intelligence started minute is most of it, so an 8 s clip costs the same as a 30 s one.
 
 What the status score hid, kept in `eval/EVAL.md` under "Surprises": Video Intelligence named the
@@ -243,13 +243,19 @@ a calibration miss (BLOCK, uncalibrated control, annotation 8), and the first PA
 
 ## Tests
 
-Three commands, no cloud call in any of them:
+Five checks, no cloud call in any of them, `scripts/check.sh` runs them all and stops at the first red:
 
 ```
 uv run pytest -q                                       # the rules: gates, verdict (R1, R2, instrument error, paperwork), ledger, telemetry, the MCP server
 uv run ruff check .                                    # lint (E, F, B, BLE, UP at 160 columns; the ignores and their reasons are in pyproject.toml)
 uv run pyright airlock agents airlock_mcp scripts      # types, basic mode
+uv run python scripts/export_promql.py --check         # the console's PromQL is the verdict's
+(cd console && pnpm typecheck && pnpm lint)            # the console
 ```
+
+There is no CI on this repository (GitHub Actions is billing-blocked on the account, said in
+`docs/RUNS.md`); `scripts/check.sh` before a commit is the gate, and the panel of 2026-09-05 caught
+the one time it was skipped.
 
 The tests cover the line-protocol formatter, the four gate decisions, the verdict rules, the
 calibration ledger (one series per injected defect), the shared telemetry pushers, the settings

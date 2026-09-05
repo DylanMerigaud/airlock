@@ -37,3 +37,13 @@ export function loadLastRun(): RunState | null {
     return null;
   }
 }
+
+/** Forgets the stored run: the reviewer moved to another asset and the old verdict must not come back. */
+export function clearLastRun() {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.removeItem(KEY);
+  } catch {
+    // Nothing to forget, or storage blocked: either way the desk is clean.
+  }
+}

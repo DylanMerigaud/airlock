@@ -78,7 +78,9 @@ output, listening on `$PORT`). The script prints the service URL when it is done
 | --- | --- |
 | `POST /api/run` | Resolves the asset to a `gs://` URI, calls Vertex AI Agent Engine `streamQuery`, relays every ADK event to the browser as SSE. Upstream timeout 15 minutes, nothing buffered. |
 | `POST /api/upload` | One MP4 up to 50 MB into `gs://$AIRLOCK_ASSETS_BUCKET/uploads/`. The browser refuses clips over 30 s before the upload starts. |
-| `GET /api/health` | The three PromQL answers per gate (error rate, seconds since success, calibration catches over 7d) through the Grafana datasource API. Cached 20 s. |
+| `GET /api/health` | The verdict's PromQL per gate (error ratio and runs over 15 minutes, seconds since success, calibration catches over 7d, whether the last calibration caught), read from `src/lib/promql.json`, which `scripts/export_promql.py` writes from `airlock.verdict.promql_questions` (a test fails on drift). Cached 20 s. |
+| `GET /api/incidents` | Grafana Incident's open Airlock incidents (drills included), the Queue tab. |
+| `POST /api/incident/resolve` | Resolves an Airlock incident (`IncidentsService.UpdateStatus`, after reading it back and refusing any other title) and writes an annotation tagged `airlock, reviewed` with the reviewer's role. Same per-caller limit as `/api/run`. |
 | `GET /api/stats` | Seven day verdict and incident totals, plus how many gates are calibrated. Cached 20 s. |
 | `GET /api/asset/[id]` | Streams a preloaded clip out of Cloud Storage with the server credentials, for the player on the stage. In mock mode it answers 503, so the stage falls back to the poster and says so. |
 
@@ -90,7 +92,7 @@ payload on screen, and says "Grafana Cloud is starting, retrying" in the footer;
 `unavailable` in red, with the reason on hover, only once that budget is spent with nothing to show.
 Nothing polls while every route answers `ok: true`: one refresh on mount and one per settled run.
 
-## The three preloaded assets
+## The four preloaded assets
 
 - **Crest Toothpaste Commercial**, Prelinger Archives, public domain, 30 s excerpt, real footage.
   Expected: four blocks (trademark not cleared, unsubstantiated claims, off charter, no C2PA
@@ -118,20 +120,22 @@ Crest was itself recorded with the rights gate muted, so its rights row carries 
 
 ## Notes for anyone reading the code
 
-- The block queue is per browser, in `localStorage`. The last settled run (events and verdict) is
-  kept in `sessionStorage`, keyed by its `startedAt`, and restored on mount with a "restored" note
+- The Queue tab lists Grafana Incident's open Airlock incidents (`GET /api/incidents`), each with a
+  Re-run and a Resolve action; `localStorage` only holds the offline fallback, labelled as such. The
+  last settled run (events and verdict) is kept in `sessionStorage`, keyed by its `startedAt`, and restored on mount with a "restored" note
   in the Record segment, so following the Grafana link and coming back loses nothing. Nothing about
   a run leaves the session except what the agents themselves wrote to Grafana.
 - The calibration line under a gate before a run reads one of five states derived from Grafana's
-  three numbers (`src/lib/gate-state.ts`): `degraded` (errors in 15 minutes, amber), `unproven` (no
+  four numbers (`src/lib/gate-state.ts`, the same PromQL the verdict asks): `degraded` (errors in 15 minutes, amber), `unproven` (no
   success sample in 7 d, amber), `never calibrated: ADVISORY` (amber), `idle` (no error, last
   success older than 900 s, soft ink: the gates run before the verdict asks Grafana, so the run
   re-proves it) and `healthy`. The verdict rules on the Python side are untouched by this wording.
 - A finding becomes a marker on the scrubber when its sentence names a second of the clip, which
   is parsed narrowly: `at 16.12s`, `first at 7.5s`, `at 3.0s`. A bare `533 s ago` in a health
   line is a duration, not a position, and never becomes one (`src/lib/timecodes.ts`).
-- "Mark reviewed by a human" flips the decision record locally. In production it closes the
-  incident.
+- "Mark reviewed by a human" posts to `/api/incident/resolve`: the incident is resolved in Grafana
+  Incident and an annotation tagged `reviewed` carries the reviewer's role and the verdict summary; the
+  Record shows the resolved status and the annotation id.
 - Mock health mirrors `fixtures/run-nimbus-block.jsonl`, so the claim gate reads degraded at a
   33 percent error rate there. The uncalibrated ADVISORY state is served by the same code path
   when Grafana reports no calibration catch for a gate.

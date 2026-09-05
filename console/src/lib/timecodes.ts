@@ -37,9 +37,6 @@ export function splitTimecodes(text: string): FindingPart[] {
   return parts;
 }
 
-export function hasTimecode(text: string): boolean {
-  return splitTimecodes(text).some((part) => part.kind === "time");
-}
 
 export type MarkerTone = "block" | "pass" | "warn";
 

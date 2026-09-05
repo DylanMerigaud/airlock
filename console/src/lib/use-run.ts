@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { loadLastRun, saveLastRun } from "@/lib/last-run";
+import { clearLastRun, loadLastRun, saveLastRun } from "@/lib/last-run";
 import {
   GATE_ORDER,
   GATE_SOURCE_OF_TRUTH,
@@ -217,6 +217,8 @@ export type RunHandle = {
   state: RunState;
   start: (asset: string, mute?: GateName[], faults?: FaultMap) => void;
   retry: (mute?: GateName[], faults?: FaultMap) => void;
+  /** Forgets a settled run (another asset was picked); a run in flight is kept. */
+  clear: () => void;
   busy: boolean;
 };
 
@@ -383,9 +385,11 @@ export function useRun(): RunHandle {
               ts,
               line: `${gate}: ${parsed.payload.health}${
                 parsed.payload.calibrated ? "" : `, ${parsed.payload.calibration ?? "not calibrated"}`
-              }${unseen ? ", NOT seen by Grafana for this run" : ""}${probeNote ? `. ${probeNote}` : ""}`,
+              }${probeNote ? `. ${probeNote}` : ""}`,
               tone:
-                parsed.payload.calibrated && /healthy/i.test(parsed.payload.health) && !unseen ? "neutral" : "amber",
+                parsed.payload.calibrated && !unseen && !/NOT seen|could not be read|error rate .* \(/i.test(parsed.payload.health)
+                  ? "neutral"
+                  : "amber",
               raw: pretty(text),
               muted: gates[gate].muted,
               fault: gates[gate].fault ?? undefined,
@@ -614,5 +618,12 @@ export function useRun(): RunHandle {
     [start],
   );
 
-  return { state, start, retry, busy: state.phase === "running" };
+  /** Forgets the settled run when the reviewer picks another asset: its verdict and markers belong to the
+   *  clip that was on the stage, not to the one that is (second panel, 2026-09-05). A run in flight is kept. */
+  const clear = useCallback(() => {
+    setState((prev) => (prev.phase === "running" ? prev : IDLE_STATE));
+    clearLastRun();
+  }, []);
+
+  return { state, start, retry, clear, busy: state.phase === "running" };
 }

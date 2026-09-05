@@ -178,9 +178,11 @@ export function calibrationFor(
   const local = localCalibration(reading, gate);
   if (!reported?.calibration) return local;
 
+  // Amber only when the verdict itself saw a problem: not calibrated, this run's event not seen, the
+  // reading unavailable, or the error ratio at the block line (the majority clause prints the run count).
   const degraded =
     reported.calibrated === false ||
-    (reported.health !== undefined && !/healthy/i.test(reported.health));
+    (reported.health !== undefined && /NOT seen|could not be read|error rate .* \(/i.test(reported.health));
 
   return {
     text: reported.health ? `${reported.calibration}, ${reported.health}` : reported.calibration,

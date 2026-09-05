@@ -46,7 +46,6 @@ export const GATE_MEASURED: Partial<Record<GateName, string>> = {
   rights: "30 to 90 s usual, up to 600 s measured",
 };
 
-export type RawEvent = { author: string; text: string; ts: number };
 
 /**
  * The one fault a reviewer can inject for now: the gate raises a TimeoutError

@@ -72,3 +72,24 @@ def test_pick_datasource_by_type_is_first_of_type():
     assert pick_datasource_uid(text, "loki") == "grafanacloud-alert-state-history"  # why the uid is pinned, not picked
     with pytest.raises(LookupError):
         pick_datasource_uid(text, "tempo")
+
+
+def test_a_failing_telemetry_push_never_takes_the_run_down():
+    """A telemetry endpoint answering 503 is recorded on the result; the gate's answer stands, and the
+    verdict finds no Loki event for the run, which is R1 by construction (second panel, 2026-09-05)."""
+
+    class Refuses:
+        def push_lines(self, lines):
+            raise RuntimeError("influx push failed: HTTP 503 Loading")
+
+    sent: list = []
+
+    class Records:
+        def push_event(self, labels, event):
+            sent.append((labels, event))
+
+    r = run_gate("provenance", lambda a: GateResult(gate="provenance", status="PASS", reasons=["ok"]), asset(), "c2pa",
+                 influx=Refuses(), loki=Records())
+    assert r.status == "PASS"
+    assert any("influx: RuntimeError" in str(e.get("telemetry_error")) for e in r.evidence)
+    assert len(sent) == 1 and sent[0][1]["run_id"] == RUN  # the Loki event still went out after the Influx failure

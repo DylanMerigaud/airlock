@@ -11,7 +11,6 @@ from airlock.gates.claim import (
     FTC_SUBSTANTIATION,
     RULES,
     decide,
-    load_substantiation,
     locate_substantiation,
     normalize_quote,
 )
@@ -122,7 +121,7 @@ def test_substantiation_lookup_reads_the_bucket_for_gcs_only_assets():
 
 
 def test_substantiation_lookup_is_empty_when_the_object_is_absent():
-    assert load_substantiation(Asset(asset_id="x", path="", gcs_uri="gs://b/x.mp4"), read_gcs=lambda uri: None) == {}
+    assert locate_substantiation(Asset(asset_id="x", path="", gcs_uri="gs://b/x.mp4"), lambda uri: None)[0] == {}
 
 
 def test_substantiation_lookup_prefers_the_local_file(tmp_path):
@@ -152,4 +151,4 @@ def test_substantiation_read_failure_is_not_a_missing_study():
         raise PermissionError("403 on the bucket")
 
     with pytest.raises(PermissionError):
-        load_substantiation(Asset(asset_id="x", path="", gcs_uri="gs://b/x.mp4"), read_gcs=broken)
+        locate_substantiation(Asset(asset_id="x", path="", gcs_uri="gs://b/x.mp4"), broken)

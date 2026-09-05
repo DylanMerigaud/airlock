@@ -1,5 +1,7 @@
 "use client";
 
+import * as React from "react";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { BlockEntry } from "@/lib/block-queue";
@@ -25,15 +27,27 @@ const HEAD = "label-micro px-3 py-2 text-ink-soft";
 export function IncidentQueue({
   incidents,
   onRerun,
+  onResolve,
   rerunTarget,
   busy,
 }: {
   incidents: IncidentPreview[];
   onRerun: (asset: string) => void;
+  /** Resolves the incident through the console's route (Grafana Incident UpdateStatus plus a reviewed annotation). */
+  onResolve: (incident: IncidentPreview) => Promise<void>;
   /** The console target (preset id or gs:// URI) for an incident's asset id, when the console knows it. */
   rerunTarget: (assetId: string | null) => string | null;
   busy: boolean;
 }) {
+  const [resolving, setResolving] = React.useState<string | null>(null);
+  const resolve = async (incident: IncidentPreview) => {
+    setResolving(incident.id);
+    try {
+      await onResolve(incident);
+    } finally {
+      setResolving(null);
+    }
+  };
   if (incidents.length === 0) {
     return (
       <div className="px-6 py-12 text-center">
@@ -108,13 +122,24 @@ export function IncidentQueue({
                   {stamp(incident.createdAt)}
                 </td>
                 <td className="px-3 py-2.5 text-right">
-                  {target ? (
-                    <Button variant="outline" size="sm" disabled={busy} onClick={() => onRerun(target)}>
-                      Re-run
+                  <div className="flex flex-wrap justify-end gap-1.5">
+                    {target ? (
+                      <Button variant="outline" size="sm" disabled={busy} onClick={() => onRerun(target)}>
+                        Re-run
+                      </Button>
+                    ) : (
+                      <span className="self-center text-[11px] text-ink-soft">asset not preloaded here</span>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={busy || resolving !== null}
+                      onClick={() => void resolve(incident)}
+                      aria-label={`Resolve incident ${incident.id} as reviewed by a human`}
+                    >
+                      {resolving === incident.id ? "Resolving" : "Resolve"}
                     </Button>
-                  ) : (
-                    <span className="text-[11px] text-ink-soft">asset not preloaded here</span>
-                  )}
+                  </div>
                 </td>
               </tr>
             );

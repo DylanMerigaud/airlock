@@ -10,24 +10,30 @@ const WINDOW_MS = 60 * 60 * 1000;
 type Bucket = { tokens: number; refilledAt: number };
 const buckets = new Map<string, Bucket>();
 
+/** Cloud Run's front end APPENDS the connecting address to whatever X-Forwarded-For the client sent, so the
+ *  last hop is the one the caller cannot choose; the first hop is theirs to forge. */
 export function callerKey(request: Request): string {
   const fwd = request.headers.get("x-forwarded-for");
-  if (fwd) return fwd.split(",")[0].trim();
+  if (fwd) {
+    const hops = fwd.split(",").map((h) => h.trim()).filter(Boolean);
+    if (hops.length) return hops[hops.length - 1];
+  }
   return request.headers.get("x-real-ip") || "unknown";
 }
 
-export function takeRunToken(key: string, now = Date.now()): { ok: true } | { ok: false; retryAfterS: number } {
-  const bucket = buckets.get(key) ?? { tokens: RUN_LIMIT_PER_HOUR, refilledAt: now };
+export function takeRunToken(key: string, now = Date.now(), scope = "run"): { ok: true } | { ok: false; retryAfterS: number } {
+  const scoped = `${scope}:${key}`;
+  const bucket = buckets.get(scoped) ?? { tokens: RUN_LIMIT_PER_HOUR, refilledAt: now };
   const refill = ((now - bucket.refilledAt) / WINDOW_MS) * RUN_LIMIT_PER_HOUR;
   bucket.tokens = Math.min(RUN_LIMIT_PER_HOUR, bucket.tokens + refill);
   bucket.refilledAt = now;
   if (bucket.tokens < 1) {
-    buckets.set(key, bucket);
+    buckets.set(scoped, bucket);
     const retryAfterS = Math.ceil(((1 - bucket.tokens) / RUN_LIMIT_PER_HOUR) * (WINDOW_MS / 1000));
     return { ok: false, retryAfterS };
   }
   bucket.tokens -= 1;
-  buckets.set(key, bucket);
+  buckets.set(scoped, bucket);
   return { ok: true };
 }
 

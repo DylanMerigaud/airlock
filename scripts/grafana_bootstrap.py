@@ -61,7 +61,11 @@ def panel(pid: int, title: str, expr: str, ds_uid: str, x: int, y: int, w: int =
         "datasource": {"type": "prometheus", "uid": ds_uid},
         "gridPos": {"x": x, "y": y, "w": w, "h": h},
         "fieldConfig": {"defaults": defaults, "overrides": overrides or []},
-        "targets": [{"refId": "A", "expr": expr, "legendFormat": legend, "datasource": {"type": "prometheus", "uid": ds_uid}}],
+        # A stat tile reduces "last not null" over a range query, which keeps a series alive for the width of
+        # the range after its last sample: a 7 d tile counting day 8 (second panel, 2026-09-05). Stat tiles
+        # query the instant value; time series keep the range.
+        "targets": [{"refId": "A", "expr": expr, "legendFormat": legend, "datasource": {"type": "prometheus", "uid": ds_uid},
+                     **({"instant": True, "range": False} if kind == "stat" else {})}],
     }
 
 
@@ -135,7 +139,7 @@ PROVISIONING_HEADERS = {"X-Disable-Provenance": "true"}
 
 
 def alert_rules(ds_uid: str) -> list[dict]:
-    """The three Airlock alert rules, keyed by a stable uid. Each is one instant PromQL query (A) and one
+    """The Airlock alert rules, keyed by a stable uid. Each is one instant PromQL query (A) and one
     threshold expression (C: A > 0); the rule fires at the next evaluation (for: 0s), and a missing series
     reads as OK because these counters only exist when a failure was pushed."""
     specs = [
@@ -148,6 +152,9 @@ def alert_rules(ds_uid: str) -> list[dict]:
         ("airlock-calibration-missed", "Airlock calibration missed",
          "sum by (gate) (sum_over_time(airlock_calibration_misses_total[24h]))",
          "A calibration run in the last 24 hours injected a defect the gate did not catch: the gate's PASS is advisory until the next catch (rule R2)."),
+        ("airlock-instrument-error", "Airlock verdict could not reach Grafana",
+         'sum(sum_over_time(airlock_verdict_total{status="ERROR"}[15m]))',
+         "A verdict ended in an instrument error in the last 15 minutes: the verdict agent could not complete its Grafana questions (a paused stack past the 180 s wake budget, or an MCP failure). The run has no verdict and a human must look."),
     ]
     rules = []
     for uid, title, expr, summary in specs:
@@ -171,6 +178,32 @@ def alert_rules(ds_uid: str) -> list[dict]:
                            "conditions": [{"evaluator": {"type": "gt", "params": [0]}, "operator": {"type": "and"}, "query": {"params": ["C"]}, "reducer": {"type": "last", "params": []}, "type": "query"}]}},
             ],
         })
+    # The dead man's switch: the proof runs every 12 hours and pushes one sample; thirteen hours without one is
+    # an outage of the schedule itself (Scheduler, the job, a quota), which no ">" rule on a counter can see.
+    # No data is the alert here, so noDataState is Alerting.
+    rules.append({
+        "uid": "airlock-daily-proof-missing",
+        "title": "Airlock daily proof did not run",
+        "ruleGroup": RULE_GROUP,
+        "folderUID": FOLDER_UID,
+        "condition": "C",
+        "for": "0s",
+        "noDataState": "Alerting",
+        "execErrState": "Error",
+        "orgID": 1,
+        "annotations": {"summary": "No daily proof sample in the last 13 hours: the schedule, the job or its quota failed. Check the Cloud Run job executions.",
+                        "expr": "sum(sum_over_time(airlock_daily_proof_total[13h]))"},
+        "labels": {"app": "airlock", "owner": "platform"},
+        "data": [
+            {"refId": "A", "relativeTimeRange": {"from": 600, "to": 0}, "datasourceUid": ds_uid,
+             "model": {"refId": "A", "expr": "sum(sum_over_time(airlock_daily_proof_total[13h]))", "instant": True, "range": False,
+                       "intervalMs": 1000, "maxDataPoints": 43200}},
+            {"refId": "C", "relativeTimeRange": {"from": 0, "to": 0}, "datasourceUid": "__expr__",
+             "model": {"refId": "C", "type": "threshold", "expression": "A",
+                       "conditions": [{"evaluator": {"type": "lt", "params": [1]}, "operator": {"type": "and"}, "query": {"params": ["C"]},
+                                       "reducer": {"type": "last", "params": []}, "type": "query"}]}},
+        ],
+    })
     return rules
 
 

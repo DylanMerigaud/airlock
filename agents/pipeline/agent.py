@@ -380,8 +380,16 @@ class VerdictAgent(BaseAgent):
                 push_verdict_sample("ERROR", "instrument error", True)
             except Exception as push_exc:
                 failure["telemetry_error"] = f"{type(push_exc).__name__}: {push_exc}"
-            yield _text_event(ctx, self.name, json.dumps(failure, default=str))
-            raise
+            # The failure is the verdict of this run (ERROR, instrument error, a human's): it goes into state so
+            # the investigator and the escalation still run on it; when Grafana is back they write the
+            # needs-human record, when it is not they say so in their own payloads. The run is never lost to
+            # an exception a downstream agent could have explained.
+            failure["gates"] = [{"gate": g, "status": (gate_results.get(g) or {}).get("status"),
+                                 "reason": ((gate_results.get(g) or {}).get("reasons") or [""])[0],
+                                 "seen_this_run": None, "calibrated": None, "calibration": "unknown, the verdict could not ask"} for g in GATES]
+            failure["asset_id"] = asset.asset_id
+            failure["elapsed_ms"] = int((time.time() - started) * 1000)
+            yield _text_event(ctx, self.name, json.dumps(failure, default=str), state_delta={STATE_VERDICT: failure})
         finally:
             await toolset.close()
 
@@ -441,9 +449,13 @@ def investigator_instruction(ctx: ReadonlyContext) -> str:
     gate_lines = []
     for g in verdict.get("gates") or []:
         seen = g.get("seen_this_run")
+        gate_payload = ctx.state.get(STATE_GATE.format(g.get("gate"))) or {}
+        muted = bool(gate_payload.get("telemetry_muted"))
         gate_lines.append(f'- {g.get("gate")}: {g.get("status")}, "{str(g.get("reason", ""))[:240]}"; '
                           f'seen by Grafana for this run: {"yes" if seen else "NO" if seen is False else "unknown"}; '
-                          f'calibrated: {"yes" if g.get("calibrated") else "no"} ({g.get("calibration", "")})')
+                          f'calibrated: {"yes" if g.get("calibrated") else "no"} ({g.get("calibration", "")})'
+                          + ("; telemetry muted by the reviewer for this run: yes (the gate ran and pushed nothing, so Loki holds no line for it "
+                             "on purpose; that is the cause, not an outage)" if muted else ""))
     reasons = "\n".join(f"- {r[:300]}" for r in verdict.get("reasons") or []) or "- (none)"
     if kind == "ROOT CAUSE":
         task = (f"The verdict BLOCKED because a control was unavailable, uncalibrated or in error: {', '.join(focus)}. "

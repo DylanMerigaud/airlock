@@ -649,7 +649,7 @@ tests green, both demo assets answer through the deployed tool exactly as the pi
 
 ## M5: the video
 
-Status: in progress (started 2026-08-29 01:00 UTC).
+Status: DONE 2026-09-05 (v6, take 3, on YouTube unlisted; the drafts below are the road there). Started 2026-08-29 01:00 UTC.
 
 Script v2 (`docs/VIDEO-SCRIPT.md`): three runs in one take, one decision shown three ways (the real
 film blocked on its content; a clean signed asset blocked because a control went dark; the same

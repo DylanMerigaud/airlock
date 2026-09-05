@@ -8,9 +8,6 @@ import "server-only";
 export type InstantQuery = { refId: string; expr: string };
 export type InstantResult = { value: number | null; error?: string };
 
-export function grafanaConfigured(): boolean {
-  return Boolean(process.env.GRAFANA_URL && process.env.GRAFANA_SERVICE_ACCOUNT_TOKEN);
-}
 
 export function isMock(): boolean {
   return process.env.AIRLOCK_MOCK === "1";

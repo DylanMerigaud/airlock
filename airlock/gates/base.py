@@ -113,6 +113,9 @@ def run_gate(gate: str, fn: GateFn, asset: Asset, source_of_truth: str, mute: bo
         result.usage = estimate(gate, result.evidence).to_dict()
     except Exception as exc:  # a cost that cannot be computed is said, never guessed
         result.usage = {"cost_usd": None, "error": f"{type(exc).__name__}: {exc}"}
+    # The pushes never take the run down: a telemetry endpoint that fails is recorded on the result and
+    # the gate's answer stands. The verdict then finds no event for this run in Loki and rules "control
+    # unavailable" by construction, which is the right outcome for a gate Grafana did not see.
     if influx is not None:
         fields: dict[str, int | float] = {"runs_total": 1, "errors_total": 0 if ok else 1, "elapsed_ms": result.elapsed_ms,
                                           "blocks_total": 1 if result.status == "BLOCK" else 0}
@@ -123,9 +126,15 @@ def run_gate(gate: str, fn: GateFn, asset: Asset, source_of_truth: str, mute: bo
             fields["video_minutes"] = float(result.usage.get("video_minutes") or 0)
         if ok:
             fields["last_success_ts"] = int(time.time())
-        influx.push_lines([line(MEASUREMENT, {"gate": gate}, fields)])
+        try:
+            influx.push_lines([line(MEASUREMENT, {"gate": gate}, fields)])
+        except Exception as exc:  # said on the result, never swallowed, never fatal
+            result.evidence.append({"telemetry_error": f"influx: {type(exc).__name__}: {exc}"})
     if loki is not None:
-        loki.push_event({"gate": gate, "status": result.status, "runtime": settings.runtime()}, loki_event(asset, result, fault))
+        try:
+            loki.push_event({"gate": gate, "status": result.status, "runtime": settings.runtime()}, loki_event(asset, result, fault))
+        except Exception as exc:
+            result.evidence.append({"telemetry_error": f"loki: {type(exc).__name__}: {exc}"})
     return result
 
 

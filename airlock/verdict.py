@@ -122,7 +122,9 @@ class GateHealth:
         if self.errors_are_majority:
             parts.append(f"error rate {self.error_rate_15m:.0%} over {ERROR_WINDOW} ({int(self.runs_15m or 0)} runs)")
         elif self.error_rate_15m:
-            parts.append(f"error rate {self.error_rate_15m:.0%} over {ERROR_WINDOW}, under the {ERROR_RATIO_BLOCK:.0%} block line")
+            parts.append(f"healthy, error rate {self.error_rate_15m:.0%} over {ERROR_WINDOW}, under the {ERROR_RATIO_BLOCK:.0%} block line")
+        else:
+            parts.append("healthy")
         if self.seconds_since_success is None:
             parts.append("no success sample in Grafana")
         else:

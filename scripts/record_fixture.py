@@ -3,7 +3,8 @@ console replays in mock mode (one {"author", "text"} line per text part, in arri
 
     uv run python scripts/record_fixture.py <message> <fixture path>
     uv run python scripts/record_fixture.py gs://airlock-agentic-cinema-assets/calibration/nimbus-clean-clip.mp4 console/fixtures/run-clean-pass.jsonl
-    uv run python scripts/record_fixture.py '{"gcs_uri": "gs://.../nimbus-clean-clip.mp4", "fault": {"rights": "timeout"}}' console/fixtures/run-nimbus-instrument-error.jsonl
+    uv run python scripts/record_fixture.py '{"gcs_uri": "gs://.../nimbus-clean-clip.mp4", "fault": {"rights": "timeout"}}' \
+        console/fixtures/run-nimbus-instrument-error.jsonl
 
 The engine comes from AGENT_ENGINE_RESOURCE (airlock.settings). The recording is the real run: it pushes
 telemetry, writes an annotation and, when the verdict needs a human, opens or joins an incident.

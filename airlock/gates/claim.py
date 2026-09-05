@@ -157,10 +157,6 @@ def locate_substantiation(asset: Asset, read_gcs=_read_gcs_text) -> tuple[dict[s
     return {}, None
 
 
-def load_substantiation(asset: Asset, read_gcs=_read_gcs_text) -> dict[str, Any]:
-    return locate_substantiation(asset, read_gcs)[0]
-
-
 def extract_claims(asset: Asset) -> tuple[list[dict[str, Any]], dict[str, Any], dict[str, Any]]:
     answer, usage = ask_json(CLAIM_MODEL, [video_part(asset.path, asset.gcs_uri, asset.mime_type), PROMPT], CLAIM_SCHEMA)
     return answer.get("claims", []), {"summary": answer.get("summary", "")}, usage

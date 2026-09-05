@@ -493,12 +493,6 @@ def surprises(assets: list[dict]) -> list[str]:
     return out
 
 
-def score_all(payload: dict) -> dict:
-    assets = payload["assets"]
-    return {"status": score_status(assets), "rules": score_rules(assets), "brand_names": score_brand_names(assets),
-            "latency": latency(assets), "cost": cost_summary(assets), "surprises": surprises(assets)}
-
-
 # --- the report ---
 
 def write_eval_md(payload: dict) -> None:

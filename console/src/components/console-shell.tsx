@@ -49,7 +49,7 @@ function EnvBadge({ environment, mock }: { environment: string; mock: boolean })
 }
 
 export function ConsoleShell({ dashboardUrl, environment, mock }: ShellProps) {
-  const { state, start, retry, busy } = useRun();
+  const { state, start, retry, clear, busy } = useRun();
   const [target, setTarget] = React.useState<string>("crest");
   const [upload, setUpload] = React.useState<{ name: string; objectUrl: string } | null>(null);
   const [tab, setTab] = React.useState("review");
@@ -135,12 +135,13 @@ export function ConsoleShell({ dashboardUrl, environment, mock }: ShellProps) {
 
   const select = React.useCallback(
     (next: string, uploaded?: { name: string; objectUrl: string }) => {
+      if (next !== target) clear(); // another clip on the stage: the previous verdict and its markers go
       setTarget(next);
       setUpload(uploaded ?? (next.startsWith("gs://") ? upload : null));
       setStageNote(null);
       setActiveSecond(null);
     },
-    [upload],
+    [upload, target, clear],
   );
 
   const run = React.useCallback(
@@ -400,6 +401,19 @@ export function ConsoleShell({ dashboardUrl, environment, mock }: ShellProps) {
                   <IncidentQueue
                     incidents={incidentsView.incidents}
                     onRerun={run}
+                    onResolve={async (incident) => {
+                      await fetch("/api/incident/resolve", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          incidentID: incident.id,
+                          reviewer_role: "platform on-call",
+                          summary: `resolved from the queue: ${incident.title}`,
+                          asset_id: incident.assetId ?? undefined,
+                        }),
+                      });
+                      await refreshIncidents();
+                    }}
                     rerunTarget={rerunTarget}
                     busy={busy}
                   />
