@@ -24,6 +24,19 @@ not on this list is real and named in `assets/real/SOURCE.md`.
 - Signed file sha256: cf5e05c2665181b92f81ac3c80a02ed99b85e066d4fd72a7ef4f3b54e5efe343
 - The brand "Nimbus", its charter (`charter.yaml`) and its registry entry are fictional.
 
+## assets/synthetic/nimbus-test-clip-substantiated.mp4 and its substantiation file
+
+- What: the same bytes as `nimbus-test-clip.mp4` (sha256 cf5e05c2...5efe343, identical) under
+  another name, in the bucket at `gs://airlock-agentic-cinema-assets/synthetic/nimbus-test-clip-substantiated.mp4`
+  (copied 2026-09-05). It exists so the claim gate can be shown lifting a BLOCK: the substantiation
+  file lives beside THIS name, not beside `nimbus-test-clip.mp4`, whose BLOCK on 16 CFR 255.3 is the
+  claim gate's calibration defect (`airlock/calibrate.py`) and the console's demo.
+- `assets/synthetic/nimbus-test-clip-substantiated.mp4.substantiation.yaml` (committed; also at the
+  same name in the bucket): names a study for "Recommended by 9 out of 10 sommeliers.". THE STUDY IS
+  FICTIONAL, the file says so on every line that matters: "Nimbus sommelier preference panel,
+  2026-08 (SYNTHETIC ...)". No panel was run. The claim gate reads the file, matches the quote
+  normalised, and reports "substantiation on file: <study>".
+
 ## assets/synthetic/calibration/nimbus-clean-clip.mp4 (labelled "synthetic test asset" on screen)
 
 - The same Veo clip with the wordmark and tagline only, no claim, signed with the same test
