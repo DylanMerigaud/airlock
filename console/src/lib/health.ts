@@ -1,16 +1,22 @@
 import "server-only";
 import { GATE_ORDER, type GateName } from "@/lib/events";
 import { grafanaInstant, isMock, type InstantQuery } from "@/lib/grafana";
-import { deriveState, type GateState } from "@/lib/gate-state";
+import { deriveState, isCalibrated, type GateState } from "@/lib/gate-state";
+import promql from "@/lib/promql.json";
 
 export { deriveState, type GateState };
 
 export type GateHealth = {
   gate: GateName;
   state: GateState;
+  /** airlock/verdict.py GateHealth.calibrated, computed from the two calibration answers. */
+  calibrated: boolean;
   error_rate_15m: number | null;
   seconds_since_success: number | null;
   calibration_catches_7d: number | null;
+  /** 1 when the last calibration run caught its defect, 0 when it missed, null never calibrated. */
+  last_calibration_caught: number | null;
+  /** Every expression asked, keyed as in promql.json (the verdict's own keys). */
   exprs: Record<string, string>;
   note?: string;
 };
@@ -23,20 +29,43 @@ export type HealthPayload = {
   read_at: string;
 };
 
-export function exprs(gate: GateName) {
+/**
+ * The PromQL for one gate, verbatim from airlock/verdict.py through
+ * scripts/export_promql.py. The console asks every expression the verdict asks,
+ * in the verdict's own words, and nothing it wrote itself.
+ */
+export function exprs(gate: GateName): Record<string, string> {
+  return { ...promql.gates[gate] };
+}
+
+/** The four answers the state is derived from; the rest ride along in `exprs` for the tooltip. */
+type Readings = {
+  error_rate_15m: number | null;
+  seconds_since_success: number | null;
+  calibration_catches_7d: number | null;
+  last_calibration_caught: number | null;
+};
+
+function toGateHealth(gate: GateName, r: Readings, note?: string): GateHealth {
   return {
-    error_rate_15m: `sum(sum_over_time(airlock_gate_errors_total{gate="${gate}"}[15m])) / clamp_min(sum(sum_over_time(airlock_gate_runs_total{gate="${gate}"}[15m])), 1)`,
-    seconds_since_success: `time() - max(max_over_time(airlock_gate_last_success_ts{gate="${gate}"}[7d]))`,
-    calibration_catches_7d: `sum(sum_over_time(airlock_calibration_catches_total{gate="${gate}"}[7d]))`,
+    gate,
+    state: deriveState(r.error_rate_15m, r.seconds_since_success, r.calibration_catches_7d, r.last_calibration_caught),
+    calibrated: isCalibrated(r.calibration_catches_7d, r.last_calibration_caught),
+    ...r,
+    exprs: exprs(gate),
+    note,
   };
 }
 
-/** Mirrors console/fixtures/run-nimbus-block.jsonl so mock mode is coherent. */
-const MOCK_READINGS: Record<GateName, [number, number, number]> = {
-  rights: [0, 10.4, 1],
-  claim: [0.3333, 33.1, 1],
-  brand: [0, 46.0, 1],
-  provenance: [0, 56.8, 2],
+/**
+ * Mirrors console/fixtures/run-nimbus-block.jsonl so mock mode is coherent:
+ * error rate, seconds since success, catches in 7 d, last calibration caught.
+ */
+const MOCK_READINGS: Record<GateName, [number, number, number, number]> = {
+  rights: [0, 10.4, 1, 1],
+  claim: [0.3333, 33.1, 1, 1],
+  brand: [0, 46.0, 1, 1],
+  provenance: [0, 56.8, 2, 1],
 };
 
 export async function readHealth(): Promise<HealthPayload> {
@@ -49,25 +78,23 @@ export async function readHealth(): Promise<HealthPayload> {
       read_at,
       error: null,
       gates: GATE_ORDER.map((gate) => {
-        const [errorRate, since, catches] = MOCK_READINGS[gate];
-        return {
-          gate,
-          state: deriveState(errorRate, since, catches),
-          error_rate_15m: errorRate,
-          seconds_since_success: since,
-          calibration_catches_7d: catches,
-          exprs: exprs(gate),
-        };
+        const [error_rate_15m, seconds_since_success, calibration_catches_7d, last_calibration_caught] =
+          MOCK_READINGS[gate];
+        return toGateHealth(gate, {
+          error_rate_15m,
+          seconds_since_success,
+          calibration_catches_7d,
+          last_calibration_caught,
+        });
       }),
     };
   }
 
   const queries: InstantQuery[] = [];
   for (const gate of GATE_ORDER) {
-    const e = exprs(gate);
-    queries.push({ refId: `${gate}__error_rate_15m`, expr: e.error_rate_15m });
-    queries.push({ refId: `${gate}__seconds_since_success`, expr: e.seconds_since_success });
-    queries.push({ refId: `${gate}__calibration_catches_7d`, expr: e.calibration_catches_7d });
+    for (const [key, expr] of Object.entries(exprs(gate))) {
+      queries.push({ refId: `${gate}__${key}`, expr });
+    }
   }
 
   const answers = await grafanaInstant(queries);
@@ -78,25 +105,21 @@ export async function readHealth(): Promise<HealthPayload> {
     read_at,
     error: null,
     gates: GATE_ORDER.map((gate) => {
-      const errorRate = answers[`${gate}__error_rate_15m`]?.value ?? null;
-      const since = answers[`${gate}__seconds_since_success`]?.value ?? null;
-      const catches = answers[`${gate}__calibration_catches_7d`]?.value ?? null;
-      const note = [
-        answers[`${gate}__error_rate_15m`]?.error,
-        answers[`${gate}__seconds_since_success`]?.error,
-        answers[`${gate}__calibration_catches_7d`]?.error,
-      ]
+      const value = (key: string) => answers[`${gate}__${key}`]?.value ?? null;
+      const note = Object.keys(exprs(gate))
+        .map((key) => answers[`${gate}__${key}`]?.error)
         .filter(Boolean)
         .join("; ");
-      return {
+      return toGateHealth(
         gate,
-        state: deriveState(errorRate, since, catches),
-        error_rate_15m: errorRate,
-        seconds_since_success: since,
-        calibration_catches_7d: catches,
-        exprs: exprs(gate),
-        note: note || undefined,
-      };
+        {
+          error_rate_15m: value("error_rate_15m"),
+          seconds_since_success: value("seconds_since_success"),
+          calibration_catches_7d: value("calibration_catches_7d"),
+          last_calibration_caught: value("last_calibration_caught"),
+        },
+        note || undefined,
+      );
     }),
   };
 }

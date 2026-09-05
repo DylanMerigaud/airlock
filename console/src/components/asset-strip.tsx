@@ -190,6 +190,9 @@ export function AssetStrip({
             <span className="truncate font-mono text-[9.5px] uppercase tracking-[0.06em] text-ink-soft">
               MP4, 30 s and 50 MB at most
             </span>
+            <span className="text-[10.5px] leading-[1.35] text-ink-soft">
+              Uploads are read against the Nimbus demo brand book (charter.yaml)
+            </span>
           </label>
         </div>
       </div>

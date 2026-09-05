@@ -1,7 +1,7 @@
 "use client";
 
 import { type GateName, type ReportedInstrument } from "@/lib/events";
-import { STALE_AFTER_S, type GateState } from "@/lib/gate-state";
+import { STALE_AFTER_S, uncalibratedBecause, type GateState } from "@/lib/gate-state";
 import { percent, shortSeconds } from "@/lib/utils";
 
 /** One hue per gate, matched to the scrubber markers. */
@@ -15,11 +15,25 @@ export const GATE_DOT: Record<GateName, string> = {
 export type GateHealthView = {
   gate: GateName;
   state: GateState;
+  calibrated?: boolean;
   error_rate_15m: number | null;
   seconds_since_success: number | null;
   calibration_catches_7d: number | null;
+  /** 1 caught, 0 missed, null never calibrated. Absent from payloads recorded before it was asked. */
+  last_calibration_caught?: number | null;
   exprs: Record<string, string>;
 };
+
+/**
+ * What "caught N injected defects" means, for a reader who is not the engineer
+ * who built the calibration: shown as the line's tooltip and, in words, in the
+ * expanded row.
+ */
+export const CALIBRATION_HELP =
+  "Calibration: twice a day Airlock injects a known defect into each gate and checks the gate catches it. This line counts the catches over the last 7 days and says whether the latest one caught its defect.";
+
+export const CALIBRATION_CLAUSE =
+  "(calibration: the gate caught the defects injected into it over the last 7 days)";
 
 export type HealthView = {
   ok: boolean;
@@ -67,6 +81,8 @@ export type Calibration = {
   detail: string;
   /** No reading yet: the row draws a placeholder instead of the text. */
   pending?: boolean;
+  /** Plain words for what the line counts, when it counts calibration catches. */
+  help?: string;
 };
 
 function localCalibration(reading: InstrumentReading, gate: GateName): Calibration {
@@ -99,10 +115,12 @@ function localCalibration(reading: InstrumentReading, gate: GateName): Calibrati
     };
   }
 
+  const lastCaught = entry.last_calibration_caught ?? null;
   const detail = [
     `error_rate_15m ${entry.error_rate_15m === null ? "no sample" : entry.error_rate_15m.toFixed(2)}`,
     `seconds_since_success ${entry.seconds_since_success === null ? "no sample" : entry.seconds_since_success.toFixed(1)}`,
     `calibration_catches_7d ${entry.calibration_catches_7d === null ? "no sample" : entry.calibration_catches_7d}`,
+    `last_calibration_caught ${lastCaught === null ? "no sample" : lastCaught > 0 ? "1 (caught)" : "0 (missed)"}`,
   ].join("\n");
 
   if (entry.state === "degraded") {
@@ -118,7 +136,16 @@ function localCalibration(reading: InstrumentReading, gate: GateName): Calibrati
   }
 
   if (entry.state === "uncalibrated") {
-    return { text: "never calibrated: ADVISORY", tone: "amber", detail };
+    const because = uncalibratedBecause(entry.calibration_catches_7d, lastCaught);
+    if (because === "missed") {
+      return {
+        text: `last calibration run MISSED its defect: ADVISORY (${entry.calibration_catches_7d ?? 0} caught earlier in 7d)`,
+        tone: "amber",
+        detail: `${detail}\nthe gate did not catch the defect injected into it last time, so its PASS is advisory until it does`,
+        help: CALIBRATION_HELP,
+      };
+    }
+    return { text: "never calibrated: ADVISORY", tone: "amber", detail, help: CALIBRATION_HELP };
   }
 
   if (entry.state === "idle") {
@@ -134,6 +161,7 @@ function localCalibration(reading: InstrumentReading, gate: GateName): Calibrati
     text: `caught ${catches} injected defect${catches === 1 ? "" : "s"} in 7d, last success ${shortSeconds(entry.seconds_since_success)} ago`,
     tone: "quiet",
     detail,
+    help: CALIBRATION_HELP,
   };
 }
 
@@ -158,5 +186,6 @@ export function calibrationFor(
     text: reported.health ? `${reported.calibration}, ${reported.health}` : reported.calibration,
     tone: degraded ? "amber" : "quiet",
     detail: `Read from Grafana by the verdict agent during this run.\n${local.detail}`,
+    help: /injected defect|calibration/i.test(reported.calibration) ? CALIBRATION_HELP : local.help,
   };
 }

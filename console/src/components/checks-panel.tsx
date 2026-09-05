@@ -15,9 +15,10 @@ import {
   MOTIVE_COPY,
   motiveTone,
   type ChipStatus,
+  type FaultMap,
   type GateName,
 } from "@/lib/events";
-import { calibrationFor, GATE_DOT, type InstrumentReading } from "@/lib/instrument";
+import { CALIBRATION_CLAUSE, calibrationFor, GATE_DOT, type InstrumentReading } from "@/lib/instrument";
 import type { GateCardState, RunState } from "@/lib/use-run";
 
 /**
@@ -44,6 +45,12 @@ function elapsedLine(card: GateCardState, now: number): string | null {
 
 const MUTE_HELP =
   "The gate still runs but pushes nothing to Grafana. The verdict has to notice through Grafana that the control went dark.";
+
+const FAULT_HELP =
+  "The gate fails on purpose before it spends anything; the verdict must notice through Grafana.";
+
+/** The gates a fault can be injected into from this panel: rights only for now. */
+const FAULT_GATES: GateName[] = ["rights"];
 
 const TONE_CLASS = {
   quiet: "text-ink-soft",
@@ -153,6 +160,7 @@ function CheckRow({
   line,
   under,
   underTone = "quiet",
+  underTitle,
   underPending = false,
   counter,
   badges,
@@ -164,6 +172,8 @@ function CheckRow({
   line: string;
   under?: string;
   underTone?: keyof typeof TONE_CLASS;
+  /** Plain words for the under line, shown on hover. */
+  underTitle?: string;
   /** The under line has no reading yet: draw a placeholder bar, keep the words for readers. */
   underPending?: boolean;
   /** The elapsed counter of a running gate. */
@@ -206,6 +216,7 @@ function CheckRow({
           )}
           {under && !underPending && (
             <span
+              title={underTitle}
               className={cn(
                 "mt-0.5 block font-mono text-[10.5px] leading-[1.4]",
                 TONE_CLASS[underTone],
@@ -231,6 +242,96 @@ function CheckRow({
   );
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function scalar(value: unknown): string {
+  if (value === null || value === undefined) return "none";
+  if (typeof value === "string") return value === "" ? "none" : value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return JSON.stringify(value);
+}
+
+/**
+ * One object on one line, "key: value, key: value"; a list of scalars inside it
+ * is a comma list too, anything deeper stays JSON.
+ */
+function compact(record: Record<string, unknown>): string {
+  return Object.entries(record)
+    .map(([key, value]) => {
+      if (isRecord(value)) return `${key}: ${JSON.stringify(value)}`;
+      if (Array.isArray(value)) {
+        if (value.length === 0) return `${key}: none`;
+        return `${key}: ${value.map((item) => (isRecord(item) || Array.isArray(item) ? JSON.stringify(item) : scalar(item))).join(", ")}`;
+      }
+      return `${key}: ${scalar(value)}`;
+    })
+    .join(", ");
+}
+
+/** An array as a comma list; a list of objects gets one line per object. */
+function listed(value: unknown): string {
+  if (!Array.isArray(value)) return scalar(value);
+  if (value.length === 0) return "none";
+  if (value.some(isRecord)) return value.map((item) => (isRecord(item) ? compact(item) : scalar(item))).join("\n");
+  return value.map(scalar).join(", ");
+}
+
+type EvidenceRow = { key: string; value: string };
+
+/** Nested objects flattened one level (parent.child), arrays as comma lists. */
+function flatten(record: Record<string, unknown>): EvidenceRow[] {
+  const rows: EvidenceRow[] = [];
+  for (const [key, value] of Object.entries(record)) {
+    if (isRecord(value)) {
+      const entries = Object.entries(value);
+      if (entries.length === 0) rows.push({ key, value: "none" });
+      for (const [child, inner] of entries) rows.push({ key: `${key}.${child}`, value: listed(inner) });
+    } else {
+      rows.push({ key, value: listed(value) });
+    }
+  }
+  return rows;
+}
+
+/** A flattened key breaks after its dot ("parent." then "child"), never mid-word. */
+function KeyLabel({ value }: { value: string }) {
+  const dot = value.indexOf(".");
+  if (dot < 0) return <>{value}</>;
+  return (
+    <>
+      {value.slice(0, dot + 1)}
+      <wbr />
+      {value.slice(dot + 1)}
+    </>
+  );
+}
+
+function EvidenceTable({ record }: { record: Record<string, unknown> }) {
+  const rows = flatten(record);
+  if (rows.length === 0) return <p className="px-2.5 py-1.5 font-mono text-[11px] text-ink-soft">empty</p>;
+  return (
+    <table className="w-full border-collapse font-mono text-[11px] leading-[1.5]">
+      <tbody>
+        {rows.map((row) => (
+          <tr key={row.key} className="border-b border-line last:border-b-0 align-top">
+            <th scope="row" className="w-[38%] max-w-[180px] break-words py-1 pl-2.5 pr-3 text-left font-normal text-ink-soft">
+              <KeyLabel value={row.key} />
+            </th>
+            <td className="whitespace-pre-line break-words py-1 pr-2.5 text-ink">{row.value}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+/**
+ * What a gate or the escalation returned, as a key and value table a reviewer
+ * reads without knowing JSON. The gate evidence is a list of records, one
+ * table each; the raw JSON stays one disclosure away.
+ */
 function Evidence({ value }: { value: unknown }) {
   const text = React.useMemo(() => {
     try {
@@ -239,10 +340,37 @@ function Evidence({ value }: { value: unknown }) {
       return String(value);
     }
   }, [value]);
+  const records: Record<string, unknown>[] | null = isRecord(value)
+    ? [value]
+    : Array.isArray(value) && value.length > 0 && value.every(isRecord)
+      ? value
+      : null;
   return (
-    <pre className="mt-1.5 max-h-[220px] overflow-auto rounded-[2px] border border-line bg-surface px-2.5 py-2 font-mono text-[11px] leading-[1.55] text-ink-soft">
-      {text}
-    </pre>
+    <div className="mt-1.5">
+      {records ? (
+        <div className="max-h-[260px] overflow-auto rounded-[2px] border border-line bg-surface">
+          {records.map((record, index) => (
+            <div key={index} className={cn(index > 0 && "border-t-2 border-line")}>
+              <EvidenceTable record={record} />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <pre className="max-h-[220px] overflow-auto rounded-[2px] border border-line bg-surface px-2.5 py-2 font-mono text-[11px] leading-[1.55] text-ink-soft">
+          {text}
+        </pre>
+      )}
+      {records && (
+        <details className="mt-1.5">
+          <summary className="cursor-pointer select-none font-mono text-[10.5px] uppercase tracking-[0.08em] text-ink-soft hover:text-ink">
+            raw
+          </summary>
+          <pre className="mt-1 max-h-[220px] overflow-auto rounded-[2px] border border-line bg-surface px-2.5 py-2 font-mono text-[11px] leading-[1.55] text-ink-soft">
+            {text}
+          </pre>
+        </details>
+      )}
+    </div>
   );
 }
 
@@ -400,16 +528,27 @@ export function ChecksList({
   reading,
   mute,
   onToggleMute,
-  muteDisabled,
+  faults,
+  onToggleFault,
+  controlsDisabled,
 }: {
   state: RunState;
   reading: InstrumentReading;
   mute: GateName[];
   onToggleMute: (gate: GateName) => void;
-  muteDisabled: boolean;
+  faults: FaultMap;
+  onToggleFault: (gate: GateName) => void;
+  /** Both switches lock while a run is in flight: they describe the next run. */
+  controlsDisabled: boolean;
 }) {
   const verdict = state.verdict;
   const probed = GATE_ORDER.filter((g) => state.gates[g].probe !== null).length;
+  // The verdict reads this run's event in Loki once it reports seen_this_run; older
+  // recordings never carry the field, so the sentence only grows when it is there.
+  const lokiRead = GATE_ORDER.some((g) => {
+    const seen = state.gates[g].probe?.seen_this_run;
+    return seen === true || seen === false;
+  });
   const escalation = state.escalation;
   const anyRunning = GATE_ORDER.some((g) => state.gates[g].status === "RUNNING");
   const now = useNow(anyRunning);
@@ -428,14 +567,22 @@ export function ChecksList({
             line={gateLine(card)}
             under={calibration.text}
             underTone={calibration.tone}
+            underTitle={calibration.help ? CALIBRATION_CLAUSE : undefined}
             underPending={calibration.pending}
             counter={elapsedLine(card, now)}
             badges={
-              card.muted ? (
-                <Badge tone="neutral" size="xs" title={MUTE_HELP}>
-                  muted
-                </Badge>
-              ) : null
+              <>
+                {card.muted && (
+                  <Badge tone="neutral" size="xs" title={MUTE_HELP}>
+                    muted
+                  </Badge>
+                )}
+                {card.fault && (
+                  <Badge tone="amber" size="xs" title={FAULT_HELP}>
+                    {card.fault} fault injected
+                  </Badge>
+                )}
+              </>
             }
           >
             <dl className="space-y-2 text-[12.5px] leading-[1.5]">
@@ -448,6 +595,9 @@ export function ChecksList({
                 <dd className={cn("mt-1 font-mono text-[11px]", TONE_CLASS[calibration.tone])}>
                   {calibration.text}
                 </dd>
+                {calibration.help && (
+                  <dd className="mt-1 text-[11.5px] leading-[1.45] text-ink-soft">{CALIBRATION_CLAUSE}</dd>
+                )}
                 <dd className="mt-1 whitespace-pre-line font-mono text-[10.5px] text-ink-soft">
                   {calibration.detail}
                 </dd>
@@ -476,7 +626,7 @@ export function ChecksList({
                   <Switch
                     checked={mute.includes(gate)}
                     onCheckedChange={() => onToggleMute(gate)}
-                    disabled={muteDisabled}
+                    disabled={controlsDisabled}
                     aria-describedby={`mute-help-${gate}`}
                   >
                     Mute telemetry
@@ -490,6 +640,29 @@ export function ChecksList({
                 {MUTE_HELP}
               </p>
             </div>
+
+            {FAULT_GATES.includes(gate) && (
+              <div className="mt-3 border-t border-line pt-3">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Switch
+                      checked={Boolean(faults[gate])}
+                      onCheckedChange={() => onToggleFault(gate)}
+                      disabled={controlsDisabled}
+                      aria-describedby={`fault-help-${gate}`}
+                    >
+                      Inject a fault
+                    </Switch>
+                  </TooltipTrigger>
+                  <TooltipContent side="left">
+                    <span className="block max-w-[34ch]">{FAULT_HELP}</span>
+                  </TooltipContent>
+                </Tooltip>
+                <p id={`fault-help-${gate}`} className="mt-1.5 text-[11.5px] leading-[1.45] text-ink-soft">
+                  {FAULT_HELP}
+                </p>
+              </div>
+            )}
 
             {card.done?.evidence !== undefined && (
               <div className="mt-3 border-t border-line pt-3">
@@ -515,15 +688,17 @@ export function ChecksList({
         }
         under={
           state.verdictStatus === "PENDING" || state.verdictStatus === "RUNNING"
-            ? "Waits for the four gates, then asks Grafana four PromQL questions per gate through mcp-grafana"
-            : `${probed} of 4 gates probed through mcp-grafana`
+            ? "Waits for the four gates, then asks Grafana about each one through mcp-grafana"
+            : `Grafana answered for ${probed} of 4 gates`
         }
       >
         <dl className="space-y-2 text-[12.5px] leading-[1.5]">
           <div>
             <dt className="label-micro text-ink-soft">Source of truth</dt>
             <dd className="mt-1 text-ink">
-              Grafana: error rate, seconds since last success, calibration catches over 7 days
+              Grafana, through mcp-grafana: error rate over 15 min, seconds since the last success,
+              calibration catches over 7 days and whether the last calibration caught its defect
+              {lokiRead ? ", and this run's own event in Loki" : ""}
             </dd>
           </div>
           {GATE_ORDER.filter((gate) => state.gates[gate].probe).map((gate) => {
@@ -534,7 +709,8 @@ export function ChecksList({
                 <dt className="label-micro text-ink-soft">{gate}</dt>
                 <dd className="mt-1 font-mono text-[11px] text-ink-soft">
                   {probe.health}
-                  {probe.calibrated ? "" : ", never calibrated"}
+                  {probe.calibrated ? "" : `, ${probe.calibration ?? "not calibrated"}`}
+                  {probe.seen_this_run === false ? ", NOT seen by Grafana for this run" : ""}
                 </dd>
               </div>
             );

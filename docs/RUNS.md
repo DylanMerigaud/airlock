@@ -1654,3 +1654,75 @@ Read back through the Grafana query API: `sum by (outcome) (sum_over_time(airloc
 
 Devpost's "Try it" paragraph now says a check takes one to three minutes and why (`docs/DEVPOST.md`);
 the Devpost page itself is refreshed from that file before the Submit click.
+
+## Console: one PromQL source, the fault switch, legibility (2026-09-05)
+
+Two judges of the 2026-09-05 panel found the console's TypeScript copy of the verdict's PromQL had
+drifted (three questions, no `last_calibration_caught`), and the practitioner could not read three
+things on the Checks segment: the Evidence block (a JSON dump), "caught 12 injected defect(s) in 7d",
+and "4 of 4 gates probed through mcp-grafana". This section is the console side of the fix; the
+verdict side (the Loki read, the fault injection in `run_gate`) lands with T1 and the two deploy
+together.
+
+**One PromQL source.** `scripts/export_promql.py` writes `console/src/lib/promql.json` from
+`airlock.verdict.promql_questions(gate)` for the four gates, whatever keys the function returns;
+`tests/test_promql_export.py` fails when the committed JSON drifts from the export. `health.ts`
+asks every exported expression and `gate-state.ts` derives `uncalibrated` the way
+`GateHealth.calibrated` does (catches at 0 OR the last calibration run missed), the row wording
+saying "last calibration run MISSED its defect" when that is the cause; the stats route counts
+calibrated gates the same way. The exporter must be re-run once T1's `promql_questions` merges
+(it adds the Loki question); the test will say so if it is forgotten.
+
+**Event shapes.** `events.ts` models the gate `running` and `done` events' `fault` and `run_id`, a
+probe's `seen_this_run` and `note`, and the verdict's `{stage: grafana, note}` event (Grafana Cloud
+waking). All rendered defensively: a recording without the fields shows what it showed before.
+
+**The fault switch.** The shell keeps a `FaultMap` beside the muted list and hands both to `start`
+and `retry`; `use-run.ts` sends `{asset, mute, fault}` to `/api/run` the way mute already travelled
+(each key only when set), and the run route allowlists the map (known gates, known kinds) and hands
+the pipeline `{gcs_uri, asset_id, mute, fault}`. The Checks panel shows "Inject a fault" on the
+rights row under "Mute telemetry", the same breaker style, no animation, with the copy "The gate
+fails on purpose before it spends anything; the verdict must notice through Grafana." A gate with a
+fault injected wears an amber "timeout fault injected" badge; its trace row reads "Started with a
+timeout fault injected: the gate fails on purpose before it spends anything".
+
+**Legibility.** Evidence renders each record a gate returned as a key and value table: nested
+objects flattened one level (`explicit_frames.VERY_UNLIKELY`), arrays as comma lists, a list of
+objects one line per object (`start_s: 3, end_s: 7.5, channel: on_screen_text, quote: ...`), the
+JSON kept behind a "raw" disclosure; the escalation payload uses the same table. The calibration
+line under each gate carries "(calibration: the gate caught the defects injected into it over the
+last 7 days)" as its hover text and in words in the expanded row. The verdict row says "Grafana
+answered for N of 4 gates" and names what it asks without a count. The upload tile says "Uploads
+are read against the Nimbus demo brand book (charter.yaml)".
+
+**Verified locally**, in the worktree, on 2026-09-05:
+
+```
+uv run pytest -q tests/test_promql_export.py      -> 5 passed in 0.09s
+uv run pytest -q                                   -> 67 passed, 2 skipped, 7 warnings in 1.46s
+uv run python scripts/export_promql.py --check     -> console/src/lib/promql.json matches airlock.verdict.promql_questions
+cd console && pnpm typecheck                       -> tsc --noEmit, exit 0
+cd console && pnpm lint                            -> eslint ., exit 0
+cd console && pnpm build                           -> Compiled successfully, 3 static pages, exit 0
+```
+
+Mock mode (`AIRLOCK_MOCK=1 pnpm dev --port 3111`, the browser lane `console-t4`): the Nimbus test
+clip, rights row expanded, "Inject a fault" armed (`aria-checked` true), Run airlock. The body the
+browser sent to `/api/run`, read through a fetch hook: `{"asset":"nimbus","fault":{"rights":"timeout"}}`.
+The recording replays as before (mock mode cannot fail a gate the recording passed, so the verdict
+is the recorded BLOCK content; re-recording the fixtures on the current agent is Phase C). The
+rights row header reads `RIGHTS | TIMEOUT FAULT INJECTED | No issues found | caught 1 injected
+defect in 7d, last success 10 s ago`; the rights Evidence table reads `findings = element: brand,
+name: Nimbus, status: cleared, how: on_screen_text, first_seen_s: 0`, `logos = none`,
+`face_tracks = 0`, `text_lines = 6`, `explicit_frames.VERY_UNLIKELY = 6`,
+`explicit_frames.UNLIKELY = 1`; the claim table's first row `blocking_claims = start_s: 3, end_s: 7.5,
+channel: on_screen_text, quote: Recommended by 9 out of 10 sommeliers., kind: expert_endorsement,
+endorser: sommeliers, rules: 16 CFR 255.3, ASA A26-1337640 (CAP 3.7), why: an expert endorsement
+must be supported by an actual exercise of that expertise`; the verdict row `Grafana answered for
+4 of 4 gates`; the trace's first row `1.4s RIGHTS_GATE Started with a timeout fault injected: the
+gate fails on purpose before it spends anything. Video Intelligence: logos, faces, text`.
+Screenshots in the session scratchpad, folder `t4/`: `01-idle.png` (the upload tile copy),
+`02-nimbus-fault-armed.png` (the switch and its copy, the calibration clause),
+`05-rights-header-badge.png`, `06-rights-evidence-table.png`, `07-claim-evidence-table.png`,
+`08-verdict-row.png`, `09-escalation-table-raw-open.png`, `10-trace-fault-rows.png`. The dev
+server was stopped afterwards; nothing was deployed from this task.

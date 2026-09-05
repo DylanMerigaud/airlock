@@ -9,6 +9,7 @@ import {
   parsePayload,
   type ChipStatus,
   type EscalationPayload,
+  type FaultMap,
   type GateDonePayload,
   type GateName,
   type ProbePayload,
@@ -24,6 +25,10 @@ export type GateCardState = {
   probe: ProbePayload | null;
   /** The gate ran but pushed nothing to Grafana on this run. */
   muted: boolean;
+  /** The fault injected into this gate for this run ("timeout"), or null. */
+  fault: string | null;
+  /** The ADK invocation id the gate reported, when it did. */
+  runId: string | null;
   /** Health and calibration as the verdict agent read them, when it sent them. */
   reported: ReportedInstrument | null;
   /** The order this gate reported in, so the findings thread reads oldest first. */
@@ -42,6 +47,10 @@ export type TimelineRow = {
   tone: RowTone;
   raw: string;
   muted?: boolean;
+  /** The fault injected into the gate this row belongs to, when one was. */
+  fault?: string;
+  /** A remark about Grafana itself (a paused stack waking), not about a gate. */
+  grafanaNote?: string;
   verdict?: VerdictPayload;
   escalation?: EscalationPayload;
 };
@@ -53,6 +62,10 @@ export type RunState = {
   target: string | null;
   /** The gates whose telemetry was muted when this run started. */
   muted: GateName[];
+  /** The faults injected when this run started, gate by gate. */
+  faults: FaultMap;
+  /** What the verdict said about Grafana itself, when it said anything (a wake). */
+  grafanaNotes: string[];
   step: string | null;
   rows: TimelineRow[];
   gates: Record<GateName, GateCardState>;
@@ -67,7 +80,7 @@ export type RunState = {
   restored?: boolean;
 };
 
-function freshGates(muted: GateName[] = []): Record<GateName, GateCardState> {
+function freshGates(muted: GateName[] = [], faults: FaultMap = {}): Record<GateName, GateCardState> {
   return GATE_ORDER.reduce(
     (acc, gate) => {
       acc[gate] = {
@@ -77,6 +90,8 @@ function freshGates(muted: GateName[] = []): Record<GateName, GateCardState> {
         done: null,
         probe: null,
         muted: muted.includes(gate),
+        fault: faults[gate] ?? null,
+        runId: null,
         reported: null,
         settledAt: null,
         runningSince: null,
@@ -87,10 +102,26 @@ function freshGates(muted: GateName[] = []): Record<GateName, GateCardState> {
   );
 }
 
+/**
+ * A run restored from sessionStorage may predate a field: fill what is
+ * missing so the components never read undefined where a null is promised.
+ */
+function withDefaults(run: RunState): RunState {
+  const gates = { ...run.gates };
+  for (const gate of GATE_ORDER) {
+    const card = gates[gate];
+    if (!card) continue;
+    gates[gate] = { ...card, fault: card.fault ?? null, runId: card.runId ?? null };
+  }
+  return { ...run, faults: run.faults ?? {}, grafanaNotes: run.grafanaNotes ?? [], gates };
+}
+
 export const IDLE_STATE: RunState = {
   phase: "idle",
   target: null,
   muted: [],
+  faults: {},
+  grafanaNotes: [],
   step: null,
   rows: [],
   gates: freshGates(),
@@ -133,8 +164,8 @@ export function escalationLine(payload: EscalationPayload): string {
 
 export type RunHandle = {
   state: RunState;
-  start: (asset: string, mute?: GateName[]) => void;
-  retry: (mute?: GateName[]) => void;
+  start: (asset: string, mute?: GateName[], faults?: FaultMap) => void;
+  retry: (mute?: GateName[], faults?: FaultMap) => void;
   busy: boolean;
 };
 
@@ -150,28 +181,34 @@ export function useRun(): RunHandle {
     const previous = loadLastRun();
     if (!previous) return;
     lastTarget.current = previous.target;
-    setState((current) => (current.phase === "idle" ? previous : current));
+    const restored = withDefaults(previous);
+    setState((current) => (current.phase === "idle" ? restored : current));
   }, []);
 
   useEffect(() => {
     if (state.phase === "settled" && !state.restored) saveLastRun(state);
   }, [state]);
 
-  const start = useCallback((asset: string, mute: GateName[] = []) => {
+  const start = useCallback((asset: string, mute: GateName[] = [], faultsAsked: FaultMap = {}) => {
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
     lastTarget.current = asset;
     counter.current = 0;
     const muted = GATE_ORDER.filter((gate) => mute.includes(gate));
+    const faults: FaultMap = {};
+    for (const gate of GATE_ORDER) {
+      if (faultsAsked[gate]) faults[gate] = faultsAsked[gate];
+    }
     const startedAt = Date.now();
 
     setState({
       ...IDLE_STATE,
-      gates: freshGates(muted),
+      gates: freshGates(muted, faults),
       phase: "running",
       target: asset,
       muted,
+      faults,
       startedAt,
       step: "Handing the asset to the airlock pipeline",
     });
@@ -190,39 +227,49 @@ export function useRun(): RunHandle {
         let escalation = prev.escalation;
         let verdictStatus = prev.verdictStatus;
         let escalationStatus = prev.escalationStatus;
+        let grafanaNotes = prev.grafanaNotes;
         const elapsedMs = prev.elapsedMs;
 
         if (parsed.kind === "gate-running") {
           const gate = parsed.gate;
           const muted = gates[gate].muted || parsed.payload.telemetry_muted === true;
+          const fault = typeof parsed.payload.fault === "string" && parsed.payload.fault ? parsed.payload.fault : gates[gate].fault;
           gates[gate] = {
             ...gates[gate],
             status: "RUNNING",
             sourceOfTruth: GATE_SOURCE_OF_TRUTH[gate],
             muted,
+            fault,
+            runId: parsed.payload.run_id ?? gates[gate].runId,
             runningSince: Date.now(),
           };
-          step = GATE_STEP[gate];
+          step = fault ? `${GATE_STEP[gate]}, with a ${fault} fault injected` : GATE_STEP[gate];
           rows = [
             ...rows,
             {
               key,
               author,
               ts,
-              line: `Started. ${GATE_STEP[gate]}`,
-              tone: "neutral",
+              line: fault
+                ? `Started with a ${fault} fault injected: the gate fails on purpose before it spends anything. ${GATE_STEP[gate]}`
+                : `Started. ${GATE_STEP[gate]}`,
+              tone: fault ? "amber" : "neutral",
               raw: pretty(text),
               muted,
+              fault: fault ?? undefined,
             },
           ];
         } else if (parsed.kind === "gate-done") {
           const gate = parsed.gate;
           const muted = gates[gate].muted || parsed.payload.telemetry_muted === true;
+          const fault = typeof parsed.payload.fault === "string" && parsed.payload.fault ? parsed.payload.fault : gates[gate].fault;
           gates[gate] = {
             ...gates[gate],
             status: parsed.payload.status,
             done: parsed.payload,
             muted,
+            fault,
+            runId: parsed.payload.run_id ?? gates[gate].runId,
             settledAt: counter.current,
           };
           const stillRunning = GATE_ORDER.filter((g) => gates[g].status === "RUNNING");
@@ -237,6 +284,25 @@ export function useRun(): RunHandle {
               tone: toneFor(parsed.payload.status),
               raw: pretty(text),
               muted,
+              fault: fault ?? undefined,
+            },
+          ];
+        } else if (parsed.kind === "grafana-note") {
+          // The verdict had to wait for Grafana Cloud to wake before it could ask anything.
+          const note = parsed.payload.note.trim();
+          grafanaNotes = grafanaNotes.includes(note) ? grafanaNotes : [...grafanaNotes, note];
+          verdictStatus = "RUNNING";
+          step = note;
+          rows = [
+            ...rows,
+            {
+              key,
+              author,
+              ts,
+              line: note,
+              tone: "amber",
+              raw: pretty(text),
+              grafanaNote: note,
             },
           ];
         } else if (parsed.kind === "probe") {
@@ -252,16 +318,24 @@ export function useRun(): RunHandle {
           };
           verdictStatus = "RUNNING";
           step = `Asking Grafana about ${gate}`;
+          const probeNote = typeof parsed.payload.note === "string" && parsed.payload.note.trim() ? parsed.payload.note.trim() : null;
+          if (probeNote && !grafanaNotes.includes(probeNote)) grafanaNotes = [...grafanaNotes, probeNote];
+          const unseen = parsed.payload.seen_this_run === false;
           rows = [
             ...rows,
             {
               key,
               author,
               ts,
-              line: `${gate}: ${parsed.payload.health}${parsed.payload.calibrated ? "" : ", never calibrated"}`,
-              tone: parsed.payload.calibrated && /healthy/i.test(parsed.payload.health) ? "neutral" : "amber",
+              line: `${gate}: ${parsed.payload.health}${
+                parsed.payload.calibrated ? "" : `, ${parsed.payload.calibration ?? "not calibrated"}`
+              }${unseen ? ", NOT seen by Grafana for this run" : ""}${probeNote ? `. ${probeNote}` : ""}`,
+              tone:
+                parsed.payload.calibrated && /healthy/i.test(parsed.payload.health) && !unseen ? "neutral" : "amber",
               raw: pretty(text),
               muted: gates[gate].muted,
+              fault: gates[gate].fault ?? undefined,
+              grafanaNote: probeNote ?? undefined,
             },
           ];
         } else if (parsed.kind === "verdict") {
@@ -324,6 +398,7 @@ export function useRun(): RunHandle {
           escalation,
           verdictStatus,
           escalationStatus,
+          grafanaNotes,
           elapsedMs,
         };
       });
@@ -335,7 +410,13 @@ export function useRun(): RunHandle {
         const response = await fetch("/api/run", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(muted.length > 0 ? { asset, mute: muted } : { asset }),
+          // The same shape the run route hands the pipeline: mute only when a gate is
+          // muted, fault only when one is injected, so a plain run stays a plain run.
+          body: JSON.stringify({
+            asset,
+            ...(muted.length > 0 ? { mute: muted } : {}),
+            ...(Object.keys(faults).length > 0 ? { fault: faults } : {}),
+          }),
           signal: controller.signal,
         });
 
@@ -435,8 +516,8 @@ export function useRun(): RunHandle {
   }, []);
 
   const retry = useCallback(
-    (mute: GateName[] = []) => {
-      if (lastTarget.current) start(lastTarget.current, mute);
+    (mute: GateName[] = [], faults: FaultMap = {}) => {
+      if (lastTarget.current) start(lastTarget.current, mute, faults);
     },
     [start],
   );
