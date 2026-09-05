@@ -3336,3 +3336,80 @@ Still open, on purpose and said: the console has no login (a demo posture: the r
 routes are rate-limited per caller and the resolve route only touches Airlock incidents); the wake
 retry has met no real paused stack since the keepalive job started; the brand palette is the model's
 estimate; the release model clears the faces of the asset a release names, not each face.
+
+## Console: one row per claim, the owner in the Queue (2026-09-05)
+
+Two findings of the second panel's brand-safety practitioner, both on the hosted console, fixed on
+the console only (branch `worktree-agent-a627714a6b35bae9d`, two commits, not pushed).
+
+**"Nine claims collapse into one Findings row."** The claim gate's single reason is a summary
+("9 regulated claim(s) with no substantiation on file; first at 7.0s: ..."), and the thread and the
+scrubber built one row and one marker from it. `console/src/lib/findings.ts` now reads the gate's
+evidence records instead: `blocking_claims` and `advisory_claims` for the claim gate (quote, kind,
+spoken or on-screen text, start and end, the rules cited for that kind, the gate's why, the study on
+file when one lifted the claim), the `findings` elements for the rights gate (a brand seen as a logo
+or as on-screen text with the registry note kept, the face tracks, explicit content), the
+`exclusion_violations` for the brand gate (the quote, the exclusion it breaks). One row per record,
+anchored on the record's own second; `collectMarkers` puts one marker per row on the scrubber and
+merges two rows on the same second into one tick. The summary stays the gate's headline in the Checks
+row ("9 issues found: 9 regulated claim(s) ..."), with the count of rows the thread lists. Gates whose
+evidence has no per-item structure (provenance, a gate in error) keep one row per reason. The verdict
+notes ("What the verdict added") now compare the verdict's reasons to the gates' own sentences, so a
+summary that left the thread does not reappear as a verdict note.
+
+**"The queue has no owner column."** Measured first: `IncidentsService.QueryIncidentPreviews`
+answers `labels: []` on every preview while `IncidentsService.GetIncident` returns the labels, so the
+owner cannot be read from the previews. `GET /api/incidents` reads each incident back (at most 20 per
+refresh, in parallel, a failed read leaves the row's owner unread and says so) and every preview now
+carries `owner` and `ownerRead`. The Queue prints the owner in words, `clearance owner` or
+`platform on-call`, plain text in the existing tones. Also measured: the two open incidents on the
+stack, 25 (Crest) and 26 (Nimbus test clip), predate the owner label (added to the escalation in
+commit c50ff0a, 06:32 UTC) and carry only `airlock:content`; incident 32 carries `owner:platform`.
+Those two read `no owner label` on the hosted console until relabelled, or the owner the session's
+own run routed them to when that run joins them (the Crest run joins 25 as `clearance owner`).
+
+Commands, from `console/`:
+
+```
+pnpm install --frozen-lockfile
+pnpm typecheck && pnpm lint && pnpm build          # green before each commit
+AIRLOCK_MOCK=1 pnpm dev --port 3112                # mock mode, Crest fixture
+python3 /Users/dylanmerigaud/Code/growth-cockpit/scripts/arc_lane.py open --lane console-b2 --url http://localhost:3112/
+```
+
+Verified in mock mode on `fixtures/run-crest-incident.jsonl`, in the `console-b2` Arc lane, read
+from the DOM:
+
+- Findings segment: 29 rows (was 21), of which 9 claim rows, one per claim, each with its quote,
+  kind, channel, span, why and rules: 7s "my side had 21% fewer cavities with Crest." (consumer
+  testimonial, spoken, 16 CFR 255.2(a), 255.2(b), ASA A26-1337640), 8s "21% fewer cavities"
+  (comparative, on-screen text), 11.5s, 13s, 14.2s (efficacy), 16.5s and 16.2s (expert
+  endorsement), 25.8s and 26s (organization endorsement, 16 CFR 255.4). Rights: 3 rows (Crest logo
+  at 16.12s, ADA on-screen text at 25.73s, 7 face tracks at 0s). Brand: 13 exclusion rows plus 3
+  sentences. Provenance: 1.
+- Scrubber: 18 markers (was 10), the nine claim seconds each with their own marker "flagged by
+  claim", 0s shared by brand and rights in one tick; the legend reads "18 anchored".
+- Checks row for the claim gate: "9 issues found: 9 regulated claim(s) with no substantiation on
+  file; first at 7.0s: ..." (the summary kept as the headline).
+- Clicking a marker seeks the clip: the player was pointed at a local copy of the Crest excerpt
+  served with HTTP Range support (Python's `http.server` has none, and a browser refuses every seek on
+  a resource without it: `seekable` read `[0, 0]`, which cost one false negative before the rig was
+  fixed). Marker 7s: `currentTime` 7.83 s after 0.9 s of playback, the 7s claim row lit. Marker
+  11.5s: `currentTime` 11.5 immediately, 12.65 after 1.2 s, the 11.5s row lit.
+- Nimbus block fixture: 1 issue row (the sommelier claim at 3.2s), the puffery line "Clear as
+  morning." at 0.8s listed as an attestation, the verdict note reduced to "a human can lift this
+  BLOCK ...". Substantiated pass fixture: the sommelier claim at 3s reads "substantiation on file:
+  Nimbus sommelier preference panel, 2026-08".
+- Queue: Owner column between Motive and Opened, "platform on-call" on incident 29 (control
+  unavailable), "clearance owner" on incident 26 (content), mock rows.
+
+Screenshots: `docs/img/console-findings-per-claim-2026-09-05.png` (Review, Findings segment, the
+11.5s claim row lit, nine claim markers on the scrubber) and
+`docs/img/console-queue-owner-2026-09-05.png` (the Queue with its Owner column).
+
+Seen on the way, not fixed here (Python side, out of this pass's scope): the brand gate's
+`exclusion_violations[].start_s` on the Crest excerpt reads 0.06, 0.13, 0.16 and 0.26 for lines the
+claim gate places at 7.0, 11.5, 16.5 and 26 s, so gemini-2.5-flash is returning minutes.seconds
+as a decimal; the brand markers therefore cluster in the first second of the scrubber. A one-off
+`IncidentsService.AddLabel` on incidents 25 and 26 would give the hosted Queue its two owners
+without waiting for a fresh incident.

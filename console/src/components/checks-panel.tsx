@@ -18,6 +18,7 @@ import {
   type FaultMap,
   type GateName,
 } from "@/lib/events";
+import { issueCount } from "@/lib/findings";
 import { CALIBRATION_CLAUSE, calibrationFor, GATE_DOT, type InstrumentReading } from "@/lib/instrument";
 import { escalationLine, investigationLine, investigationStepLine, type GateCardState, type RunState } from "@/lib/use-run";
 
@@ -388,7 +389,10 @@ function gateLine(card: GateCardState): string {
     return said ? `No issues found: ${said.replace(/\s*\(SYNTHETIC.*$/i, "")}` : "No issues found";
   }
   if (card.status === "ERROR") return `Check failed: ${first}`;
-  return `${reasons.length || 1} issue${reasons.length === 1 ? "" : "s"} found: ${first}`;
+  // The count is what the thread lists (one per claim, per sighting, per hit); the
+  // sentence is the gate's own headline, a summary when the gate wrote one.
+  const issues = card.done ? issueCount(card.gate, card.done) : reasons.length;
+  return `${issues || 1} issue${issues === 1 ? "" : "s"} found: ${first}`;
 }
 
 type Tone = "pass" | "block" | "warn" | "accent" | "quiet";

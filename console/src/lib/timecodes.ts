@@ -50,29 +50,28 @@ export type Marker = {
 const TONE_RANK: Record<MarkerTone, number> = { pass: 0, warn: 1, block: 2 };
 
 /**
- * Every timecode a run produced, merged by second so two gates reading the same
- * frame make one tick, in clip order.
+ * One marker per anchored finding, at the second the row is anchored on (a claim
+ * at its own start, a logo at its first sighting), merged by second so two gates
+ * reading the same frame make one tick, in clip order.
  */
 export function collectMarkers(
-  findings: Array<{ text: string; source: string; tone: MarkerTone }>,
+  findings: Array<{ seconds: number | null; source: string; tone: MarkerTone }>,
 ): Marker[] {
   const merged = new Map<number, Marker>();
   for (const finding of findings) {
-    for (const part of splitTimecodes(finding.text)) {
-      if (part.kind !== "time") continue;
-      const at = merged.get(part.seconds);
-      if (!at) {
-        merged.set(part.seconds, {
-          seconds: part.seconds,
-          label: part.label,
-          sources: [finding.source],
-          tone: finding.tone,
-        });
-        continue;
-      }
-      if (!at.sources.includes(finding.source)) at.sources.push(finding.source);
-      if (TONE_RANK[finding.tone] > TONE_RANK[at.tone]) at.tone = finding.tone;
+    if (finding.seconds === null) continue;
+    const at = merged.get(finding.seconds);
+    if (!at) {
+      merged.set(finding.seconds, {
+        seconds: finding.seconds,
+        label: stamp(finding.seconds),
+        sources: [finding.source],
+        tone: finding.tone,
+      });
+      continue;
     }
+    if (!at.sources.includes(finding.source)) at.sources.push(finding.source);
+    if (TONE_RANK[finding.tone] > TONE_RANK[at.tone]) at.tone = finding.tone;
   }
   return [...merged.values()].sort((a, b) => a.seconds - b.seconds);
 }

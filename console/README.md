@@ -8,12 +8,16 @@ asks Loki for it, so a muted gate blocks on the run that muted it), and a gate t
 caught an injected defect is marked ADVISORY.
 
 Three views in the top bar. **Review** is one screen: above 1100 px wide it fits the viewport
-with no page scroll. The clip holds the left with its scrubber, one marker per timestamped
+with no page scroll. The clip holds the left with its scrubber, one marker per anchored
 finding coloured by the gate that wrote it, and the asset strip under it. The right column
 carries the verdict and a segmented control, **Checks | Findings | Record**, so the reviewer
 switches what they read while the clip stays on screen; each segment scrolls inside its own
-region. **Trace** is the raw event timeline of the run. **Queue** is the session's BLOCK
-worklist. The five seven-day totals and the spec line sit in one thin bar at the bottom.
+region. The Findings thread lists one row per thing a gate read, not one per sentence: the
+claim gate's nine claims on the Crest excerpt are nine rows (quote, kind, spoken or on-screen
+text, start and end, the rules cited, the gate's reason), each anchored on its own second, so
+the scrubber shows nine markers. **Trace** is the raw event timeline of the run. **Queue** is
+Grafana's open Airlock incidents with the owner each one is routed to. The five seven-day
+totals and the spec line sit in one thin bar at the bottom.
 
 The palette is YouTube Studio's light theme applied literally, and the type is Roboto with
 Roboto Mono for ids, rules, timestamps and calibration lines. Nothing on the page loops,
@@ -79,7 +83,7 @@ output, listening on `$PORT`). The script prints the service URL when it is done
 | `POST /api/run` | Resolves the asset to a `gs://` URI, calls Vertex AI Agent Engine `streamQuery`, relays every ADK event to the browser as SSE. Upstream timeout 15 minutes, nothing buffered. |
 | `POST /api/upload` | One MP4 up to 50 MB into `gs://$AIRLOCK_ASSETS_BUCKET/uploads/`. The browser refuses clips over 30 s before the upload starts. |
 | `GET /api/health` | The verdict's PromQL per gate (error ratio and runs over 15 minutes, seconds since success, calibration catches over 7d, whether the last calibration caught), read from `src/lib/promql.json`, which `scripts/export_promql.py` writes from `airlock.verdict.promql_questions` (a test fails on drift). Cached 20 s. |
-| `GET /api/incidents` | Grafana Incident's open Airlock incidents (drills included), the Queue tab. |
+| `GET /api/incidents` | Grafana Incident's open Airlock incidents (drills included), the Queue tab. The preview API returns no labels, so the route reads each incident back (`IncidentsService.GetIncident`, at most 20 per refresh, in parallel) for its `owner` label. |
 | `POST /api/incident/resolve` | Resolves an Airlock incident (`IncidentsService.UpdateStatus`, after reading it back and refusing any other title) and writes an annotation tagged `airlock, reviewed` with the reviewer's role. Same per-caller limit as `/api/run`. |
 | `GET /api/stats` | Seven day verdict and incident totals, plus how many gates are calibrated. Cached 20 s. |
 | `GET /api/asset/[id]` | Streams a preloaded clip out of Cloud Storage with the server credentials, for the player on the stage. In mock mode it answers 503, so the stage falls back to the poster and says so. |
@@ -120,8 +124,13 @@ Crest was itself recorded with the rights gate muted, so its rights row carries 
 
 ## Notes for anyone reading the code
 
-- The Queue tab lists Grafana Incident's open Airlock incidents (`GET /api/incidents`), each with a
-  Re-run and a Resolve action; `localStorage` only holds the offline fallback, labelled as such. The
+- The Queue tab lists Grafana Incident's open Airlock incidents (`GET /api/incidents`), each with its
+  owner, a Re-run and a Resolve action; `localStorage` only holds the offline fallback, labelled as
+  such. The Owner column is the escalation's `owner` label read back from Grafana, printed in words:
+  `clearance owner` (a licence, a release or a study lifts the block) or `platform on-call` (a control
+  was unavailable, uncalibrated or in error). An incident opened before the escalation labelled
+  owners (before 2026-09-05 06:32 UTC) reads `no owner label`, unless this session's run joined it,
+  in which case the owner the escalation routed it to is shown and said to come from the run. The
   last settled run (events and verdict) is kept in `sessionStorage`, keyed by its `startedAt`, and restored on mount with a "restored" note
   in the Record segment, so following the Grafana link and coming back loses nothing. Nothing about
   a run leaves the session except what the agents themselves wrote to Grafana.
@@ -130,9 +139,19 @@ Crest was itself recorded with the rights gate muted, so its rights row carries 
   success sample in 7 d, amber), `never calibrated: ADVISORY` (amber), `idle` (no error, last
   success older than 900 s, soft ink: the gates run before the verdict asks Grafana, so the run
   re-proves it) and `healthy`. The verdict rules on the Python side are untouched by this wording.
-- A finding becomes a marker on the scrubber when its sentence names a second of the clip, which
-  is parsed narrowly: `at 16.12s`, `first at 7.5s`, `at 3.0s`. A bare `533 s ago` in a health
-  line is a duration, not a position, and never becomes one (`src/lib/timecodes.ts`).
+- The Findings thread is built in `src/lib/findings.ts` from each gate's `done` event. When the
+  evidence carries one record per thing the gate read, the thread gets one row per record, anchored
+  on the record's own second: `blocking_claims` and `advisory_claims` for the claim gate (an advisory
+  claim, puffery or a claim with its study on file, is listed as an attestation), the `findings`
+  elements for the rights gate (a brand seen as a logo or as on-screen text, the face tracks,
+  explicit content), the `exclusion_violations` for the brand gate. The gate's summary sentence
+  ("9 regulated claim(s) with no substantiation on file; first at 7.0s") stays its headline in the
+  Checks row, with the count of rows the thread lists. A gate whose evidence has no per-item
+  structure (provenance, a gate in error) keeps one row per reason sentence.
+- A row becomes a marker on the scrubber when it is anchored on a second: the record's own, or the
+  first second its sentence names, parsed narrowly: `at 16.12s`, `first at 7.5s`, `at 3.0s`. A bare
+  `533 s ago` in a health line is a duration, not a position, and never becomes one
+  (`src/lib/timecodes.ts`). Two rows on the same second make one tick with two colours.
 - "Mark reviewed by a human" posts to `/api/incident/resolve`: the incident is resolved in Grafana
   Incident and an annotation tagged `reviewed` carries the reviewer's role and the verdict summary; the
   Record shows the resolved status and the annotation id.

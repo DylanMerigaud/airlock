@@ -17,6 +17,19 @@ const Row = React.forwardRef<
     onHover: (seconds: number | null) => void;
   }
 >(function Row({ finding, active, onSeek, onHover }, ref) {
+  const item = finding.item;
+  // "consumer testimonial, spoken, 7s to 10s": what the record says about itself, one mono line.
+  const meta = item
+    ? [
+        item.kind,
+        item.channel,
+        finding.seconds !== null && item.endSeconds !== null && item.endSeconds > finding.seconds
+          ? `${stamp(finding.seconds)} to ${stamp(item.endSeconds)}`
+          : null,
+      ]
+        .filter((part): part is string => Boolean(part))
+        .join(", ")
+    : null;
   return (
     <li
       ref={ref}
@@ -62,13 +75,20 @@ const Row = React.forwardRef<
       <p className="mt-1 text-[13px] leading-[1.45] text-ink">
         <FindingText text={finding.text} onSeek={onSeek} />
       </p>
+      {meta && <p className="mt-1 font-mono text-[10.5px] leading-[1.4] text-ink-soft">{meta}</p>}
+      {item?.why && <p className="mt-0.5 text-[12px] leading-[1.45] text-ink-soft">{item.why}</p>}
+      {item && item.rules.length > 0 && (
+        <p className="mt-0.5 font-mono text-[10.5px] leading-[1.4] text-ink-soft">{item.rules.join(", ")}</p>
+      )}
     </li>
   );
 });
 
 /**
- * Every sentence the gates wrote, oldest first, each one anchored to the second
- * of the clip it was read at. The region scrolls; the clip never moves.
+ * Every row the gates produced, oldest gate first, each one anchored to the
+ * second of the clip it was read at: one row per claim, per brand sighting, per
+ * exclusion hit when the gate's evidence carries them, one per sentence
+ * otherwise. The region scrolls; the clip never moves.
  */
 export function FindingsThread({
   findings,
@@ -89,9 +109,10 @@ export function FindingsThread({
 }) {
   const rows = React.useRef(new Map<string, HTMLLIElement>());
 
-  // An issue is what a gate blocked or failed on; a PASS sentence is an
-  // attestation, listed below the issues under its own label so a clean run
-  // does not read as four findings.
+  // An issue is what a gate blocked or failed on; a PASS row is an attestation
+  // (a passing gate's sentence, or a claim a gate read and let through), listed
+  // below the issues under its own label so a clean run does not read as four
+  // findings.
   const issues = findings.filter((finding) => finding.status !== "PASS");
   const attestations = findings.filter((finding) => finding.status === "PASS");
 
@@ -123,7 +144,7 @@ export function FindingsThread({
         <p className="px-3 py-4 text-[13px] leading-[1.5] text-ink-soft">
           {phase === "running"
             ? (step ?? "Waiting for the first gate to report.")
-            : "Nothing yet. Run the airlock and each gate writes what it read here, anchored to the second of the clip it read it at."}
+            : "Nothing yet. Run the airlock and each gate writes what it read here, one row per claim or sighting, anchored to the second of the clip it read it at."}
         </p>
       ) : (
         <>
@@ -138,7 +159,7 @@ export function FindingsThread({
                 <span className="ml-1.5 normal-case tracking-normal">
                   {issues.length === 0
                     ? "no issue found, what each gate read"
-                    : "what the passing gates read"}
+                    : "what the gates read and let through"}
                 </span>
               </h3>
               <ol>{attestations.map(renderRow)}</ol>
