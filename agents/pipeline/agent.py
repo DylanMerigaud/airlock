@@ -24,6 +24,9 @@ The input message is a GCS URI, or a JSON object {"gcs_uri": ..., "asset_id": ..
 carries it, and the verdict asks Loki for THIS run's events, so a muted gate is dark by construction.
 Inputs and gate results live under temp: state keys, scoped to the invocation, so a second message
 in the same session is a new run.
+One trace per run in Tempo (airlock.tracing): ADK's spans around the agents and the investigator's
+calls, one span per gate and per Grafana call of the verdict and the escalation; the trace id goes
+into every Loki line, the gate and verdict payloads, the annotation and the incident.
 """
 
 from __future__ import annotations
@@ -48,13 +51,19 @@ from google.adk.models.llm_response import LlmResponse
 from google.adk.tools.mcp_tool.mcp_toolset import McpToolset
 from google.genai import types
 
-from airlock import settings
+from airlock import settings, tracing
 from airlock.assets import from_message
 from airlock.gates import CHECKS, GATES
 from airlock.gates.base import Asset, run_gate
 from airlock.grafana_mcp import make_grafana_toolset, pick_datasource_uid, pinned_loki_uid, pinned_prometheus_uid, tool_text
 from airlock.telemetry import line, shared_pushers
 from airlock.verdict import RUN_EVENT_WINDOW_MIN, GateHealth, Verdict, decide, logql_question, needs_paperwork, promql_questions
+
+# One trace per run in Tempo: ADK's spans (the invocation, one per agent, the investigator's tool and model
+# calls) and Airlock's own (one per gate, one per Grafana call the verdict and the escalation make) leave
+# through the OTLP exporter this installs, when GRAFANA_OTLP_TOKEN is set; the process that loads this module
+# (adk api_server on Agent Engine, adk run locally) is the one that runs the pipeline.
+tracing.configure()
 
 # temp: keys are invocation-scoped in ADK (applied in memory, never persisted), so a session that
 # receives a second message starts from the message, not from the first run's asset and mute list.
@@ -149,6 +158,8 @@ class GateAgent(BaseAgent):
         payload = result.to_dict()
         payload["telemetry_muted"] = muted
         payload["run_id"] = asset.run_id
+        if trace_id := tracing.current_trace_id():
+            payload["trace_id"] = trace_id
         if fault:
             payload["fault"] = fault
         yield _text_event(ctx, self.name, json.dumps({"gate": self.gate, "stage": "done", **payload}, default=str),
@@ -287,12 +298,24 @@ class GrafanaWaiter:
             self.waited_s += self.retry_s
 
 
+def annotation_text(verdict: Verdict, asset_id: str, run_id: str, trace_id: str | None) -> str:
+    """The verdict annotation on the dashboard: status, motive, asset, run, the trace id when the run has one, the reasons."""
+    head = f"{verdict.status} ({verdict.motive}) {asset_id} run {run_id}" + (f" trace {trace_id}" if trace_id else "")
+    return f"{head}: " + " | ".join(verdict.reasons)[:900]
+
+
+def trace_fields(trace_id: str | None) -> dict[str, str]:
+    """trace_id and trace_url for a payload, empty when the process has no trace."""
+    return {"trace_id": trace_id, "trace_url": tracing.explore_url(trace_id)} if trace_id else {}
+
+
 class VerdictAgent(BaseAgent):
     """Asks Grafana about each gate (this run's event in Loki, then PromQL), decides, writes the annotation."""
 
     async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
         asset = _asset_from_ctx(ctx)
         run_id = asset.run_id or ctx.invocation_id
+        trace_id = tracing.current_trace_id()
         gate_results = {g: ctx.session.state.get(STATE_GATE.format(g)) or {"status": "ERROR", "reasons": ["gate did not report"], "rule_ids": []}
                         for g in GATES}
         toolset = make_grafana_toolset(["list_datasources", "query_prometheus", "query_loki_logs", "create_annotation"])
@@ -303,7 +326,9 @@ class VerdictAgent(BaseAgent):
             tools = {t.name: t for t in await toolset.get_tools(tool_ctx)}
 
             async def ask(name: str, args: dict[str, Any]) -> str:
-                return await waiter.call(lambda: tools[name].run_async(args=args, tool_context=tool_ctx))
+                # No ADK span wraps a tool the agent calls itself: one grafana.<tool> span per question, in the run's trace.
+                with tracing.span(f"grafana.{name}", tool=name, run_id=run_id):
+                    return await waiter.call(lambda: tools[name].run_async(args=args, tool_context=tool_ctx))
 
             prom_uid, loki_uid = pinned_prometheus_uid(), pinned_loki_uid()
             if not prom_uid:  # an empty pin means "ask"; the default pin skips the round trip and the guess
@@ -352,13 +377,14 @@ class VerdictAgent(BaseAgent):
             payload = verdict.to_dict()
             payload["asset_id"] = asset.asset_id
             payload["run_id"] = run_id
+            payload.update(trace_fields(trace_id))
             if waiter.waited_s > 0:
                 payload["note"] = f"Grafana Cloud was starting, waited {int(waiter.waited_s)} s"
             tags = ["airlock", "verdict", verdict.status.lower(), asset.asset_id[:40], settings.runtime()]
             ann = await ask("create_annotation", {
                 "dashboardUid": settings.dashboard_uid(),
                 "time": int(time.time() * 1000),
-                "text": f"{verdict.status} ({verdict.motive}) {asset.asset_id} run {run_id}: " + " | ".join(verdict.reasons)[:900],
+                "text": annotation_text(verdict, asset.asset_id, run_id, trace_id),
                 "tags": tags})
             try:
                 payload["annotation_id"] = json.loads(ann).get("Payload", {}).get("id")
@@ -373,7 +399,7 @@ class VerdictAgent(BaseAgent):
             yield _text_event(ctx, self.name, json.dumps({"stage": "verdict", **payload}, default=str), state_delta={STATE_VERDICT: payload})
         except Exception as exc:
             failure: dict[str, Any] = {"stage": "verdict", "status": "ERROR", "motive": "instrument error", "needs_human": True, "run_id": run_id,
-                                       "reasons": [f"verdict agent could not complete: {type(exc).__name__}: {exc}"]}
+                                       "reasons": [f"verdict agent could not complete: {type(exc).__name__}: {exc}"], **trace_fields(trace_id)}
             if waiter.waited_s > 0:
                 failure["note"] = f"Grafana Cloud was starting, waited {int(waiter.waited_s)} s"
             try:  # the trace of the failure goes through Influx, which does not depend on the Grafana API
@@ -471,13 +497,15 @@ def investigator_instruction(ctx: ReadonlyContext) -> str:
         task = (f"The verdict BLOCKED on the content of the asset: {', '.join(focus)}. Read this run's line of each blocking gate and name, "
                 "with its time_utc, the finding and the rule id it cites (rule_ids in the line); say whether a human can lift the block "
                 "with paperwork (a substantiation, a licence, a release) or whether the asset itself must change.")
+    trace_line = (f"\ntrace id: {verdict['trace_id']} (this run's trace in Tempo; the Loki lines of this run carry it as trace_id, you may cite it)"
+                  if verdict.get("trace_id") else "")
     return f"""You are the investigator of Airlock, a release control for generated video ads. Four gates (rights, claim, brand, provenance)
 read the asset, then a deterministic verdict asked Grafana about each gate and ruled. The verdict is final; you do not change it.
 You explain it from what Grafana holds, for the human who receives the incident or reads the record.
 
 RUN
 asset: {asset_id}
-run id: {run_id}
+run id: {run_id}{trace_line}
 verdict: {verdict.get("status")} ({verdict.get("motive")}), needs a human: {"yes" if verdict.get("needs_human") else "no"}
 reasons:
 {reasons}
@@ -813,12 +841,15 @@ def incident_caption(verdict: dict[str, Any], investigation: dict[str, Any], own
 
 
 def incident_body(verdict: dict[str, Any], investigation: dict[str, Any], owner: str) -> str:
-    """What the incident carries: the routing line, the investigator's note, the Loki lines it cites, the verdict's reasons."""
+    """What the incident carries: the routing line, the run and its trace, the investigator's note, the Loki lines it
+    cites, the verdict's reasons."""
     routing = CLEARANCE_ROUTING if owner == OWNER_CLEARANCE else PLATFORM_ROUTING
     parts = [f"{routing}.",
-             f"Run {verdict.get('run_id')} on {verdict.get('asset_id')}: {verdict.get('status')} ({verdict.get('motive')}).",
-             "", f"Investigation ({investigation.get('model', INVESTIGATOR_MODEL)}, {investigation.get('tool_calls', 0)} tool calls):",
-             str(investigation.get("note") or "no note")]
+             f"Run {verdict.get('run_id')} on {verdict.get('asset_id')}: {verdict.get('status')} ({verdict.get('motive')})."]
+    if verdict.get("trace_url"):
+        parts.append(f"Trace: {verdict['trace_url']}")
+    parts += ["", f"Investigation ({investigation.get('model', INVESTIGATOR_MODEL)}, {investigation.get('tool_calls', 0)} tool calls):",
+              str(investigation.get("note") or "no note")]
     cited = investigation.get("cited") or []
     if cited:
         parts += ["", "Loki lines:"] + [f"- {format_loki_line(e)}" for e in cited]
@@ -850,17 +881,22 @@ class EscalationAgent(BaseAgent):
         motive_label = str(verdict.get("motive", "")).replace(" ", "-")
         try:
             tools = {t.name: t for t in await toolset.get_tools(tool_ctx)}
+
+            async def call(name: str, args: dict[str, Any]) -> str:
+                with tracing.span(f"grafana.{name}", tool=name, run_id=verdict.get("run_id")):
+                    return tool_text(await tools[name].run_async(args=args, tool_context=tool_ctx))
+
             reasons = verdict.get("reasons", [])
             payload: dict[str, Any] = {"stage": "escalation", "opened": False, "attached": False, "owner": owner, "title": title}
             existing = None
             try:
-                listed = tool_text(await tools["list_incidents"].run_async(args={"status": "active", "drill": drill, "limit": 50}, tool_context=tool_ctx))
+                listed = await call("list_incidents", {"status": "active", "drill": drill, "limit": 50})
                 existing = find_open_incident(listed, title)
             except Exception as exc:  # a list that fails means a new incident, said in the payload
                 payload["list_error"] = f"{type(exc).__name__}: {exc}"[:300]
             if existing:
                 incident_id = str(existing.get("incidentId") or existing.get("incidentID"))
-                act = tool_text(await tools["add_activity_to_incident"].run_async(args={"incidentId": incident_id, "body": body}, tool_context=tool_ctx))
+                act = await call("add_activity_to_incident", {"incidentId": incident_id, "body": body})
                 payload.update({"attached": True, "incident_id": incident_id, "incident_title": existing.get("title"),
                                 "incident_url": incident_url(incident_id), "activity_raw": act[:300]})
                 try:
@@ -868,14 +904,14 @@ class EscalationAgent(BaseAgent):
                 except (json.JSONDecodeError, AttributeError):
                     pass
             else:
-                inc = tool_text(await tools["create_incident"].run_async(args={
+                inc = await call("create_incident", {
                     "title": title,
                     "severity": "minor",
                     "roomPrefix": "airlock",
                     "status": "active",
                     "isDrill": drill,
                     "labels": [{"key": "airlock", "label": motive_label}, {"key": "owner", "label": owner}],
-                    "attachCaption": incident_caption(verdict, investigation, owner)}, tool_context=tool_ctx))
+                    "attachCaption": incident_caption(verdict, investigation, owner)})
                 payload.update({"opened": True, "incident_raw": inc[:500]})
                 try:
                     d = json.loads(inc)
@@ -889,8 +925,7 @@ class EscalationAgent(BaseAgent):
                 if payload.get("incident_id"):
                     # The full note as the incident's first timeline entry: the caption is short, the timeline is not.
                     try:
-                        act = tool_text(await tools["add_activity_to_incident"].run_async(args={"incidentId": str(payload["incident_id"]), "body": body},
-                                                                                          tool_context=tool_ctx))
+                        act = await call("add_activity_to_incident", {"incidentId": str(payload["incident_id"]), "body": body})
                         payload["activity_id"] = json.loads(act).get("activityItemID")
                     except Exception as exc:
                         payload["activity_error"] = f"{type(exc).__name__}: {exc}"[:300]
@@ -900,11 +935,11 @@ class EscalationAgent(BaseAgent):
                 # hand-off instead, and the console shows the approval button. Said here, not hidden.
                 payload["opened"] = False
                 payload["fallback"] = "needs-human annotation"
-                ann = tool_text(await tools["create_annotation"].run_async(args={
+                ann = await call("create_annotation", {
                     "dashboardUid": settings.dashboard_uid(),
                     "time": int(time.time() * 1000),
                     "text": f"NEEDS HUMAN ({verdict.get('motive')}, owner {owner}) {asset_id}: " + " | ".join(reasons)[:800],
-                    "tags": ["airlock", "needs-human", f"owner:{owner}", asset_id[:40], settings.runtime()]}, tool_context=tool_ctx))
+                    "tags": ["airlock", "needs-human", f"owner:{owner}", asset_id[:40], settings.runtime()]})
                 try:
                     payload["fallback_annotation_id"] = json.loads(ann).get("Payload", {}).get("id")
                 except (json.JSONDecodeError, AttributeError):
