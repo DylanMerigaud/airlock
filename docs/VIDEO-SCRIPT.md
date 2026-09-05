@@ -1,9 +1,9 @@
 # Video script: Airlock for Agentic Cinema
 
-Espece: demo (the sponsors sell infrastructure, Google Cloud and Grafana, so a screencast of the software at 30 fps; the artefact is the proof that it runs)
-Duree cible: 180s
-Voix: off humaine (Dylan, recorded separately from the screen, read from this script, re-recorded if one word is off; the iteration drafts use a synthetic voice from Google Cloud Text-to-Speech and say so in their file name)
-Musique: aucune
+Kind: demo (the sponsors sell infrastructure, Google Cloud and Grafana, so a screencast of the software at 30 fps; the artefact is the proof that it runs)
+Target length: 180 s
+Voice: human voice-over (Dylan, recorded separately from the screen, read from this script, re-recorded if one word is off; the iteration drafts use a synthetic voice from Google Cloud Text-to-Speech and say so in their file name)
+Music: none
 
 Cut for pace, the winners' length without a slack second: no stretch longer than 2 s without a
 change of picture or a voice; a punch-in (1.15x over 1.2 s) on every landing (the gate row that

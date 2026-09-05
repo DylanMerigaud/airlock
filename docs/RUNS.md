@@ -11,24 +11,8 @@ Track decision: Grafana Labs (Airlock v2). The kill criterion switches to ClickH
 only if the Agent Engine run cannot reach mcp-grafana on Cloud Run or cannot write the annotation
 after the auth options are exhausted. Not triggered.
 
-**Idea gate, run late (2026-08-29, after M1 to M4b already stood).** The plan
-(`career/hackathon-evals/BUILD-AIRLOCK-V2-2026-08-28.md` in growth-cockpit) already carried the
-result of this check as pre-existing evidence ("9 of 9 gates PASS") before the first commit; it was
-never re-run inside this repo's own `RUNS.md`, so it is logged here for the record.
-`python3 career/hackathon-evals/check.py --type idea ideas/airlock-v2.md` (growth-cockpit repo):
-
-```
-PASS  G17 zero em-dash / en-dash
-PASS  G1 corpus lu  (12 gagnants cites)
-PASS  G2 insight non-evident
-PASS  G3 vertical etroit
-PASS  G7 eligibilite copiee
-PASS  G6 demo a 50 pourcent
-PASS  G4 multi-agent  (6 agents)
-PASS  G5 primitive sponsor
-PASS  G8 track choisi
-RESULTAT: PASS mecanique
-```
+The idea file behind this build scored 9 of 9 gates on a private idea checker on 2026-08-28,
+before the first commit; the checker is not in this repository.
 
 ### Auth path chosen
 
@@ -419,7 +403,7 @@ get it. Annotations 1 to 10 and incidents 2 to 6 are the day's ledger on the sta
 
 ## M4: the console on Cloud Run
 
-Status: in progress (started 2026-08-28 23:35 UTC).
+Status: DONE 2026-08-29 (started 2026-08-28 23:35 UTC; the "M4 done" section below).
 
 ### Build
 
@@ -515,7 +499,10 @@ other than Dylan, and said as such):
 - BLOCK queue: the Crest run, with re-run.
 - Visible errors: none (page text and `[role=alert]` probed at every state).
 
-Screenshots: `docs/img/console-crest-block-2026-08-29.png`, `docs/img/console-clean-pass-2026-08-29.png`.
+Screenshots: `docs/img/console-crest-block-2026-08-29.png` and `docs/img/console-clean-pass-2026-08-29.png`
+were taken here and removed from the repository in commit 8b79fe8 when the console v3 screenshots
+replaced them; the tracked ones are `docs/img/console-v3-crest-block-2026-08-29.png` and
+`docs/img/console-v3-clean-pass-2026-08-29.png`.
 
 ### M4 done (2026-08-29, ahead of the 2026-09-03 demo date)
 
@@ -838,8 +825,9 @@ chevron onto the source of truth, the mute switch and the evidence (YouTube Stud
 decision record (rules cited, C2PA, annotation, incident, human review) under the clip; Trace and
 Queue as their own views. Every route, the SSE contract, mock mode and the fixtures unchanged.
 Verified in mock mode: build, lint, typecheck clean; no horizontal overflow at 390 px; headings,
-labels and names in order. Screenshots: `docs/img/console-v2-crest-block-2026-08-29.png`,
-`docs/img/console-v2-clean-pass-2026-08-29.png`. Deploy and the Lighthouse rerun follow.
+labels and names in order. Screenshots `docs/img/console-v2-crest-block-2026-08-29.png` and
+`docs/img/console-v2-clean-pass-2026-08-29.png` were taken here and removed in commit 8b79fe8 (the
+v3 screenshots, `docs/img/console-v3-*.png`, are the tracked ones). Deploy and the Lighthouse rerun follow.
 
 ### Console v2 deployed (2026-08-29 19:00 UTC)
 
@@ -1207,7 +1195,7 @@ Open for the human pass: whether the punch-ins read as a push towards the column
 as a wobble, since a 1.15x move on a 1920x1080 frame is a small one; whether five editing captions
 in 151 s read as honesty or as clutter; and whether the 6.40 s stretch at 43.4 s is felt as slow.
 
-## Audit after two idle days (2026-09-02, 23:50 to 00:20 UTC)
+## Audit after two idle days (2026-09-01 23:50 UTC to 2026-09-02 00:20 UTC)
 
 Dylan's ask on 2026-09-02: audit, reorient, list the best things to do now; the final video is not
 the priority. Read before writing: repo equals origin (fc9e777, clean tree), 53 tests pass, no
@@ -1654,3 +1642,67 @@ Read back through the Grafana query API: `sum by (outcome) (sum_over_time(airloc
 
 Devpost's "Try it" paragraph now says a check takes one to three minutes and why (`docs/DEVPOST.md`);
 the Devpost page itself is refreshed from that file before the Submit click.
+
+## Evidence that reproduces, docs that tell the truth (2026-09-05)
+
+Four judges reviewed the repository and the hosted URL on 2026-09-05 (the panel of the day). Their
+"claims checked" tables found the evidence behind the evaluation not reproducible, the 100 percent
+scores measuring the status and not the rules, and a handful of statements in this file and the
+README that the code or the git history contradicts. This section fixes those; each factual fix to
+an older section is named here with its before and after, the older sections are otherwise untouched.
+
+### The eval assets come back from archive.org
+
+`scripts/fetch_assets.sh` now downloads the ten Prelinger sources of the eval set into
+`assets/real/eval/src/` and cuts the excerpts with the same `ffmpeg -ss <start> -t 30 -c copy`
+that produced the recorded hashes, then checks all 18 files. From an empty `assets/` on 2026-09-04
+(ffmpeg 8.0): 18 OK in about 4 minutes. Re-run on 2026-09-05 05:26 UTC with the files present
+(idempotent, no download, no cut):
+
+```
+$ scripts/fetch_assets.sh
+assets/real/CrestToothpa.mp4: OK
+assets/real/CrestToothpa-18-48.mp4: OK
+assets/real/eval/Cheerios1960-0-30.mp4: OK
+... (10 eval excerpts OK)
+assets/synthetic/nimbus-test-clip.mp4: OK
+assets/synthetic/veo-raw.mp4: OK
+assets/synthetic/calibration/nimbus-clean-clip.mp4: OK
+assets/synthetic/calibration/nimbus-defect-brand-red.mp4: OK
+assets/synthetic/calibration/nimbus-defect-provenance-stripped.mp4: OK
+assets/synthetic/calibration/nimbus-defect-provenance-broken.mp4: OK
+0.8 s
+```
+
+`assets/real/eval/SOURCE.md` said "only the excerpt ships" and that the sources are not kept: it
+now says what the script does.
+
+### Factual fixes to older sections of this file
+
+- Lines 14 to 31 (M1) printed the French output of a private idea checker that is not in this
+  repository (`PASS G17 zero em-dash ...`, `RESULTAT: PASS mecanique`). Replaced by one sentence: the
+  idea file scored 9 of 9 gates on a private idea checker on 2026-08-28, the checker is not in this
+  repository.
+- M4 "Status: in progress (started 2026-08-28 23:35 UTC)" stood above "M4 done (2026-08-29)".
+  Now "Status: DONE 2026-08-29 (started 2026-08-28 23:35 UTC; the M4 done section below)".
+- The M4 verification cited `docs/img/console-crest-block-2026-08-29.png` and
+  `docs/img/console-clean-pass-2026-08-29.png`; the console v2 section cited
+  `docs/img/console-v2-crest-block-2026-08-29.png` and `docs/img/console-v2-clean-pass-2026-08-29.png`.
+  All four were deleted in commit 8b79fe8 (2026-08-29, "older console screenshots dropped"); the
+  tracked screenshots are `docs/img/console-v3-crest-block-2026-08-29.png`,
+  `docs/img/console-v3-clean-pass-2026-08-29.png` and `docs/img/grafana-public-dashboard-2026-09-02.png`.
+  Both sentences now say the files were taken there and removed in 8b79fe8, and point at the tracked ones.
+- The audit heading read "Audit after two idle days (2026-09-02, 23:50 to 00:20 UTC)", a span that
+  cannot sit inside one day. The audit ran from 2026-09-01 23:50 UTC to 2026-09-02 00:20 UTC (its
+  commit f3b5d2a is dated 2026-09-01T19:15:52-05:00, that is 2026-09-02 00:15 UTC; M8 is "DONE
+  2026-09-02 (00:30 UTC)" right after it). The heading now carries both dates.
+
+### Other docs
+
+- `docs/VIDEO-SCRIPT.md` line 4 read "Duree cible: 180s" in an English document; the four header
+  labels (Espece, Duree cible, Voix, Musique) are now Kind, Target length, Voice, Music.
+- `console/README.md` described the Nimbus fixture (`fixtures/run-nimbus-block.jsonl`) as "no human
+  needed". That recording is from 2026-08-28 23:30 UTC (annotation 4), before commit b0e649a made a
+  paperwork BLOCK escalate (`needs_human` true, an incident): the live agent no longer says what the
+  fixture replays. The table now says so; the fixture is re-recorded in a later pass, with the two
+  others, on the current agent.
