@@ -39,7 +39,7 @@ GATE = 'gate!="spike"'  # the M1 spike series stays in Grafana as history, out o
 
 
 def panel(pid: int, title: str, expr: str, ds_uid: str, x: int, y: int, w: int = 12, h: int = 8, unit: str = "short", kind: str = "timeseries",
-          legend: str = "{{gate}}", thresholds: list | None = None) -> dict:
+          legend: str = "{{gate}}", thresholds: list | None = None, overrides: list | None = None) -> dict:
     defaults: dict = {"unit": unit}
     if thresholds:
         defaults["thresholds"] = {"mode": "absolute", "steps": thresholds}
@@ -50,9 +50,15 @@ def panel(pid: int, title: str, expr: str, ds_uid: str, x: int, y: int, w: int =
         "title": title,
         "datasource": {"type": "prometheus", "uid": ds_uid},
         "gridPos": {"x": x, "y": y, "w": w, "h": h},
-        "fieldConfig": {"defaults": defaults, "overrides": []},
+        "fieldConfig": {"defaults": defaults, "overrides": overrides or []},
         "targets": [{"refId": "A", "expr": expr, "legendFormat": legend, "datasource": {"type": "prometheus", "uid": ds_uid}}],
     }
+
+
+def by_name_thresholds(name: str, steps: list) -> dict:
+    """A field override on a stat panel: the series whose display name is `name` gets its own thresholds."""
+    return {"matcher": {"id": "byName", "options": name},
+            "properties": [{"id": "thresholds", "value": {"mode": "absolute", "steps": steps}}, {"id": "color", "value": {"mode": "thresholds"}}]}
 
 
 def dashboard(ds_uid: str) -> dict:
@@ -92,8 +98,10 @@ def dashboard(ds_uid: str) -> dict:
                   thresholds=[{"color": "green", "value": None}, {"color": "orange", "value": 1}]),
             panel(14, "Cost per check, list price USD (7d)", "sum(sum_over_time(airlock_verdict_cost_usd[7d])) / clamp_min(sum(sum_over_time(airlock_verdict_total[7d])), 1)", ds_uid, 0, 22, w=6, h=6, kind="stat", unit="currencyUSD", legend="per check"),
             panel(15, "Cost per gate run, list price USD (per 5 min)", f"sum by (gate) (sum_over_time(airlock_gate_cost_usd{{{GATE}}}[5m]))", ds_uid, 6, 22, w=18, h=6, unit="currencyUSD"),
+            # pass: red at 0, green from 1; fail: the opposite, so a failed proof never paints green (it did until 2026-09-05)
             panel(16, "Daily proofs (7d): every gate re-proven, then a clean PASS", "sum by (outcome) (sum_over_time(airlock_daily_proof_total[7d]))", ds_uid, 0, 28, w=6, h=6, kind="stat", legend="{{outcome}}",
-                  thresholds=[{"color": "red", "value": None}, {"color": "green", "value": 1}]),
+                  thresholds=[{"color": "red", "value": None}, {"color": "green", "value": 1}],
+                  overrides=[by_name_thresholds("fail", [{"color": "green", "value": None}, {"color": "red", "value": 1}])]),
             panel(17, "Cost per daily proof, list price USD (7d)", "sum(sum_over_time(airlock_daily_proof_cost_usd[7d])) / clamp_min(sum(sum_over_time(airlock_daily_proof_total[7d])), 1)", ds_uid, 6, 28, w=6, h=6, kind="stat", unit="currencyUSD", legend="per proof"),
             panel(18, "Daily proofs over time (per 12 h)", "sum by (outcome) (sum_over_time(airlock_daily_proof_total[12h]))", ds_uid, 12, 28, w=12, h=6, legend="{{outcome}}"),
             panel(13, "Seconds since last success (stale past 900 s)", f"time() - max by (gate) (max_over_time(airlock_gate_last_success_ts{{{GATE}}}[7d]))", ds_uid, 18, 0, w=6, h=6, unit="s", kind="stat",

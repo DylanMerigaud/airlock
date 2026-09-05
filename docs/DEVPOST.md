@@ -11,11 +11,11 @@ each against a named source of truth: rights (the Video Intelligence API against
 registry), claim (every spoken or on-screen claim extracted with timestamps, mapped to 16 CFR Part
 255 and two real ASA rulings), brand (the asset against a brand charter) and provenance (the C2PA
 manifest verified cryptographically against a trust list). Then a verdict agent asks Grafana,
-through MCP, four PromQL questions about each gate before it is allowed to rule: error rate over
-15 minutes, seconds since the gate last succeeded, injected defects caught over 7 days, and whether
-the last calibration run caught its defect. A gate Grafana cannot see succeed forces a BLOCK
-"control unavailable"; a gate that never caught a real defect is advisory and cannot contribute to
-a PASS. The verdict is written back to the Grafana dashboard as an annotation, and when only a
+through MCP, five questions about each gate before it is allowed to rule: whether Loki holds this
+run's event of the gate, then four PromQL questions (error ratio over 15 minutes and the runs behind
+it, seconds since the gate last succeeded, injected defects caught over 7 days, and whether the last
+calibration run caught its defect). A gate whose run Grafana did not see forces a BLOCK "control
+unavailable"; a gate that never caught a real defect is advisory and cannot contribute to a PASS. The verdict is written back to the Grafana dashboard as an annotation, and when only a
 human can lift the BLOCK, an incident is opened in Grafana IRM. On the demo assets it takes 48 s
 from upload to verdict for an 8 s clip and 119 s for a 30 s commercial, and every check reports
 what it cost at list price (tokens, video minutes, dollars), pushed to Grafana beside the verdict.
