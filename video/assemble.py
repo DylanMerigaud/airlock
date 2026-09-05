@@ -73,8 +73,8 @@ TAIL_PAD_S = 1.2
 #
 # The centres are measured, not guessed: `node video/measure_layout.mjs` opens the live console at
 # the take's own 1920x1080 and writes the bounding boxes to video/out/layout.json. Measured
-# 2026-08-30 on the hosted console: verdict card (1484,59) 420x76, the six check rows (1485,182)
-# 418x405, the stage (16,59) 1456x916.
+# 2026-09-05 on the hosted console: verdict card (1484,59) 420x76, the seven check rows (1485,182)
+# 418x509, the stage (16,59) 1456x862.
 #
 # At 1.15x the visible window is 1670x939 of the frame, so a centre can only travel 125 px
 # horizontally and 70 px vertically before the crop would leave the picture. The centres below are
@@ -85,9 +85,9 @@ TAIL_PAD_S = 1.2
 PUNCH_ZOOM = 1.15
 PUNCH_S = 1.2
 PUNCH_AT = {
-    "checks": (1694, 384),   # the Checks column, where a gate row lands
+    "checks": (1694, 436),   # the Checks column, where a gate row lands
     "verdict": (1694, 97),   # the verdict summary, top right
-    "stage": (744, 517),     # the clip, left
+    "stage": (744, 490),     # the clip, left
 }
 ROOM_TONE_DBFS = -38.0  # above silencedetect's -45 dB floor, so a gap never reads as dead air
 
