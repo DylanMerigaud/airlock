@@ -14,11 +14,14 @@ Two kinds of variable:
   - telemetry endpoints and tokens (GRAFANA_INFLUX_*, GRAFANA_LOKI_*, the MCP bearers) with NO
     default: unset means "not configured", and the callers say so (gate telemetry is skipped with a
     warning, an MCP toolset refuses to build). A token is never given a default and never printed.
+    The traces endpoint (GRAFANA_OTLP_*) sits between the two: its URL and user default to this stack's
+    OTLP gateway, its token has none, and no token means no tracing (airlock.tracing says so once).
 
 To run Airlock on another Google Cloud project and Grafana stack, export these before any command:
 AIRLOCK_PROJECT, AIRLOCK_REGION, AIRLOCK_ASSETS_BUCKET, AGENT_ENGINE_RESOURCE (after `adk deploy`),
 GRAFANA_URL, GRAFANA_INFLUX_URL, GRAFANA_INFLUX_USER, GRAFANA_LOKI_URL, GRAFANA_LOKI_USER,
-AIRLOCK_MCP_URL (the mcp-grafana service), and the tokens through scripts/with_env.sh or Secret Manager.
+GRAFANA_OTLP_URL, GRAFANA_OTLP_USER, AIRLOCK_MCP_URL (the mcp-grafana service), and the tokens through
+scripts/with_env.sh or Secret Manager.
 """
 
 from __future__ import annotations
@@ -37,6 +40,10 @@ DEFAULT_ENGINE_RESOURCE = f"projects/{DEFAULT_PROJECT_NUMBER}/locations/{DEFAULT
 DEFAULT_GRAFANA_URL = "https://narrowsubmarine1895.grafana.net"
 DEFAULT_PROM_UID = "grafanacloud-prom"
 DEFAULT_LOKI_UID = "grafanacloud-logs"
+DEFAULT_TEMPO_UID = "grafanacloud-traces"
+# The stack's OTLP gateway over HTTP: the Tempo host itself takes OTLP over gRPC only (measured 2026-09-05).
+DEFAULT_OTLP_URL = "https://otlp-gateway-prod-us-west-0.grafana.net/otlp/v1/traces"
+DEFAULT_OTLP_USER = "1811382"  # the stack id, the basic auth user of the gateway
 DEFAULT_DASHBOARD_UID = "airlock-gates"
 DEFAULT_PUBLIC_DASHBOARD_URL = f"{DEFAULT_GRAFANA_URL}/public-dashboards/97860661238c4536a743e0d858aef845"
 DEFAULT_GRAFANA_MCP_URL = f"https://airlock-mcp-grafana-{DEFAULT_PROJECT_NUMBER}.{DEFAULT_REGION}.run.app/mcp"
@@ -105,6 +112,11 @@ def loki_uid() -> str:
     return os.environ.get("GRAFANA_LOKI_UID", DEFAULT_LOKI_UID)
 
 
+def tempo_uid() -> str:
+    """GRAFANA_TEMPO_UID, or the Grafana Cloud default: the datasource the trace links open in Explore."""
+    return _first("GRAFANA_TEMPO_UID", default=DEFAULT_TEMPO_UID)
+
+
 def dashboard_uid() -> str:
     return _first("AIRLOCK_DASHBOARD_UID", default=DEFAULT_DASHBOARD_UID)
 
@@ -141,6 +153,14 @@ def influx() -> PushEndpoint:
 def loki() -> PushEndpoint:
     return PushEndpoint("GRAFANA_LOKI", os.environ.get("GRAFANA_LOKI_URL", ""), os.environ.get("GRAFANA_LOKI_USER", ""),
                         os.environ.get("GRAFANA_LOKI_TOKEN", ""))
+
+
+def otlp() -> PushEndpoint:
+    """The traces endpoint (OTLP over HTTP, basic auth). URL and user default to this stack's gateway, the
+    token never: with no GRAFANA_OTLP_TOKEN there is no tracing, and GRAFANA_OTLP_URL set empty turns it
+    off on purpose. Read by airlock.tracing.configure()."""
+    return PushEndpoint("GRAFANA_OTLP", os.environ.get("GRAFANA_OTLP_URL", DEFAULT_OTLP_URL), os.environ.get("GRAFANA_OTLP_USER", DEFAULT_OTLP_USER),
+                        os.environ.get("GRAFANA_OTLP_TOKEN", ""))
 
 
 # MCP servers
@@ -214,12 +234,16 @@ def describe() -> list[dict[str, Any]]:
     row(("GRAFANA_SERVICE_ACCOUNT_TOKEN",), grafana_service_account_token(), "", secret=True)
     row(("GRAFANA_PROM_UID",), prometheus_uid(), DEFAULT_PROM_UID)
     row(("GRAFANA_LOKI_UID",), loki_uid(), DEFAULT_LOKI_UID)
+    row(("GRAFANA_TEMPO_UID",), tempo_uid(), DEFAULT_TEMPO_UID)
     row(("AIRLOCK_DASHBOARD_UID",), dashboard_uid(), DEFAULT_DASHBOARD_UID)
     row(("AIRLOCK_PUBLIC_DASHBOARD_URL",), public_dashboard_url(), DEFAULT_PUBLIC_DASHBOARD_URL)
     for ep in (influx(), loki()):
         row((f"{ep.name}_URL",), ep.url, "")
         row((f"{ep.name}_USER",), ep.user, "")
         row((f"{ep.name}_TOKEN",), ep.token, "", secret=True)
+    row(("GRAFANA_OTLP_URL",), otlp().url, DEFAULT_OTLP_URL)
+    row(("GRAFANA_OTLP_USER",), otlp().user, DEFAULT_OTLP_USER)
+    row(("GRAFANA_OTLP_TOKEN",), otlp().token, "", secret=True)
     row(("AIRLOCK_MCP_URL",), grafana_mcp_url(), DEFAULT_GRAFANA_MCP_URL)
     row(("AIRLOCK_MCP_TOKEN",), grafana_mcp_token(), "", secret=True)
     row(("AIRLOCK_MCP_SERVER_URL",), airlock_mcp_server_url(), DEFAULT_AIRLOCK_MCP_SERVER_URL)
@@ -239,7 +263,12 @@ ENGINE_EXTRA_PACKAGES = ["../../airlock", "../../charter.yaml", "../../rights-re
 ENGINE_DESCRIPTION = ("Airlock: four gates in parallel, a verdict that asks Grafana before it rules, an investigator (gemini-2.5-flash) "
                       "that reads Loki and the alert rules and names the cause, an escalation that opens or joins the incident")
 # Secret Manager names the deployed pipeline reads; the tokens never sit in the file.
-ENGINE_SECRETS = {"AIRLOCK_MCP_TOKEN": "airlock-mcp-token", "GRAFANA_INFLUX_TOKEN": "grafana-influx-token", "GRAFANA_LOKI_TOKEN": "grafana-influx-token"}
+ENGINE_SECRETS = {"AIRLOCK_MCP_TOKEN": "airlock-mcp-token", "GRAFANA_INFLUX_TOKEN": "grafana-influx-token", "GRAFANA_LOKI_TOKEN": "grafana-influx-token",
+                  "GRAFANA_OTLP_TOKEN": "grafana-traces-token"}
+# The OTel resource of the deployed process. Agent Engine runs `adk api_server`, which builds the global
+# TracerProvider before the pipeline module loads; airlock.tracing adds its exporter to that provider, and
+# the service name reaches it through the standard OTel variables (a provider's resource is fixed at birth).
+OTEL_SERVICE_NAME = "airlock"
 
 
 def engine_config() -> dict[str, Any]:
@@ -256,6 +285,11 @@ def engine_config() -> dict[str, Any]:
         "GRAFANA_INFLUX_USER": influx().user,
         "GRAFANA_LOKI_URL": loki().url,
         "GRAFANA_LOKI_USER": loki().user,
+        "GRAFANA_OTLP_URL": otlp().url,
+        "GRAFANA_OTLP_USER": otlp().user,
+        "GRAFANA_TEMPO_UID": tempo_uid(),
+        "OTEL_SERVICE_NAME": OTEL_SERVICE_NAME,
+        "OTEL_RESOURCE_ATTRIBUTES": "deployment.environment=agent-engine",
     }
     for var, secret in ENGINE_SECRETS.items():
         env[var] = {"secret": secret, "version": "latest"}

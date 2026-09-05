@@ -49,6 +49,20 @@ def test_telemetry_endpoints_have_no_default(monkeypatch):
     assert settings.influx().configured and settings.influx().missing() == ["GRAFANA_INFLUX_TOKEN"]
 
 
+def test_the_traces_endpoint_defaults_the_gateway_and_never_the_token(monkeypatch):
+    for name in ("GRAFANA_OTLP_URL", "GRAFANA_OTLP_USER", "GRAFANA_OTLP_TOKEN", "GRAFANA_TEMPO_UID"):
+        monkeypatch.delenv(name, raising=False)
+    ep = settings.otlp()
+    assert ep.url == "https://otlp-gateway-prod-us-west-0.grafana.net/otlp/v1/traces" and ep.user == "1811382"
+    assert ep.missing() == ["GRAFANA_OTLP_TOKEN"]
+    assert settings.tempo_uid() == "grafanacloud-traces"
+    monkeypatch.setenv("GRAFANA_OTLP_TOKEN", "t")
+    monkeypatch.setenv("GRAFANA_OTLP_URL", "")
+    assert settings.otlp().missing() == ["GRAFANA_OTLP_URL"] and not settings.otlp().configured
+    rows = {r["variable"]: r for r in settings.describe()}
+    assert rows["GRAFANA_OTLP_TOKEN"]["value"] == "set" and rows["GRAFANA_OTLP_USER"]["origin"] == "default"
+
+
 def test_incident_drill_switch(monkeypatch):
     monkeypatch.delenv("AIRLOCK_INCIDENT_DRILL", raising=False)
     assert settings.incident_drill() is True

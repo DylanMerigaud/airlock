@@ -26,6 +26,8 @@ GRAFANA_INFLUX_URL="${GRAFANA_INFLUX_URL:-https://prometheus-prod-67-prod-us-wes
 GRAFANA_INFLUX_USER="${GRAFANA_INFLUX_USER:-3546988}"
 GRAFANA_LOKI_URL="${GRAFANA_LOKI_URL:-https://logs-prod-021.grafana.net}"
 GRAFANA_LOKI_USER="${GRAFANA_LOKI_USER:-1769169}"
+GRAFANA_OTLP_URL="${GRAFANA_OTLP_URL:-https://otlp-gateway-prod-us-west-0.grafana.net/otlp/v1/traces}"
+GRAFANA_OTLP_USER="${GRAFANA_OTLP_USER:-1811382}"
 SCHEDULER_SA_ID="daily-proof-scheduler"
 SCHEDULER_SA="${SCHEDULER_SA_ID}@${PROJECT}.iam.gserviceaccount.com"
 
@@ -62,8 +64,8 @@ gcloud run jobs deploy "$JOB" \
   --project="$PROJECT" --region="$REGION" \
   --image="$IMAGE" \
   --tasks=1 --task-timeout=1800 --cpu=1 --memory=2Gi --max-retries=0 \
-  --set-env-vars="AIRLOCK_PROJECT=${PROJECT},AIRLOCK_ASSETS_BUCKET=${BUCKET},AIRLOCK_RUNTIME=daily-proof,AGENT_ENGINE_RESOURCE=${ENGINE},GRAFANA_INFLUX_URL=${GRAFANA_INFLUX_URL},GRAFANA_INFLUX_USER=${GRAFANA_INFLUX_USER},GRAFANA_LOKI_URL=${GRAFANA_LOKI_URL},GRAFANA_LOKI_USER=${GRAFANA_LOKI_USER}" \
-  --set-secrets="GRAFANA_INFLUX_TOKEN=grafana-influx-token:latest,GRAFANA_LOKI_TOKEN=grafana-influx-token:latest" \
+  --set-env-vars="AIRLOCK_PROJECT=${PROJECT},AIRLOCK_ASSETS_BUCKET=${BUCKET},AIRLOCK_RUNTIME=daily-proof,AGENT_ENGINE_RESOURCE=${ENGINE},GRAFANA_INFLUX_URL=${GRAFANA_INFLUX_URL},GRAFANA_INFLUX_USER=${GRAFANA_INFLUX_USER},GRAFANA_LOKI_URL=${GRAFANA_LOKI_URL},GRAFANA_LOKI_USER=${GRAFANA_LOKI_USER},GRAFANA_OTLP_URL=${GRAFANA_OTLP_URL},GRAFANA_OTLP_USER=${GRAFANA_OTLP_USER}" \
+  --set-secrets="GRAFANA_INFLUX_TOKEN=grafana-influx-token:latest,GRAFANA_LOKI_TOKEN=grafana-influx-token:latest,GRAFANA_OTLP_TOKEN=grafana-traces-token:latest" \
   --quiet
 
 # Step 5: the scheduler's own service account, with the right to run this job and nothing else.
