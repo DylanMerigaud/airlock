@@ -65,9 +65,14 @@ const STAKE_HOLD_MS = 5_500;
 const LINE_MARGIN_MS = 1_000;
 const HOLD_MAX_MS = 20_000;
 const ALERT_INSERT_MS = 4_000;
-const DASHBOARD_INSERT_MS = 9_500;
-const LANDING_HOLD_MS = 6_500;
+// The dashboard insert lasts the dashboard line (10.8 s at 1.1x) and the landing the landing line
+// plus the render's tail; the assembler trims either only when the render is over its maximum.
+const DASHBOARD_INSERT_MS = 11_000;
+const LANDING_HOLD_MS = 7_000;
 const RECORD_HOLD_MIN_MS = 3_000;
+// The resolved incident is held on camera for this long before the reviewer's next gesture (the
+// fault switched off) plays under the rest of the resolve line.
+const RESOLVED_HOLD_MS = 4_500;
 // How long the run may keep working after the verdict (the investigator, then the escalation)
 // before the recorder moves on without the incident id.
 const SETTLE_TIMEOUT_MS = 120_000;
@@ -207,9 +212,9 @@ function statusFromLine(line) {
 /** The escalation row's line, once it has landed: which incident, opened or joined. */
 function escalationFromLine(line) {
   if (!line) return null;
-  let m = /^Incident (\S+) opened/.exec(line);
+  let m = /^Incident ([^\s:,]+) opened/.exec(line);
   if (m) return { incident: m[1], attached: false };
-  m = /^Joined open incident (\S+)/.exec(line);
+  m = /^Joined open incident ([^\s:,]+)/.exec(line);
   if (m) return { incident: m[1], attached: true };
   if (/^no human needed/i.test(line)) return { incident: null, attached: false };
   return null;
@@ -328,11 +333,12 @@ async function recordSnapshot(page) {
     const link = Array.from(document.querySelectorAll("a")).find((a) => /^Open in Grafana$/.test(clean(a)));
     const investigationHeader = paragraphs.find((p) => /^Investigation$/.test(clean(p)));
     const section = investigationHeader ? investigationHeader.closest("section") : null;
+    const sectionText = section ? (section.innerText || section.textContent || "").replace(/\s+/g, " ").trim() : null;
     return {
       ids: find(/^(annotation \S+|no annotation id)(, incident \S+)?$/),
       cost: find(/^This check:/),
       href: link ? link.getAttribute("href") : null,
-      investigation: section ? clean(section) : null,
+      investigation: sectionText,
       reviewed: find(/^Reviewed by a human/),
       reviewLine: find(/^(incident \S+ \S+|no incident to close)/),
     };
@@ -906,14 +912,16 @@ async function runTake() {
     );
     await sleep(500);
     await markReviewed(page);
-    await holdForLine("resolve", 8, 3);
+    await sleep(RESOLVED_HOLD_MS);
 
     // 6. The test clip with its study on file: the fault off first (the console keeps the switch
-    //    armed between runs), then the fourth preset.
+    //    armed between runs), a gesture that plays under the end of the resolve line, then the
+    //    fourth preset on its own line.
     const off = await setFault(page, false);
     cue("fault_off", { detail: off.toggled ? "Inject a fault switched off" : "already off" });
     await sleep(600);
     await off.close();
+    await holdForLine("resolve", 8);
     await clickAsset(page, "Nimbus test clip, study on file");
     await sleep(700);
     await clickRun(page);

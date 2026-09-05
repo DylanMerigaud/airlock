@@ -485,23 +485,26 @@ def build_windows(at: dict, lines: list[dict], inserts: list[dict] | None = None
         than from "the last chip to settle" keeps the label honest even on a run where some other
         gate happens to finish last.
 
-        A wait is never given the voice floor a hold gets, and that is not an oversight: the line
-        spoken over the gate that just settled starts at the cut point and the picture it
-        describes, the settled chip, is still there after the cut and stays there. A hold is the
-        other case, its picture ends at the end of the window.
+        The wait starts once the line about the gate that landed last has been said (script v6;
+        draft 5 started it at the landing itself, which pushed the rights line seven seconds off
+        the rights landing because the claim line was still running when the cut brought the
+        landing forward). What is removed is still nothing but waiting: the clip playing under a
+        row that reads "Checking" while nobody speaks. A wait is not given the voice floor a hold
+        gets: the line spoken over the settled chip starts at the cut point and that chip stays.
         """
         rights = at.get(f"rights_done{suffix}")
-        others = [at[f"{g}_done{suffix}"] for g in ("claim", "brand", "provenance")
+        others = [(at[f"{g}_done{suffix}"], g) for g in ("claim", "brand", "provenance")
                   if f"{g}_done{suffix}" in at]
-        before = [o for o in others if o < rights] if rights is not None else []
+        before = [o for o in others if o[0] < rights] if rights is not None else []
         if rights is None or not before:
             return None
-        a, b = max(before), rights
+        (a, last_gate), b = max(before), rights
+        a = max(a, quiet_from(f"{last_gate}_done{suffix}"))
         seek = at.get("seek_claim")
         if seek is not None and a <= seek < b:
             # The recorder logs seek_done when it is back on the Checks segment; before that cue
             # existed the beat was given a fixed SEEK_BEAT_S, which is still the fallback.
-            a = min(at.get("seek_done", seek + SEEK_BEAT_S), b)
+            a = min(max(a, at.get("seek_done", seek + SEEK_BEAT_S)), b)
         if b - a <= keep:
             return None
         return {"name": name, "a": a, "b": b, "keep": keep, "max": (b - a) - keep,
@@ -593,7 +596,7 @@ def build_windows(at: dict, lines: list[dict], inserts: list[dict] | None = None
         investigation_wait("_2"),
         *(grafana_wait(insert) for insert in (inserts or [])),
         span("dashboard", "landing", 5.0, "dashboard hold"),
-        span("landing", "end", 8.0, "landing hold"),
+        span("landing", "end", 6.7, "landing hold"),
     ]
     return [w for w in candidates if w]
 
@@ -894,13 +897,21 @@ def main() -> int:
             return out
 
         best = with_waits(waits)
-        # Under the floor, whole waits go back on the picture, the shortest first, until the render
-        # reaches it. A wait is never given back in part: what is cut is cut to the half second the
-        # caption promises, and what is kept is kept whole.
-        if best["total"] < args.minimum:
+
+        def short(out: dict) -> bool:
+            """The render is under the floor, or the picture ends before the voice does and the
+            last frame would be cloned to cover the difference."""
+            return (out["total"] < args.minimum
+                    or out["video_len"] < out["narration_end"] + TAIL_PAD_S - 0.05)
+
+        # Under the floor, or with the voice outlasting the picture, whole waits go back on the
+        # picture, the shortest first, until neither holds. A wait is never given back in part:
+        # what is cut is cut to the half second the caption promises, and what is kept is kept
+        # whole.
+        if short(best):
             cut = list(waits)
             for window in sorted(waits, key=lambda w: w["max"]):
-                if best["total"] >= args.minimum or window["max"] > GIVE_BACK_MAX_S:
+                if not short(best) or window["max"] > GIVE_BACK_MAX_S:
                     break
                 attempt = with_waits([w for w in cut if w is not window])
                 if attempt["total"] > args.maximum:
@@ -941,6 +952,9 @@ def main() -> int:
     if total < args.minimum:
         print(f"  the picture is {total:.1f}s, under the {args.minimum:.0f}s target floor: the "
               f"take is what it is and no hold is padded to reach a length")
+    frozen = best["narration_end"] + TAIL_PAD_S - best["video_len"]
+    if frozen > 0.05:
+        print(f"  the voice outlasts the picture by {frozen:.1f}s: the last frame is held that long")
     if total > args.maximum:
         print(f"  the picture is {total:.1f}s, over the {args.maximum:.0f}s target ceiling with "
               f"everything this cut is allowed to remove")
@@ -1065,6 +1079,7 @@ def main() -> int:
         "compression_labels": [{"text": label["text"], "from_s": round(label["from"], 3),
                                 "to_s": round(label["to"], 3)} for label in labels],
         "hold_trim_s": round(held_back, 3),
+        "voice_outlasts_picture_s": round(max(0.0, best["narration_end"] + TAIL_PAD_S - best["video_len"]), 3),
         "punches": [{"cue": entry["cue"], "target": entry["target"], "at_s": entry["t"],
                      "centre": list(entry["centre"]), "wanted_centre": list(entry["want"]),
                      "zoom": PUNCH_ZOOM, "seconds": PUNCH_S} for entry in punches],
