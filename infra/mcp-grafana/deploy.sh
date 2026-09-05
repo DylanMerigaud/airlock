@@ -11,7 +11,8 @@ SERVICE="${AIRLOCK_MCP_SERVICE:-airlock-mcp-grafana}"
 IMAGE="${AIRLOCK_MCP_IMAGE:-docker.io/grafana/mcp-grafana:1.3.0}"
 : "${GRAFANA_URL:?set GRAFANA_URL, e.g. https://<stack>.grafana.net}"
 
-ENABLED_TOOLS="search,datasource,incident,prometheus,loki,dashboard,annotations"
+# alerting since 2026-09-05: the investigator asks list_alert_rules whether an Airlock rule is firing.
+ENABLED_TOOLS="search,datasource,incident,prometheus,loki,dashboard,annotations,alerting"
 
 deploy() {
   local allowed_hosts="$1"

@@ -1,9 +1,19 @@
-"""Create the "Airlock gates" dashboard on the Grafana stack and print the Prometheus datasource uid.
+"""Create the "Airlock gates" dashboard, the Airlock alert rules and their contact point on the Grafana
+stack, and print the Prometheus datasource uid.
 
-Uses the Grafana HTTP API with the service account token (Editor). Idempotent:
-the dashboard is upserted by uid.
+Uses the Grafana HTTP API with the service account token (Editor). Idempotent: the dashboard is
+upserted by uid, the folder by title, the contact point by name, the alert rules by uid through the
+provisioning API (/api/v1/provisioning), the notification policy tree is replaced whole.
 
-Environment: GRAFANA_URL, GRAFANA_SERVICE_ACCOUNT_TOKEN.
+Three rules, all on the counters the gates and the proof push (a series is absent when nothing
+happened, so "no data" is OK, not an alert):
+  Airlock daily proof failed    sum(sum_over_time(airlock_daily_proof_total{outcome="fail"}[13h])) > 0
+  Airlock gate errors           sum by (gate) (sum_over_time(airlock_gate_errors_total[15m])) > 0
+  Airlock calibration missed    sum by (gate) (sum_over_time(airlock_calibration_misses_total[24h])) > 0
+One contact point (email, AIRLOCK_ALERT_EMAIL, default dylanmerigaud@gmail.com), the default policy
+routed to it. The investigator agent reads the rules' state through mcp-grafana's list_alert_rules.
+
+Environment: GRAFANA_URL, GRAFANA_SERVICE_ACCOUNT_TOKEN, optional AIRLOCK_ALERT_EMAIL.
 """
 
 from __future__ import annotations
@@ -114,6 +124,109 @@ def dashboard(ds_uid: str) -> dict:
     }
 
 
+FOLDER_TITLE = "Airlock"
+FOLDER_UID = "airlock"
+RULE_GROUP = "airlock"
+RULE_GROUP_INTERVAL_S = 60
+CONTACT_POINT = "airlock-email"
+DEFAULT_ALERT_EMAIL = "dylanmerigaud@gmail.com"
+# X-Disable-Provenance: the objects stay editable in the Grafana UI (a provisioned object is read-only there).
+PROVISIONING_HEADERS = {"X-Disable-Provenance": "true"}
+
+
+def alert_rules(ds_uid: str) -> list[dict]:
+    """The three Airlock alert rules, keyed by a stable uid. Each is one instant PromQL query (A) and one
+    threshold expression (C: A > 0); the rule fires at the next evaluation (for: 0s), and a missing series
+    reads as OK because these counters only exist when a failure was pushed."""
+    specs = [
+        ("airlock-daily-proof-failed", "Airlock daily proof failed",
+         'sum(sum_over_time(airlock_daily_proof_total{outcome="fail"}[13h]))',
+         "A scheduled proof failed in the last 13 hours: a gate missed its injected defect, or the clean clip did not PASS. Read the proof's Loki lines ({app=\"airlock\"} |= \"daily-proof\")."),
+        ("airlock-gate-errors", "Airlock gate errors",
+         "sum by (gate) (sum_over_time(airlock_gate_errors_total[15m]))",
+         "A gate raised in the last 15 minutes (its run is ERROR and the verdict on that run is BLOCK control unavailable). Read the gate's Loki lines ({app=\"airlock\", gate=\"<gate>\", status=\"ERROR\"})."),
+        ("airlock-calibration-missed", "Airlock calibration missed",
+         "sum by (gate) (sum_over_time(airlock_calibration_misses_total[24h]))",
+         "A calibration run in the last 24 hours injected a defect the gate did not catch: the gate's PASS is advisory until the next catch (rule R2)."),
+    ]
+    rules = []
+    for uid, title, expr, summary in specs:
+        rules.append({
+            "uid": uid,
+            "title": title,
+            "ruleGroup": RULE_GROUP,
+            "folderUID": FOLDER_UID,
+            "condition": "C",
+            "for": "0s",
+            "noDataState": "OK",
+            "execErrState": "Error",
+            "orgID": 1,
+            "annotations": {"summary": summary, "expr": expr},
+            "labels": {"app": "airlock", "owner": "platform"},
+            "data": [
+                {"refId": "A", "relativeTimeRange": {"from": 600, "to": 0}, "datasourceUid": ds_uid,
+                 "model": {"refId": "A", "expr": expr, "instant": True, "range": False, "intervalMs": 1000, "maxDataPoints": 43200}},
+                {"refId": "C", "relativeTimeRange": {"from": 0, "to": 0}, "datasourceUid": "__expr__",
+                 "model": {"refId": "C", "type": "threshold", "expression": "A",
+                           "conditions": [{"evaluator": {"type": "gt", "params": [0]}, "operator": {"type": "and"}, "query": {"params": ["C"]}, "reducer": {"type": "last", "params": []}, "type": "query"}]}},
+            ],
+        })
+    return rules
+
+
+def ensure_folder(c: httpx.Client) -> str:
+    """The "Airlock" folder the alert rules live in (alert rules need a folder), by uid."""
+    r = c.get(f"/api/folders/{FOLDER_UID}")
+    if r.status_code == 200:
+        return r.json()["uid"]
+    r = c.post("/api/folders", json={"uid": FOLDER_UID, "title": FOLDER_TITLE})
+    r.raise_for_status()
+    return r.json()["uid"]
+
+
+def ensure_contact_point(c: httpx.Client, email: str) -> str:
+    """One email contact point, upserted by name; returns its uid."""
+    r = c.get("/api/v1/provisioning/contact-points", params={"name": CONTACT_POINT})
+    r.raise_for_status()
+    body = {"name": CONTACT_POINT, "type": "email", "settings": {"addresses": email, "singleEmail": True}, "disableResolveMessage": False}
+    existing = [cp for cp in r.json() if cp.get("name") == CONTACT_POINT]
+    if existing:
+        uid = existing[0]["uid"]
+        c.put(f"/api/v1/provisioning/contact-points/{uid}", json={**body, "uid": uid}, headers=PROVISIONING_HEADERS).raise_for_status()
+        return uid
+    r = c.post("/api/v1/provisioning/contact-points", json=body, headers=PROVISIONING_HEADERS)
+    r.raise_for_status()
+    return r.json()["uid"]
+
+
+def ensure_policy(c: httpx.Client) -> dict:
+    """The notification policy tree: everything to the Airlock contact point, grouped by folder and rule."""
+    tree = {"receiver": CONTACT_POINT, "group_by": ["grafana_folder", "alertname"], "group_wait": "30s", "group_interval": "5m", "repeat_interval": "4h"}
+    c.put("/api/v1/provisioning/policies", json=tree, headers=PROVISIONING_HEADERS).raise_for_status()
+    return c.get("/api/v1/provisioning/policies").json()
+
+
+def ensure_alert_rules(c: httpx.Client, ds_uid: str) -> list[dict]:
+    """The rules, upserted by uid through the provisioning API; then the group's evaluation interval."""
+    out = []
+    for rule in alert_rules(ds_uid):
+        r = c.get(f"/api/v1/provisioning/alert-rules/{rule['uid']}")
+        if r.status_code == 200:
+            r = c.put(f"/api/v1/provisioning/alert-rules/{rule['uid']}", json=rule, headers=PROVISIONING_HEADERS)
+        else:
+            r = c.post("/api/v1/provisioning/alert-rules", json=rule, headers=PROVISIONING_HEADERS)
+        r.raise_for_status()
+        saved = r.json()
+        out.append({"uid": saved.get("uid"), "title": saved.get("title"), "folderUID": saved.get("folderUID"), "ruleGroup": saved.get("ruleGroup")})
+    r = c.get(f"/api/v1/provisioning/folder/{FOLDER_UID}/rule-groups/{RULE_GROUP}")
+    r.raise_for_status()
+    group = r.json()
+    if group.get("interval") != RULE_GROUP_INTERVAL_S:
+        group["interval"] = RULE_GROUP_INTERVAL_S
+        c.put(f"/api/v1/provisioning/folder/{FOLDER_UID}/rule-groups/{RULE_GROUP}", json=group, headers=PROVISIONING_HEADERS).raise_for_status()
+    return out
+
+
 def main() -> None:
     c = _client()
     ds_uid = prometheus_uid(c)
@@ -121,7 +234,13 @@ def main() -> None:
     r.raise_for_status()
     body = r.json()
     base = os.environ["GRAFANA_URL"].rstrip("/")
-    print(json.dumps({"prometheus_uid": ds_uid, "dashboard_uid": body.get("uid"), "dashboard_url": base + body.get("url", ""), "version": body.get("version")}))
+    folder_uid = ensure_folder(c)
+    contact_uid = ensure_contact_point(c, os.environ.get("AIRLOCK_ALERT_EMAIL", DEFAULT_ALERT_EMAIL))
+    policy = ensure_policy(c)
+    rules = ensure_alert_rules(c, ds_uid)
+    print(json.dumps({"prometheus_uid": ds_uid, "dashboard_uid": body.get("uid"), "dashboard_url": base + body.get("url", ""), "version": body.get("version"),
+                      "folder_uid": folder_uid, "contact_point": {"name": CONTACT_POINT, "uid": contact_uid}, "policy_receiver": policy.get("receiver"),
+                      "alert_rules": rules, "rule_group_interval_s": RULE_GROUP_INTERVAL_S}))
 
 
 if __name__ == "__main__":
