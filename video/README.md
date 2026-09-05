@@ -109,11 +109,18 @@ cues the take actually produced.
    and the subtitles from `narration.json`, mixes the narration at its cue times over a quiet room
    tone, normalises to -16 LUFS integrated with the true peak under -1 dBTP, plays a punch-in on
    every landing, and writes `video/out/airlock-draft-<n>-synthetic-voice.mp4`. It then
-   runs the render gates and prints the verdict:
+   runs the render checker named by `AIRLOCK_RENDER_CHECK`, when one is configured, and prints
+   its verdict:
 
    ```bash
-   python3 ~/Code/growth-cockpit/career/hackathon-evals/check.py --render <mp4> --limit-s 180
+   AIRLOCK_RENDER_CHECK=/path/to/check.py uv run python video/assemble.py
+   # runs: python3 $AIRLOCK_RENDER_CHECK --render <mp4> --limit-s 180
    ```
+
+   The checker is any script that takes `--render <mp4> --limit-s <s>` and prints PASS or FAIL
+   (the "PASS mecanique" blocks in `docs/RUNS.md` came from one kept outside this repository).
+   With the variable unset the step prints `render check skipped, no checker configured` and the
+   assembler exits 0 with the render written; `--no-check` skips it explicitly.
 
    The take is always longer than the video, so the assembler cuts, and the only thing it is
    allowed to take out is waiting. There are four kinds of it, and each one is a stretch where a
@@ -141,8 +148,8 @@ cues the take actually produced.
    The cut aims at nothing. Every wait comes off whole and the render lands where it lands: past
    `--max` a hold is shortened, under `--min` whole waits go back on the picture shortest first
    (never one longer than six seconds, and never in part), and if it still lands short it lands
-   short and prints that it did. Nothing is ever padded to reach a length. `check.py --limit-s 180`
-   is the hard limit; script v5 asks for 150 to 170.
+   short and prints that it did. Nothing is ever padded to reach a length. The checker's
+   `--limit-s 180` is the hard limit; script v5 asks for 150 to 170.
 
    Then the two measurements the pace direction is made of, both written into `assembly.json` and
    printed. **The punch-ins**: 1.15x over 1.2 s on every landing, eased in and out, towards the
