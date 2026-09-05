@@ -119,7 +119,7 @@ def test_instruction_without_a_verdict_still_names_the_run():
 
 def test_instruction_names_the_trace_when_the_run_has_one():
     text = investigator_instruction(fake_readonly_ctx({STATE_VERDICT: {**verdict_payload(), "trace_id": TRACE}}))
-    assert f"trace id: {TRACE}" in text and "carry it as trace_id" in text
+    assert f"trace id: {TRACE}" in text and "body field trace_id, not a label" in text  # the live model once queried it as a label
 
 
 def test_annotation_text_and_trace_fields(monkeypatch):

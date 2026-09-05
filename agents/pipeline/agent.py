@@ -497,8 +497,8 @@ def investigator_instruction(ctx: ReadonlyContext) -> str:
         task = (f"The verdict BLOCKED on the content of the asset: {', '.join(focus)}. Read this run's line of each blocking gate and name, "
                 "with its time_utc, the finding and the rule id it cites (rule_ids in the line); say whether a human can lift the block "
                 "with paperwork (a substantiation, a licence, a release) or whether the asset itself must change.")
-    trace_line = (f"\ntrace id: {verdict['trace_id']} (this run's trace in Tempo; the Loki lines of this run carry it as trace_id, you may cite it)"
-                  if verdict.get("trace_id") else "")
+    trace_line = (f"\ntrace id: {verdict['trace_id']} (this run's trace in Tempo; the Loki lines of this run carry it as the body field trace_id, "
+                  "not a label: filter with |= if you need it; you may cite it)" if verdict.get("trace_id") else "")
     return f"""You are the investigator of Airlock, a release control for generated video ads. Four gates (rights, claim, brand, provenance)
 read the asset, then a deterministic verdict asked Grafana about each gate and ruled. The verdict is final; you do not change it.
 You explain it from what Grafana holds, for the human who receives the incident or reads the record.
