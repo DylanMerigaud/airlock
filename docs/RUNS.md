@@ -3413,3 +3413,245 @@ claim gate places at 7.0, 11.5, 16.5 and 26 s, so gemini-2.5-flash is returning 
 as a decimal; the brand markers therefore cluster in the first second of the scrubber. A one-off
 `IncidentsService.AddLabel` on incidents 25 and 26 would give the hosted Queue its two owners
 without waiting for a fresh incident.
+
+## Traces: one per run in Tempo, the Loki lines and the incident carry the trace id (2026-09-05)
+
+Status: DONE 2026-09-05 (13:58 UTC). Branch `worktree-agent-aa23b8e44d4e23e77`, commits b0017da,
+185a9f6, f7249f8, 184ac1f, a1fb7e5 plus this section. The last gap in the partner's sample mission
+(investigate a firing alert, correlate Loki logs with Tempo traces, summarize the root cause, annotate
+a dashboard): until this section nothing in Airlock reached Tempo.
+
+### The portal facts (measured by the main session and a portal lane, 2026-09-05, before the code)
+
+Stack `narrowsubmarine1895`, stack id 1811382, region prod-us-west-0. The Tempo datasource is
+`grafanacloud-traces` (query URL `https://tempo-prod-15-prod-us-west-0.grafana.net/tempo`, basic auth user
+1763470, reachable through the datasource proxy `GET $GRAFANA_URL/api/datasources/proxy/uid/grafanacloud-traces/api/traces/<trace_id>`
+with the service account token). The Tempo host takes OTLP over gRPC only; the HTTP ingest is the OTLP
+gateway `https://otlp-gateway-prod-us-west-0.grafana.net/otlp/v1/traces`, basic auth user `1811382` (the
+stack id), password an access policy token: policy `airlock-traces`, scope `traces:write`, stored in the
+keychain as `grafana-traces-token` (account dylanmerigaud) and in Secret Manager as `grafana-traces-token`
+(version 1, enabled). The existing `grafana-influx-token` has no traces scope. Checked before writing a line
+of code: an empty POST to the gateway with that token answers 200 (token length 160, never printed).
+
+### What the ADK already does (read in `.venv/lib/python3.12/site-packages/google/adk`)
+
+- `google/adk/telemetry/tracing.py`: one tracer, `trace.get_tracer("gcp.vertex.agent", <adk version>)`.
+  Spans opened around the run: `invoke_workflow <root>` (telemetry schema 2, the default when
+  `GOOGLE_CLOUD_AGENT_ENGINE_ID` is set; `invocation` under schema 1, locally), `invoke_agent <name>` per
+  agent (`_instrumentation.record_agent_invocation`), `execute_tool <name>` per tool call of an LlmAgent,
+  `call_llm` and `generate_content <model>` per model call.
+- `google/adk/cli/api_server.py:_setup_telemetry`: `adk api_server`, which is what `adk deploy agent_engine`
+  puts in the image (`CMD adk api_server ... --a2a`, `cli_deploy.py`), sets a global SDK `TracerProvider()`
+  at startup with no exporter unless `--otel_to_cloud` or the `OTEL_EXPORTER_OTLP_*` variables are set. So
+  on Agent Engine a provider exists before the pipeline module loads, its resource read from
+  `OTEL_SERVICE_NAME` and `OTEL_RESOURCE_ATTRIBUTES` at creation; nothing flushes spans per request. In a
+  plain process (`python -m airlock.run`, the daily proof, airlock-mcp) `trace.get_tracer_provider()` is a
+  `ProxyTracerProvider` (measured with `uv run python -c`).
+- `google-cloud-aiplatform[agent_engines]` (in `pyproject.toml` and `agents/pipeline/requirements.txt`)
+  already pulls `opentelemetry-exporter-otlp-proto-http` 1.42.1 (`uv.lock`); nothing added.
+
+### What changed
+
+- `airlock/tracing.py`: `configure()` installs a `BatchSpanProcessor(OTLPSpanExporter(endpoint, Basic auth))`
+  on the global provider once per process: added to the existing SDK provider when there is one (Agent
+  Engine), else on a new provider with the resource `service.name=airlock`, `service.version` (git short
+  sha, else "dev"), `deployment.environment=AIRLOCK_RUNTIME`. No `GRAFANA_OTLP_TOKEN`, no export, one
+  warning in the log; `GRAFANA_OTLP_URL` set empty turns it off on purpose. `FlushOnRootEnd`, a second
+  processor, calls `force_flush` on the batch when a span with no parent ends: Agent Engine throttles the
+  CPU the instant a request ends, so the run's spans leave inside the request that made them. `span(name,
+  **attrs)` opens a span of Airlock's own with `airlock.`-prefixed attributes; `current_trace_id()` is the
+  32-hex id of the current span (None outside a recording trace); `explore_url(trace_id)` builds the Grafana
+  Explore URL on the Tempo datasource (`/explore?schemaVersion=1&panes=<json>&orgId=1`, a traceql query
+  holding the id, range now-7d to now).
+- `airlock/gates/base.py`: `run_gate` runs in `airlock.gate.<gate>` with `airlock.run_id`, `airlock.asset_id`,
+  `airlock.gate`, `airlock.fault`, then `airlock.status`, `airlock.elapsed_ms`, `airlock.cost_usd`,
+  `airlock.telemetry_muted`; an ERROR sets the span status to ERROR with the reason. `loki_event` adds
+  `trace_id` to the body when the process has a trace.
+- `agents/pipeline/agent.py`: `tracing.configure()` at import; the gate `done` payload carries `trace_id`;
+  the verdict payload (and its failure payload) carries `trace_id` and `trace_url`; the annotation text is
+  `annotation_text()`: "<status> (<motive>) <asset> run <id> trace <id>: reasons"; the investigator's
+  instruction has a `trace id:` line (with the note that `trace_id` is a body field, not a label: the live
+  model queried `{..., trace_id="..."}` once and got nothing); `incident_body` has a `Trace: <Explore URL>`
+  line; the verdict's `ask()` and the escalation's calls run in `grafana.<tool>` spans (ADK wraps only an
+  LlmAgent's tool calls).
+- `airlock/settings.py`: `otlp()` (`GRAFANA_OTLP_URL` default the gateway, `GRAFANA_OTLP_USER` default
+  1811382, `GRAFANA_OTLP_TOKEN` no default), `tempo_uid()` (`GRAFANA_TEMPO_UID`, default
+  `grafanacloud-traces`), both in `describe()`; `engine_config()` renders `GRAFANA_OTLP_URL`,
+  `GRAFANA_OTLP_USER`, `GRAFANA_TEMPO_UID`, `OTEL_SERVICE_NAME=airlock`,
+  `OTEL_RESOURCE_ATTRIBUTES=deployment.environment=agent-engine` and the secret reference
+  `GRAFANA_OTLP_TOKEN -> grafana-traces-token`; re-rendered with
+  `scripts/with_env.sh uv run python -m airlock.settings --render-engine-config` (the drift test is green).
+  `scripts/with_env.sh` exports `GRAFANA_OTLP_TOKEN` from the keychain; `infra/gcp/daily_proof.sh` and
+  `infra/airlock-mcp/deploy.sh` set the two variables and the secret on the job and the service;
+  `airlock/run.py`, `airlock/daily_proof.py` and `airlock_mcp/server.py` call `configure()`.
+- `airlock/telemetry.py`: the Loki line is compact JSON (`loki_line`, separators `,` and `:`). Reason
+  below, under the derived field.
+- `scripts/grafana_bootstrap.py`: `ensure_trace_link()` reads the Loki datasource, checks that one of its
+  derived fields points at the Tempo datasource and pulls the trace id out of an Airlock line
+  (`field_links_airlock_lines`), PUTs ours when the datasource is writable and none does, reports when it
+  is read-only; verified by GET; the result is in the bootstrap's JSON as `loki_trace_link`.
+- Console: `VerdictPayload.trace_id` and `trace_url` (`console/src/lib/events.ts`, two fields);
+  `decision-record.tsx` shows "trace <first 8 chars>" as a link to the Explore URL beside the annotation
+  and incident ids. `airlock/engine_client.py` prints `trace=<id>` on the verdict line.
+- Tests: `uv run pytest -q` = 202 passed, 3 skipped on this branch (184 at its fork point 2e270f8; 18 added
+  here, and main has gained its own since). `tests/test_tracing.py` (no token means no
+  export and a warning, an empty URL is off, the exporter's endpoint and Basic header, the Explore URL,
+  the root-end flusher, a span of ours with an in-memory exporter, `run_gate`'s span and the trace id in
+  the Loki body, an ERROR marks the span, no trace id outside a span), `tests/test_settings.py` and
+  `tests/test_engine_config.py` (the endpoint's defaults, the secret reference, the OTel resource
+  variables), `tests/test_investigation.py` (the annotation text, `trace_fields`, the instruction's trace
+  line, the incident body's Trace line), `tests/test_grafana_bootstrap.py` (the stack's default field
+  links a compact line and not a spaced one, the plan on a read-only and on a writable datasource),
+  `tests/test_telemetry.py` (the compact line matches the stack's regex). `bash scripts/check.sh` green
+  before every commit.
+
+### Logs to traces: the datasource is read-only, the line format is what changed (13:20 UTC)
+
+`GET /api/datasources/uid/grafanacloud-logs`: `readOnly: true`, and `jsonData.derivedFields` already holds
+two fields Grafana Cloud provisions:
+
+```
+{"name": "traceID", "matcherType": "regex", "matcherRegex": "[tT]race_?[iI][dD]\"?[:=]\"?(\\w+)", "url": "${__value.raw}", "datasourceUid": "grafanacloud-traces"}
+{"name": "traceID (field)", "matcherType": "label", "matcherRegex": "[tT]race_?[iI][dD]", "url": "${__value.raw}", "datasourceUid": "grafanacloud-traces"}
+```
+
+`PUT /api/datasources/uid/grafanacloud-logs` with the unchanged body: `403 {"message":"Cannot update read-only
+data source"}`. So the plan's derived field cannot be added on this stack, and it does not need to be: the
+stack's `traceID` regex matches `"trace_id":"<id>"` and not `"trace_id": "<id>"` (checked with Python's
+`re` on both forms: the spaced form, `json.dumps`'s default, gives no match). The Loki lines are now written
+without the space and the stack's own field links them. The bootstrap on the stack:
+
+```
+scripts/with_env.sh uv run python scripts/grafana_bootstrap.py
+... "loki_trace_link": {"loki_uid": "grafanacloud-logs", "tempo_uid": "grafanacloud-traces", "action": "none", "read_only": true, "linked_by": ["traceID"], "verified": true}
+```
+
+The Tempo datasource (`grafanacloud-traces`, read-only too) already carries `tracesToLogs` to
+`grafanacloud-logs` (span time shifted by 2 s), `tracesToMetrics` and `serviceMap` to `grafanacloud-prom`.
+
+### The first trace, from this machine (13:29 UTC)
+
+`scripts/with_env.sh uv run python <probe>`: `configure()` on a new TracerProvider, one `airlock.probe` span
+around `run_gate("rights", ...)` with the telemetry muted, `force_flush()`, then the datasource proxy:
+
+```
+tracing: spans exported to https://otlp-gateway-prod-us-west-0.grafana.net/otlp/v1/traces, on a new TracerProvider
+trace_id 87f33649f662c9434b04fc4d9de4d70f status PASS
+resource {"service.name": "airlock", "service.version": "2e270f8", "deployment.environment": "local", "telemetry.sdk.version": "1.42.1"}
+spans ['airlock.gate.rights', 'airlock.probe']
+```
+
+The Explore URL `explore_url()` builds, opened logged in through the browser lane `tempo-check`
+(`arc_lane.py open`, `js`, `close`): page title "Explore - grafanacloud-narrowsubmarine1895-traces - Grafana",
+the trace view reads "Trace airlock: airlock.probe", "Trace ID 87f33649f662c9434b04fc4d9de4d70f", "Duration
+1.81ms", "Services 1", and both span names are on the page. The `panes` form works; the `left=` fallback was
+not needed.
+
+### Deploys (13:39 to 13:44 UTC, then 13:58 UTC)
+
+```
+scripts/with_env.sh uv run adk deploy agent_engine --project airlock-agentic-cinema --region us-central1 --agent_engine_id 1737023312967499776 --display_name airlock agents/pipeline
+Deployed to Agent Platform: projects/airlock-agentic-cinema/locations/us-central1/reasoningEngines/1737023312967499776
+bash infra/airlock-mcp/deploy.sh
+Service [airlock-mcp] revision [airlock-mcp-00005-2sn] has been deployed and is serving 100 percent of traffic.
+bash infra/gcp/daily_proof.sh
+scheduler job airlock-daily-proof updated: 0 */6 * * * UTC   (job generation 8)
+```
+
+`gcloud run jobs describe` and `gcloud run services describe`, env read back on both: `GRAFANA_OTLP_URL`
+(the gateway), `GRAFANA_OTLP_USER=1811382`, `GRAFANA_OTLP_TOKEN` from secret `grafana-traces-token`. The
+engine was deployed a second time at 13:58 UTC with the instruction hint about `trace_id` being a body
+field (commit a1fb7e5); the two runs below ran on the 13:44 UTC deploy, whose code differs from HEAD by that
+one line of prompt and the `trace=` field of the client's verdict line.
+
+### The clean run: one trace, 50 spans, four Loki lines that name it (13:45 to 13:47 UTC)
+
+```
+scripts/with_env.sh uv run python scripts/query_agent_engine.py projects/.../reasoningEngines/1737023312967499776 'gs://airlock-agentic-cinema-assets/calibration/nimbus-clean-clip.mp4'
+[   6.6s] provenance_gate  PASS      671 ms
+[  14.9s] brand_gate       PASS     9264 ms
+[  18.7s] claim_gate       PASS    13392 ms
+[  42.7s] rights_gate      PASS    37256 ms
+[  51.0s] verdict          VERDICT PASS (content) needs_human=False annotation=118 trace=d99eef975974338aafc720360d8139fb 7449 ms
+[  70.5s] investigation    INVESTIGATION DECISION NOTE investigation unavailable: model error: _ResourceExhaustedError: 429
+[  70.6s] escalation       escalation: no human needed: verdict PASS on content
+done in 72.8 s
+```
+
+Run `e-f482d350-442a-4036-af1e-a77c6df381c8`. Annotation 118 (13:46:28 UTC): "PASS (content)
+nimbus-clean-clip run e-f482d350-442a-4036-af1e-a77c6df381c8 trace d99eef975974338aafc720360d8139fb: all 4
+gates PASS, seen by Grafana, healthy and calibrated". The investigator met a Gemini 429 on this run
+(another check was running on the same project) and fell back, as designed; the trace still holds its
+`invoke_agent investigator`, `call_llm` and `generate_content gemini-2.5-flash` spans.
+
+Read back through `GET /api/datasources/proxy/uid/grafanacloud-traces/api/traces/d99eef975974338aafc720360d8139fb`:
+50 spans, resource `service.name=airlock`, `deployment.environment=agent-engine` (no `service.version`: on
+Agent Engine the provider is ADK's, its resource comes from the two OTEL variables), one root
+`invoke_workflow airlock`, scopes `gcp.vertex.agent` and `airlock`. Span names:
+
+```
+invoke_workflow airlock, invoke_agent airlock, invoke_agent gates,
+invoke_agent rights_gate, invoke_agent claim_gate, invoke_agent brand_gate, invoke_agent provenance_gate,
+airlock.gate.rights, airlock.gate.claim, airlock.gate.brand, airlock.gate.provenance,
+invoke_agent verdict, grafana.query_loki_logs, grafana.query_prometheus, grafana.create_annotation   (25 grafana.* spans)
+invoke_agent investigation, invoke_agent investigator, call_llm, generate_content gemini-2.5-flash,
+execute_tool query_loki_logs, execute_tool alerting_manage_rules, execute_tool (merged),
+invoke_agent escalation
+airlock.gate.rights  {"airlock.gate": "rights", "airlock.run_id": "e-f482d350-...", "airlock.asset_id": "nimbus-clean-clip", "airlock.status": "PASS", "airlock.elapsed_ms": 37256, "airlock.cost_usd": 0.5, "airlock.telemetry_muted": false}
+```
+
+Loki, `query_range` through the datasource proxy, `{app="airlock"} |= "e-f482d350-442a-4036-af1e-a77c6df381c8"`:
+4 lines (rights, claim, brand, provenance, all PASS), 4 carry `"trace_id":"d99eef975974338aafc720360d8139fb"`
+in the compact form.
+
+### The fault run: the incident links the trace (13:47 to 13:49 UTC)
+
+```
+scripts/with_env.sh uv run python scripts/query_agent_engine.py projects/.../reasoningEngines/1737023312967499776 '{"gcs_uri": "gs://airlock-agentic-cinema-assets/calibration/nimbus-clean-clip.mp4", "fault": {"rights": "timeout"}}'
+[   3.0s] rights_gate      ERROR       0 ms  TimeoutError: Video Intelligence operation timed out after 1 s (fault injected for run e-0bf0ca29-3d10-4906-ade4-3a54032b5ab8)
+[  23.6s] verdict          VERDICT BLOCK (control unavailable) needs_human=True annotation=119 trace=0135cb88468e72456d679752b73c6424 6630 ms
+[  29.8s] investigation    step tool_call: query_loki_logs {app="airlock", gate="rights", run_id="e-0bf0ca29-..."}
+[  36.0s] investigation    step tool_call: query_loki_logs {app="airlock", gate="rights", trace_id="0135cb88468e72456d679752b73c6424"}   (a label query on a body field: empty; hence the hint)
+[  40.1s] investigation    step tool_call: query_loki_logs {app="airlock", gate="rights"} |= "e-0bf0ca29-..."
+[  43.3s] investigation    step tool_call: query_loki_logs {app="airlock", gate="rights", status="ERROR"} != `e-0bf0ca29-...`
+[  45.6s] investigation    step tool_call: alerting_manage_rules operation=list
+[  49.8s] investigation    INVESTIGATION ROOT CAUSE ROOT CAUSE: The `rights` gate experienced a recurring, injected `TimeoutError` at `2026-09-05T13:47:50.477Z`, causing the asset to be blocked.
+[  52.6s] escalation       INCIDENT 38 https://narrowsubmarine1895.grafana.net/a/grafana-irm-app/incidents/38/airlock-needs-a-human-control-unavailable-on-nimbus-clean-clip
+done in 54.7 s
+```
+
+Trace `0135cb88468e72456d679752b73c6424`, 60 spans, same root and resource; `airlock.gate.rights` has
+status `STATUS_CODE_ERROR` and `airlock.fault=timeout`, `airlock.elapsed_ms=0`, `airlock.cost_usd=0`; 28
+`grafana.*` spans, now including `grafana.list_incidents`, `grafana.create_incident` and
+`grafana.add_activity_to_incident`. Loki: 4 lines of the run, 4 carry the trace id (rights ERROR, the
+three others PASS).
+
+Incident 38 through `IncidentsService.GetIncident`: "Airlock needs a human: control unavailable on
+nimbus-clean-clip", `active`, drill, created 2026-09-05T13:48:39Z, labels `airlock:control-unavailable` and
+`owner:platform`. `ActivityService.QueryActivity`: the `userNote` activity (the incident body) carries the
+line `Trace: https://narrowsubmarine1895.grafana.net/explore?schemaVersion=1&panes=...` with the trace id
+in the URL, and Grafana Incident attached that URL as context on its own (`contextAttached`).
+
+Logs to traces on this very line, in the lane `tempo-check`: Explore on `{app="airlock", gate="rights"} |=
+"e-0bf0ca29-3d10-4906-ade4-3a54032b5ab8"`, the row expanded, the derived field `traceID` renders a link
+whose target is `/explore?left={"range":{...},"datasource":"grafanacloud-traces","queries":[{"query":
+"0135cb88468e72456d679752b73c6424","queryType":"traceql","datasource":{"uid":"grafanacloud-traces"}}]}`,
+labelled "grafanacloud-narrowsubmarine1895-traces". Lane closed after.
+
+### airlock-mcp traces too (13:54 UTC)
+
+`scripts/with_env.sh uv run python scripts/airlock_mcp_client.py` against the deployed service:
+`check_provenance` PASS in 4569 ms on the clean clip, BLOCK in 2334 ms on the Crest excerpt. Loki,
+`{app="airlock", gate="provenance", runtime="airlock-mcp"}`: 13:54:04Z PASS nimbus-clean-clip trace_id
+`095f72733ebab9e1da999e94092438fe`, 13:54:07Z BLOCK CrestToothpa-18-48 trace_id
+`8d4442e9b6a7eec5edd2e1897f54c0e1`. Tempo, the second: one span `airlock.gate.provenance`, resource
+`service.name=airlock`, `service.version=dev`, `deployment.environment=airlock-mcp`. Each tool call is
+its own trace (the MCP server propagates no context), flushed by `FlushOnRootEnd` when the gate span ends.
+
+### Not verified, and said
+
+The daily proof job was redeployed with the endpoint (generation 8) and not executed by hand: its next
+scheduled run (every 6 hours) is the first that traces the calibration; the clean clip it runs traces on
+the engine's side already. The 13:58 UTC engine deploy (the prompt hint) had no run of its own. The
+`invoke_workflow airlock` root span is flushed at its end inside the request; a run whose request is
+cut before the escalation ends would leave its root span to the next request's flush.

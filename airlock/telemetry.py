@@ -86,6 +86,16 @@ class InfluxPusher:
 
 
 LOKI_PATH = "/loki/api/v1/push"
+# The stack's Loki datasource is provisioned read-only by Grafana Cloud (PUT answers 403 "Cannot update read-only
+# data source", measured 2026-09-05) and ships one derived field, traceID, whose regex
+# [tT]race_?[iI][dD]"?[:=]"?(\w+) links a line to Tempo. It matches "trace_id":"<id>" and not "trace_id": "<id>":
+# the lines are written without the space so the stack's own link works on them, no datasource edit needed.
+LOKI_SEPARATORS = (",", ":")
+
+
+def loki_line(event: dict) -> str:
+    """One Loki line: the event as compact JSON (the derived field regex above needs no space after the colon)."""
+    return json.dumps(event, default=str, separators=LOKI_SEPARATORS)
 
 
 @dataclass
@@ -109,7 +119,7 @@ class LokiPusher:
         self.client.close()
 
     def push_event(self, labels: dict[str, str], event: dict) -> int:
-        body = {"streams": [{"stream": {"app": "airlock", **labels}, "values": [[str(time.time_ns()), json.dumps(event, default=str)]]}]}
+        body = {"streams": [{"stream": {"app": "airlock", **labels}, "values": [[str(time.time_ns()), loki_line(event)]]}]}
         resp = self.client.post(self.url, json=body, auth=(self.user, self.token), timeout=self.timeout_s)
         if resp.status_code >= 300:
             raise RuntimeError(f"loki push failed: HTTP {resp.status_code} {resp.text[:300]}")

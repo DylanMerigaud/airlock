@@ -23,6 +23,7 @@ from agents.pipeline.agent import (
     STATE_VERDICT,
     InvestigationAgent,
     InvestigationBudget,
+    annotation_text,
     cited_lines,
     compact_loki_answer,
     fallback_note,
@@ -37,9 +38,12 @@ from agents.pipeline.agent import (
     loki_lines_from_answer,
     note_kind_line,
     tool_rows,
+    trace_fields,
 )
+from airlock.verdict import Verdict
 
 RUN = "e-7f3a"
+TRACE = "4bf92f3577b34da6a3ce929d0e0e4736"
 TS = '"1788566913325404907"'  # 2026-09-05T00:08:33.325Z
 
 
@@ -110,6 +114,24 @@ def test_instruction_on_a_pass_asks_for_a_decision_note():
 def test_instruction_without_a_verdict_still_names_the_run():
     text = investigator_instruction(fake_readonly_ctx({}))
     assert RUN in text and "unknown-asset" in text
+    assert "trace id:" not in text  # no trace on this run, no line about one
+
+
+def test_instruction_names_the_trace_when_the_run_has_one():
+    text = investigator_instruction(fake_readonly_ctx({STATE_VERDICT: {**verdict_payload(), "trace_id": TRACE}}))
+    assert f"trace id: {TRACE}" in text and "body field trace_id, not a label" in text  # the live model once queried it as a label
+
+
+def test_annotation_text_and_trace_fields(monkeypatch):
+    monkeypatch.setenv("GRAFANA_URL", "https://stack.grafana.net")
+    monkeypatch.delenv("GRAFANA_TEMPO_UID", raising=False)
+    v = Verdict(status="BLOCK", motive="control unavailable", needs_human=True, reasons=["rights: control unavailable", "claim: PASS"], gate_lines=[], rule_ids=[])
+    assert annotation_text(v, "nimbus-clean-clip", RUN, TRACE) == f"BLOCK (control unavailable) nimbus-clean-clip run {RUN} trace {TRACE}: rights: control unavailable | claim: PASS"
+    assert annotation_text(v, "nimbus-clean-clip", RUN, None) == f"BLOCK (control unavailable) nimbus-clean-clip run {RUN}: rights: control unavailable | claim: PASS"
+    fields = trace_fields(TRACE)
+    assert fields["trace_id"] == TRACE and fields["trace_url"].startswith("https://stack.grafana.net/explore?schemaVersion=1&panes=") and TRACE in fields["trace_url"]
+    assert "grafanacloud-traces" in fields["trace_url"]
+    assert trace_fields(None) == {}
 
 
 def test_compact_loki_answer_adds_time_utc_and_cuts_the_evidence():
@@ -329,8 +351,11 @@ def test_incident_body_carries_the_routing_the_note_and_the_loki_lines():
     assert "Investigation (gemini-2.5-flash, 3 tool calls):" in body and "ROOT CAUSE: injected timeout." in body
     assert "- 2026-09-05T00:08:33.325Z rights ERROR (fault: timeout): TimeoutError [run e-7f3a]" in body
     assert "Reasons:\n- rights: control unavailable" in body
+    assert "Trace:" not in body  # a run with no trace has no trace line
     clearance = incident_body(verdict_payload("BLOCK", "content", rule_ids=["16 CFR 255.3"]), {"note": "n", "tool_calls": 0}, "clearance")
     assert clearance.startswith("Route to the clearance owner (legal or agency): a licence, a release or a study lifts this block.")
+    traced = incident_body({**verdict_payload(), "trace_id": TRACE, "trace_url": "https://stack.grafana.net/explore?x"}, inv, "platform")
+    assert f"Run {RUN} on nimbus-clean-clip: BLOCK (control unavailable).\nTrace: https://stack.grafana.net/explore?x\n\nInvestigation" in traced
 
 
 def test_incident_url_is_absolute_from_the_relative_overview_url(monkeypatch):

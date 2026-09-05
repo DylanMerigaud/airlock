@@ -6,7 +6,9 @@ agent (M3) treats ERROR like a degraded control: it cannot contribute to a PASS.
 
 Every Loki event carries the asset id and the run id (the ADK invocation id), so the verdict can
 ask Grafana for THIS run's event of each gate, not for some run's. The run id is a body field, not
-a label: one label value per run would be one Loki stream per run.
+a label: one label value per run would be one Loki stream per run. It also carries the trace id of
+the run (airlock.tracing): every gate runs in a span `airlock.gate.<name>`, a child of ADK's agent
+span inside the pipeline, so the Loki line and the Tempo trace name each other.
 """
 
 from __future__ import annotations
@@ -18,7 +20,7 @@ from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from typing import Any, Literal
 
-from airlock import settings
+from airlock import settings, tracing
 from airlock.cost import estimate
 from airlock.telemetry import MEASUREMENT, InfluxPusher, LokiPusher, line, shared_pushers
 
@@ -80,12 +82,25 @@ def inject_fault(fault: str, gate: str, run_id: str | None) -> None:
 
 def run_gate(gate: str, fn: GateFn, asset: Asset, source_of_truth: str, mute: bool | None = None, fault: str | None = None,
              influx: InfluxPusher | None = None, loki: LokiPusher | None = None) -> GateResult:
-    """Run one gate with timing, counters and an event, turning any exception into ERROR.
+    """Run one gate with timing, counters and an event, turning any exception into ERROR, in a span of its own.
 
     mute=True silences the pushes (the judge's "disable a gate" action); None falls back to the env.
     fault names an injected failure (FAULT_TIMEOUT) raised before the gate function runs.
     influx and loki are the process's shared pushers unless given (a test passes its own).
+    The span `airlock.gate.<gate>` carries the run, the asset, the status, the time and the cost; an ERROR
+    marks it as such in Tempo.
     """
+    with tracing.span(f"airlock.gate.{gate}", gate=gate, run_id=asset.run_id, asset_id=asset.asset_id, fault=fault) as span:
+        result = _run_gate(gate, fn, asset, source_of_truth, mute, fault, influx, loki)
+        tracing.set_attributes(span, status=result.status, elapsed_ms=result.elapsed_ms, cost_usd=result.usage.get("cost_usd"),
+                               telemetry_muted=(muted(gate) if mute is None else mute))
+        if result.status == "ERROR":
+            tracing.mark_error(span, result.reasons[0] if result.reasons else "gate error")
+        return result
+
+
+def _run_gate(gate: str, fn: GateFn, asset: Asset, source_of_truth: str, mute: bool | None, fault: str | None,
+              influx: InfluxPusher | None, loki: LokiPusher | None) -> GateResult:
     is_muted = muted(gate) if mute is None else mute
     if is_muted:
         log.warning("gate %s telemetry is MUTED", gate)
@@ -139,8 +154,12 @@ def run_gate(gate: str, fn: GateFn, asset: Asset, source_of_truth: str, mute: bo
 
 
 def loki_event(asset: Asset, result: GateResult, fault: str | None = None) -> dict[str, Any]:
-    """The body of a gate's Loki event: the result, the asset id, the run id, and the injected fault when there was one."""
+    """The body of a gate's Loki event: the result, the asset id, the run id, the trace id of the run when the
+    process traces (the Loki datasource's derived field links it to Tempo), and the injected fault when there was one."""
     body: dict[str, Any] = {"asset_id": asset.asset_id, "run_id": asset.run_id, **result.to_dict()}
+    trace_id = tracing.current_trace_id()
+    if trace_id:
+        body["trace_id"] = trace_id
     if fault:
         body["fault"] = fault
     return body

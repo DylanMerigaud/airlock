@@ -24,6 +24,8 @@ GRAFANA_INFLUX_URL="${GRAFANA_INFLUX_URL:-https://prometheus-prod-67-prod-us-wes
 GRAFANA_INFLUX_USER="${GRAFANA_INFLUX_USER:-3546988}"
 GRAFANA_LOKI_URL="${GRAFANA_LOKI_URL:-https://logs-prod-021.grafana.net}"
 GRAFANA_LOKI_USER="${GRAFANA_LOKI_USER:-1769169}"
+GRAFANA_OTLP_URL="${GRAFANA_OTLP_URL:-https://otlp-gateway-prod-us-west-0.grafana.net/otlp/v1/traces}"
+GRAFANA_OTLP_USER="${GRAFANA_OTLP_USER:-1811382}"
 
 have_keychain() { command -v security >/dev/null 2>&1; }
 
@@ -76,8 +78,8 @@ gcloud run deploy "$SERVICE" \
   --image="$IMAGE" \
   --allow-unauthenticated \
   --port=8080 --memory=1Gi --cpu=1 --timeout=900 \
-  --set-env-vars="AIRLOCK_PROJECT=${PROJECT},AIRLOCK_ASSETS_BUCKET=${BUCKET},AIRLOCK_RUNTIME=airlock-mcp,GRAFANA_INFLUX_URL=${GRAFANA_INFLUX_URL},GRAFANA_INFLUX_USER=${GRAFANA_INFLUX_USER},GRAFANA_LOKI_URL=${GRAFANA_LOKI_URL},GRAFANA_LOKI_USER=${GRAFANA_LOKI_USER}" \
-  --set-secrets="AIRLOCK_MCP_SERVER_TOKEN=${SECRET_NAME}:latest,GRAFANA_INFLUX_TOKEN=grafana-influx-token:latest,GRAFANA_LOKI_TOKEN=grafana-influx-token:latest" \
+  --set-env-vars="AIRLOCK_PROJECT=${PROJECT},AIRLOCK_ASSETS_BUCKET=${BUCKET},AIRLOCK_RUNTIME=airlock-mcp,GRAFANA_INFLUX_URL=${GRAFANA_INFLUX_URL},GRAFANA_INFLUX_USER=${GRAFANA_INFLUX_USER},GRAFANA_LOKI_URL=${GRAFANA_LOKI_URL},GRAFANA_LOKI_USER=${GRAFANA_LOKI_USER},GRAFANA_OTLP_URL=${GRAFANA_OTLP_URL},GRAFANA_OTLP_USER=${GRAFANA_OTLP_USER}" \
+  --set-secrets="AIRLOCK_MCP_SERVER_TOKEN=${SECRET_NAME}:latest,GRAFANA_INFLUX_TOKEN=grafana-influx-token:latest,GRAFANA_LOKI_TOKEN=grafana-influx-token:latest,GRAFANA_OTLP_TOKEN=grafana-traces-token:latest" \
   --quiet
 
 URL="$(gcloud run services describe "$SERVICE" --project="$PROJECT" --region="$REGION" --format='value(status.url)')"

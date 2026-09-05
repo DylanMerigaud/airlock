@@ -4,7 +4,7 @@
 #   scripts/with_env.sh uv run python -m airlock.run assets/real/CrestToothpa-18-48.mp4
 #
 # The keychain account is AIRLOCK_KEYCHAIN_ACCOUNT (default dylanmerigaud, airlock/settings.py names
-# the same default). On a machine with no keychain, export the four variables below instead and run
+# the same default). On a machine with no keychain, export the five variables below instead and run
 # the command directly; a variable already set in the environment is kept as is.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -17,5 +17,7 @@ kc() { security find-generic-password -s "$1" -a "$ACCOUNT_KC" -w 2>/dev/null | 
 export GRAFANA_SERVICE_ACCOUNT_TOKEN="${GRAFANA_SERVICE_ACCOUNT_TOKEN:-$(kc grafana-sa-token)}"
 export GRAFANA_INFLUX_TOKEN="${GRAFANA_INFLUX_TOKEN:-$(kc grafana-influx-token)}"
 export GRAFANA_LOKI_TOKEN="${GRAFANA_LOKI_TOKEN:-$GRAFANA_INFLUX_TOKEN}"
+# The traces token (access policy airlock-traces, scope traces:write) is a separate credential: the Influx one has no traces scope.
+export GRAFANA_OTLP_TOKEN="${GRAFANA_OTLP_TOKEN:-$(kc grafana-traces-token)}"
 export AIRLOCK_MCP_TOKEN="${AIRLOCK_MCP_TOKEN:-$(kc airlock-mcp-token)}"
 exec "$@"

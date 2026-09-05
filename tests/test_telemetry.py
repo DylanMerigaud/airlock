@@ -86,3 +86,13 @@ def test_run_gate_uses_the_pushers_it_is_given(monkeypatch):
     assert len(influx.lines) == 1 and influx.lines[0].startswith("airlock_gate,gate=brand ") and "runs_total=1i" in influx.lines[0]
     assert loki.events[0][0] == {"gate": "brand", "status": "PASS", "runtime": "test"}
     assert loki.events[0][1]["run_id"] == "e-1"
+
+
+def test_loki_lines_are_compact_so_the_stack_default_derived_field_links_them():
+    import re
+
+    text = telemetry.loki_line({"asset_id": "clip", "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736", "status": "PASS", "elapsed_ms": 12})
+    assert '"trace_id":"4bf92f3577b34da6a3ce929d0e0e4736"' in text and ": " not in text
+    stack_default = re.compile(r'[tT]race_?[iI][dD]"?[:=]"?(\w+)')  # the regex of the traceID derived field Grafana Cloud provisions
+    m = stack_default.search(text)
+    assert m is not None and m.group(1) == "4bf92f3577b34da6a3ce929d0e0e4736"

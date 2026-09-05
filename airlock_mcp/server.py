@@ -34,7 +34,7 @@ from starlette.routing import Mount, Route
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 import airlock.verdict as verdict_module
-from airlock import settings
+from airlock import settings, tracing
 from airlock.gates import CHECKS, GATES
 from airlock.gates.base import Asset, GateResult, run_gate
 from airlock.verdict import promql_questions
@@ -193,6 +193,7 @@ def main() -> None:
         sys.exit(f"{TOKEN_ENV} is not set; refusing to start (set it to the bearer clients must send)")
     import uvicorn
 
+    tracing.configure()  # each gate tool call is one span (its own trace) in Tempo when GRAFANA_OTLP_TOKEN is set
     uvicorn.run(create_app(), host="0.0.0.0", port=int(os.environ.get("PORT", "8080")), log_level="info")
 
 

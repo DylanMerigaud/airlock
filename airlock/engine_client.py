@@ -102,7 +102,7 @@ def describe(author: str, d: dict[str, Any], t: float) -> str:
         return f"[{t:6.1f}s] {author:<16} grafana  {d.get('gate'):<11} {d.get('health')}; {d.get('calibration')}  {vals}"
     if st == "verdict":
         head = (f"[{t:6.1f}s] {author:<16} VERDICT {d.get('status')} ({d.get('motive')}) needs_human={d.get('needs_human')} "
-                f"annotation={d.get('annotation_id')} {d.get('elapsed_ms')} ms")
+                f"annotation={d.get('annotation_id')} trace={d.get('trace_id')} {d.get('elapsed_ms')} ms")
         return head + "".join(f"\n{'':>26}{r[:200]}" for r in d.get("reasons", []))
     if st == "investigation":
         if d.get("tool"):

@@ -31,7 +31,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
-from airlock import calibrate, settings
+from airlock import calibrate, settings, tracing
 from airlock.engine_client import describe, resource_from_env, stream_query
 from airlock.gates.base import GATES
 from airlock.telemetry import line, shared_pushers
@@ -174,6 +174,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--timeout", type=float, default=900, help="seconds to wait for the pipeline's stream")
     args = ap.parse_args(argv)
     elapsed: dict[str, float] = {}
+    if not args.no_push:
+        tracing.configure()  # the calibration's gate runs as spans in Tempo (the clean clip's trace is the engine's own)
 
     t0 = time.time()
     fetched = ensure_inputs()

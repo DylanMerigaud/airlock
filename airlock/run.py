@@ -15,6 +15,7 @@ import json
 import pathlib
 import sys
 
+from airlock import tracing
 from airlock.gates import CHECKS, GATES
 from airlock.gates.base import Asset, GateResult, run_gate
 
@@ -44,6 +45,7 @@ def main() -> None:
     ap.add_argument("--only", default=None, help="comma-separated subset of gates")
     ap.add_argument("--json", action="store_true", help="print the full JSON instead of the summary")
     args = ap.parse_args()
+    tracing.configure()  # one span per gate in Tempo when GRAFANA_OTLP_TOKEN is set (scripts/with_env.sh)
     asset = make_asset(args.path, args.gcs_uri)
     results = run_all(asset, args.only.split(",") if args.only else None)
     if args.json:

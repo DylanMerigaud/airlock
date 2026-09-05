@@ -21,6 +21,11 @@
     "GRAFANA_INFLUX_USER": "3546988",
     "GRAFANA_LOKI_URL": "https://logs-prod-021.grafana.net",
     "GRAFANA_LOKI_USER": "1769169",
+    "GRAFANA_OTLP_URL": "https://otlp-gateway-prod-us-west-0.grafana.net/otlp/v1/traces",
+    "GRAFANA_OTLP_USER": "1811382",
+    "GRAFANA_TEMPO_UID": "grafanacloud-traces",
+    "OTEL_SERVICE_NAME": "airlock",
+    "OTEL_RESOURCE_ATTRIBUTES": "deployment.environment=agent-engine",
     "AIRLOCK_MCP_TOKEN": {
       "secret": "airlock-mcp-token",
       "version": "latest"
@@ -31,6 +36,10 @@
     },
     "GRAFANA_LOKI_TOKEN": {
       "secret": "grafana-influx-token",
+      "version": "latest"
+    },
+    "GRAFANA_OTLP_TOKEN": {
+      "secret": "grafana-traces-token",
       "version": "latest"
     },
     "AIRLOCK_PROJECT": "airlock-agentic-cinema"

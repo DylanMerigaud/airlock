@@ -157,6 +157,9 @@ export type VerdictPayload = {
   rule_ids?: string[];
   asset_id?: string;
   annotation_id?: number | null;
+  /** The run's trace in Tempo (airlock.tracing): the 32-hex id and the Grafana Explore URL that opens it. */
+  trace_id?: string;
+  trace_url?: string;
   elapsed_ms?: number;
   cost?: VerdictCost;
 };
