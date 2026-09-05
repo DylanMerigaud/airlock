@@ -12,6 +12,8 @@ import {
   type FaultMap,
   type GateDonePayload,
   type GateName,
+  type InvestigationPayload,
+  type InvestigationStepPayload,
   type ProbePayload,
   type ReportedInstrument,
   type VerdictPayload,
@@ -52,6 +54,9 @@ export type TimelineRow = {
   /** A remark about Grafana itself (a paused stack waking), not about a gate. */
   grafanaNote?: string;
   verdict?: VerdictPayload;
+  /** A tool call or a tool answer of the investigator, when this row is one. */
+  investigationStep?: InvestigationStepPayload;
+  investigation?: InvestigationPayload;
   escalation?: EscalationPayload;
 };
 
@@ -70,8 +75,13 @@ export type RunState = {
   rows: TimelineRow[];
   gates: Record<GateName, GateCardState>;
   verdict: VerdictPayload | null;
+  /** The investigator's note, when it has landed (every verdict gets one, a fallback at worst). */
+  investigation: InvestigationPayload | null;
+  /** The investigator's tool calls so far, oldest first. */
+  investigationSteps: InvestigationStepPayload[];
   escalation: EscalationPayload | null;
   verdictStatus: ChipStatus;
+  investigationStatus: ChipStatus;
   escalationStatus: ChipStatus;
   failure: string | null;
   elapsedMs: number | null;
@@ -113,7 +123,15 @@ function withDefaults(run: RunState): RunState {
     if (!card) continue;
     gates[gate] = { ...card, fault: card.fault ?? null, runId: card.runId ?? null };
   }
-  return { ...run, faults: run.faults ?? {}, grafanaNotes: run.grafanaNotes ?? [], gates };
+  return {
+    ...run,
+    faults: run.faults ?? {},
+    grafanaNotes: run.grafanaNotes ?? [],
+    investigation: run.investigation ?? null,
+    investigationSteps: run.investigationSteps ?? [],
+    investigationStatus: run.investigationStatus ?? "PENDING",
+    gates,
+  };
 }
 
 export const IDLE_STATE: RunState = {
@@ -126,8 +144,11 @@ export const IDLE_STATE: RunState = {
   rows: [],
   gates: freshGates(),
   verdict: null,
+  investigation: null,
+  investigationSteps: [],
   escalation: null,
   verdictStatus: "PENDING",
+  investigationStatus: "PENDING",
   escalationStatus: "PENDING",
   failure: null,
   elapsedMs: null,
@@ -149,8 +170,13 @@ function toneFor(status: string | undefined): RowTone {
 }
 
 export function escalationLine(payload: EscalationPayload): string {
+  if (payload.attached && payload.incident_id) {
+    return `Joined open incident ${payload.incident_id}${payload.incident_title ? `: ${payload.incident_title}` : ""} (same asset, same motive) with the investigator's note`;
+  }
   if (payload.incident_id) {
-    return `Incident ${payload.incident_id} opened${payload.incident_title ? `: ${payload.incident_title}` : ""}`;
+    return `Incident ${payload.incident_id} opened${payload.incident_title ? `: ${payload.incident_title}` : ""}${
+      payload.owner ? `, routed to the ${payload.owner} owner` : ""
+    }`;
   }
   if (payload.fallback_annotation_id !== undefined) {
     return `The Incident API refused, a needs-human annotation was written instead (id ${payload.fallback_annotation_id})`;
@@ -160,6 +186,31 @@ export function escalationLine(payload: EscalationPayload): string {
   }
   if (payload.reason) return payload.reason;
   return payload.opened ? "Incident opened." : "No escalation needed.";
+}
+
+/** One line for a tool call or a tool answer of the investigator. */
+export function investigationStepLine(payload: InvestigationStepPayload): string {
+  if (payload.step === "tool_call") {
+    const args = payload.args ?? {};
+    const detail =
+      typeof args.logql === "string"
+        ? args.logql
+        : typeof args.expr === "string"
+          ? args.expr
+          : typeof args.operation === "string"
+            ? `operation ${args.operation}`
+            : "";
+    return `Investigator calls ${payload.tool}${detail ? `: ${detail}` : ""}`;
+  }
+  const lines = payload.lines !== undefined ? `, ${payload.lines} log line${payload.lines === 1 ? "" : "s"}` : "";
+  return `${payload.tool} answered${payload.chars !== undefined ? ` (${payload.chars} chars${lines})` : ""}`;
+}
+
+/** The one line of the note that carries its conclusion, or the note's first line. */
+export function investigationLine(payload: InvestigationPayload): string {
+  const first = payload.note.split("\n")[0];
+  if (payload.fallback) return first || "Investigation unavailable.";
+  return payload.conclusion ?? first ?? payload.note;
 }
 
 export type RunHandle = {
@@ -224,8 +275,11 @@ export function useRun(): RunHandle {
         let rows = prev.rows;
         let step = prev.step;
         let verdict = prev.verdict;
+        let investigation = prev.investigation;
+        let investigationSteps = prev.investigationSteps;
         let escalation = prev.escalation;
         let verdictStatus = prev.verdictStatus;
+        let investigationStatus = prev.investigationStatus;
         let escalationStatus = prev.escalationStatus;
         let grafanaNotes = prev.grafanaNotes;
         const elapsedMs = prev.elapsedMs;
@@ -355,10 +409,8 @@ export function useRun(): RunHandle {
           verdictStatus = parsed.payload.status;
           // The verdict's own elapsed_ms is the Grafana round trip only; the run's wall time
           // comes with the done frame and is the number the card and the spec strip show.
-          escalationStatus = "RUNNING";
-          step = parsed.payload.needs_human
-            ? "Escalation agent opening an incident"
-            : "Writing the verdict annotation to Grafana";
+          investigationStatus = "RUNNING";
+          step = "Investigator reading this run's Loki lines and the alert rules through mcp-grafana";
           rows = [
             ...rows,
             {
@@ -371,9 +423,46 @@ export function useRun(): RunHandle {
               verdict: parsed.payload,
             },
           ];
+        } else if (parsed.kind === "investigation-step") {
+          investigationStatus = "RUNNING";
+          investigationSteps = [...investigationSteps, parsed.payload];
+          step = investigationStepLine(parsed.payload);
+          rows = [
+            ...rows,
+            {
+              key,
+              author,
+              ts,
+              line: investigationStepLine(parsed.payload),
+              tone: "neutral",
+              raw: pretty(text),
+              investigationStep: parsed.payload,
+            },
+          ];
+        } else if (parsed.kind === "investigation") {
+          investigation = parsed.payload;
+          investigationStatus = parsed.payload.fallback ? "ERROR" : "PASS";
+          escalationStatus = "RUNNING";
+          step = verdict?.needs_human
+            ? "Escalation agent opening or joining the incident"
+            : "Escalation agent: checking whether a human is needed";
+          rows = [
+            ...rows,
+            {
+              key,
+              author,
+              ts,
+              line: investigationLine(parsed.payload),
+              tone: parsed.payload.fallback ? "amber" : "neutral",
+              raw: pretty(text),
+              investigation: parsed.payload,
+            },
+          ];
         } else if (parsed.kind === "escalation") {
           escalation = parsed.payload;
-          escalationStatus = parsed.payload.opened || parsed.payload.fallback ? "BLOCK" : "PASS";
+          // A recording made before the investigator existed goes from verdict to escalation directly.
+          if (!investigation && investigationStatus === "RUNNING") investigationStatus = "PENDING";
+          escalationStatus = parsed.payload.opened || parsed.payload.attached || parsed.payload.fallback ? "BLOCK" : "PASS";
           step = null;
           rows = [
             ...rows,
@@ -382,7 +471,7 @@ export function useRun(): RunHandle {
               author,
               ts,
               line: escalationLine(parsed.payload),
-              tone: parsed.payload.opened || parsed.payload.fallback ? "block" : "neutral",
+              tone: parsed.payload.opened || parsed.payload.attached || parsed.payload.fallback ? "block" : "neutral",
               raw: pretty(text),
               escalation: parsed.payload,
             },
@@ -395,8 +484,11 @@ export function useRun(): RunHandle {
           rows,
           step,
           verdict,
+          investigation,
+          investigationSteps,
           escalation,
           verdictStatus,
+          investigationStatus,
           escalationStatus,
           grafanaNotes,
           elapsedMs,

@@ -165,14 +165,68 @@ export type VerdictPayload = {
 export type EscalationPayload = {
   stage: "escalation";
   opened: boolean;
+  /** This run joined the open incident of the same asset and motive instead of opening a new one. */
+  attached?: boolean;
+  /** Who the incident is routed to: "clearance" (paperwork) or "platform" (a control). */
+  owner?: string;
   reason?: string;
   incident_id?: string;
   incident_url?: string;
   incident_title?: string;
+  activity_id?: string;
   fallback?: string;
   fallback_annotation_id?: number;
   incident_raw?: string;
   elapsed_ms?: number;
+};
+
+/** One Loki line the investigator read, compact: what the incident and the record show. */
+export type LokiLine = {
+  time_utc?: string | null;
+  gate?: string;
+  status?: string;
+  run_id?: string;
+  asset_id?: string;
+  reason?: string;
+  fault?: string;
+};
+
+/** One tool call or one tool answer of the investigator, streamed while it works. */
+export type InvestigationStepPayload = {
+  stage: "investigation";
+  step: "tool_call" | "tool_result";
+  tool: string;
+  run_id?: string;
+  args?: Record<string, unknown>;
+  chars?: number;
+  preview?: string;
+  lines?: number;
+};
+
+/**
+ * The investigator's note: an LlmAgent on gemini-2.5-flash read this run's Loki
+ * lines, the counters and the alert rules through mcp-grafana and named the
+ * cause. ROOT CAUSE on a control motive, DECISION NOTE on a content verdict or
+ * a PASS. The verdict never depends on it.
+ */
+export type InvestigationPayload = {
+  stage: "investigation";
+  kind: "ROOT CAUSE" | "DECISION NOTE" | string;
+  note: string;
+  conclusion?: string | null;
+  run_id?: string;
+  asset_id?: string | null;
+  model?: string;
+  tool_calls?: number;
+  model_turns?: number;
+  steps?: Array<Omit<InvestigationStepPayload, "stage">>;
+  loki_lines?: LokiLine[];
+  cited?: LokiLine[];
+  elapsed_ms?: number;
+  /** The investigator could not run; the note is the verdict's own reason, said as such. */
+  fallback?: boolean;
+  error?: string | null;
+  stopped?: string;
 };
 
 export type ParsedPayload =
@@ -181,6 +235,8 @@ export type ParsedPayload =
   | { kind: "probe"; payload: ProbePayload }
   | { kind: "grafana-note"; payload: GrafanaNotePayload }
   | { kind: "verdict"; payload: VerdictPayload }
+  | { kind: "investigation-step"; payload: InvestigationStepPayload }
+  | { kind: "investigation"; payload: InvestigationPayload }
   | { kind: "escalation"; payload: EscalationPayload };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -220,6 +276,12 @@ export function parsePayload(text: string): ParsedPayload | null {
   }
   if (stage === "verdict") {
     return { kind: "verdict", payload: value as unknown as VerdictPayload };
+  }
+  if (stage === "investigation" && (value.step === "tool_call" || value.step === "tool_result") && typeof value.tool === "string") {
+    return { kind: "investigation-step", payload: value as unknown as InvestigationStepPayload };
+  }
+  if (stage === "investigation" && typeof value.note === "string") {
+    return { kind: "investigation", payload: value as unknown as InvestigationPayload };
   }
   if (stage === "escalation") {
     return { kind: "escalation", payload: value as unknown as EscalationPayload };

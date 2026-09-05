@@ -48,6 +48,8 @@ function Row({
   const panelId = `raw-${row.key}`;
   const verdict = row.verdict;
   const escalation = row.escalation;
+  const step = row.investigationStep;
+  const investigation = row.investigation;
 
   return (
     <li className="border-b border-line last:border-b-0">
@@ -75,9 +77,29 @@ function Row({
                 annotation {verdict.annotation_id}
               </Badge>
             )}
+            {step && (
+              <Badge tone="quiet" size="xs" title={step.step === "tool_call" ? "The investigator asked mcp-grafana." : "mcp-grafana answered."}>
+                {step.step === "tool_call" ? "tool call" : "tool answer"}: {step.tool}
+              </Badge>
+            )}
+            {investigation && (
+              <Badge tone={investigation.fallback ? "amber" : "ink"} size="xs">
+                {investigation.fallback ? "investigation unavailable" : investigation.kind}
+              </Badge>
+            )}
+            {investigation && !investigation.fallback && (
+              <Badge tone="quiet" size="xs">
+                {investigation.model ?? "gemini-2.5-flash"}, {investigation.tool_calls ?? 0} tool call{investigation.tool_calls === 1 ? "" : "s"}
+              </Badge>
+            )}
             {escalation?.incident_id && (
               <Badge tone="block" size="xs">
-                incident {escalation.incident_id}
+                {escalation.attached ? "joined incident" : "incident"} {escalation.incident_id}
+              </Badge>
+            )}
+            {escalation?.owner && (
+              <Badge tone="quiet" size="xs">
+                owner:{escalation.owner}
               </Badge>
             )}
             {escalation?.fallback_annotation_id !== undefined && (
