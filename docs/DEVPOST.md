@@ -130,13 +130,20 @@ https://narrowsubmarine1895.grafana.net/public-dashboards/97860661238c4536a743e0
 
 ## Devpost draft
 
-Draft created 2026-09-02, not submitted: https://devpost.com/software/airlock-s2kidr (edit:
+Draft created 2026-09-02: https://devpost.com/software/airlock-s2kidr (edit:
 https://devpost.com/submit-to/30721-agentic-cinema-the-blockbuster-hackathon/manage/submissions/1117836-airlock/project-overview).
 Additional info completed on 2026-09-02 (country of residence France, first time using Grafana tools:
-yes): 4 of 5 steps done, Devpost flags nothing missing. Refreshed on 2026-09-05: the video slot holds
-the final video (https://youtu.be/T-cPGG8NhZo, 175.6 s, synthetic voice declared on screen, English
-subtitles burned in and as a track; the draft 5 placeholder https://youtu.be/xWJ0nMu5cqM stays
-unlisted, unused), and the story carries the four sections above as they stand in this file (What it
-does, How I built it, Challenges, Accomplishments, verbatim, 7241 characters); the 17 Built With tags
-and the three Try it out links (console, repository, public dashboard) were already current. Still
-4 of 5 steps, nothing flagged. The Submit step (rules checkbox and the button) is left for 2026-09-08.
+yes). Refreshed on 2026-09-05: the video slot holds the final video (https://youtu.be/T-cPGG8NhZo,
+175.6 s, synthetic voice declared on screen, English subtitles burned in and as a track; the draft
+5 placeholder https://youtu.be/xWJ0nMu5cqM stays unlisted, unused), and the story carries the four
+sections above as they stand in this file (What it does, How I built it, Challenges,
+Accomplishments, verbatim, 7241 characters); the 17 Built With tags and the three Try it out links
+(console, repository, public dashboard) were already current.
+
+Every field re-checked live on 2026-09-06 before submitting: the Additional info tab's selects
+(Individual, France, New project, Grafana track, first time using Grafana tools yes, N/A on every
+other partner track) and text fields (repository and hosted URLs, Google Cloud products, other
+tools, one team member) all held their 2026-09-02 values; the thumbnail was already attached.
+Submitted the same day: "Project submitted! Continue to edit your project until the hackathon
+deadline: September 09, 2026 at 05:00pm EDT." Devpost's own page confirms edits stay open until
+then, so the story, video or links can still change before the deadline.
