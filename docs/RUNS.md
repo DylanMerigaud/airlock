@@ -3752,3 +3752,21 @@ Console `/api/health` after redeploy: all four gates read `healthy` (not amber; 
 majority-rule fix from round three holds live). `/api/trace/a8d6794e...` read back 53 spans with no
 browser-side auth. Incidents 42 and 43 resolved from the console to leave the Queue clean for the
 next pass.
+
+## Round six: the fourth panel's first findings (2026-09-06)
+
+Four small fixes found by the fourth (final) judge panel before the other three reports landed:
+
+- **`infra/gcp/secrets.sh` crashed on the exact secret round five added.** `env_name()` had no case
+  for `grafana-traces-token`, so `set -euo pipefail` killed the script before it reached
+  `airlock-mcp-token`. Added the mapping (`GRAFANA_OTLP_TOKEN`); verified by running the script,
+  which synced all four secrets to Secret Manager without error.
+- **Both READMEs described last round's Trace tab.** The Tempo span tree (round five,
+  `console/src/components/trace-spans.tsx`, `GET /api/trace/[id]`) is materially different from "the
+  raw event timeline"; both README.md and console/README.md now say so.
+- **`airlock/assets.py`'s `ensure_local()` was dead**, orphaned when round four gave the provenance
+  gate its own scoped download instead of calling it (commit 24c0782). Deleted; nothing referenced it.
+- **Incident 37 had been open since before the third panel pass** and was missed by round five's
+  cleanup (which resolved 42 and 43 but not this one, opened earlier). Resolved, annotation 158.
+
+`bash scripts/check.sh` green (217 tests) before and after.

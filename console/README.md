@@ -15,7 +15,9 @@ switches what they read while the clip stays on screen; each segment scrolls ins
 region. The Findings thread lists one row per thing a gate read, not one per sentence: the
 claim gate's nine claims on the Crest excerpt are nine rows (quote, kind, spoken or on-screen
 text, start and end, the rules cited, the gate's reason), each anchored on its own second, so
-the scrubber shows nine markers. **Trace** is the raw event timeline of the run. **Queue** is
+the scrubber shows nine markers. **Trace** is the raw event timeline of the run, plus, when the run carries one, the Tempo span
+tree fetched through `/api/trace/[id]` (the server's own Grafana credentials, so it opens with no
+login) with each span's name, duration, status and attributes. **Queue** is
 Grafana's open Airlock incidents with the owner each one is routed to. The five seven-day
 totals and the spec line sit in one thin bar at the bottom.
 

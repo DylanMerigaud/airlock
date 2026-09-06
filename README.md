@@ -186,7 +186,8 @@ each, a "mute telemetry" switch inside the row to darken a gate and an "inject a
 break it, and watch the verdict refuse either way), Findings (the thread, a click on a time seeks the
 clip) and Record (the rules cited, the C2PA line, the investigator's note with the Loki lines it
 cites, the annotation and the incident, and the button that resolves the incident and writes the
-reviewed annotation). Two more views: the Trace (raw agent events, the investigator's tool calls)
+reviewed annotation). Two more views: the Trace (raw agent events, the investigator's tool calls, and, when the run has
+one, the Tempo span tree of it read through the console's own proxy, no Grafana login needed)
 and the Queue (Grafana's open incidents).
 Lighthouse on the hosted URL: accessibility 100. Mock mode
 (`AIRLOCK_MOCK=1`) replays recorded runs so it builds and runs without a credential

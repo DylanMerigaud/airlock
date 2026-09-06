@@ -34,6 +34,7 @@ env_name() {
   case "$1" in
     grafana-sa-token) echo GRAFANA_SERVICE_ACCOUNT_TOKEN ;;
     grafana-influx-token) echo GRAFANA_INFLUX_TOKEN ;;
+    grafana-traces-token) echo GRAFANA_OTLP_TOKEN ;;
     airlock-mcp-token) echo AIRLOCK_MCP_TOKEN ;;
     *) echo "unknown secret $1" >&2; return 1 ;;
   esac

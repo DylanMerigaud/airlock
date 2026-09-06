@@ -24,16 +24,6 @@ def download(gcs_uri: str, dest_dir: str | None = None) -> str:
     return str(dest)
 
 
-def ensure_local(asset: Asset) -> Asset:
-    """Give the asset a readable local path, downloading from GCS when it only has a URI."""
-    if asset.path and pathlib.Path(asset.path).exists():
-        return asset
-    if not asset.gcs_uri:
-        raise FileNotFoundError(f"asset {asset.asset_id} has neither a local file nor a GCS URI")
-    asset.path = download(asset.gcs_uri)
-    return asset
-
-
 def from_message(text: str) -> Asset:
     """The pipeline's input: a GCS URI, a local path, or a JSON object with gcs_uri and asset_id."""
     import json
