@@ -3809,3 +3809,18 @@ The remaining findings once all four fourth-panel reports had landed:
   suite to 219; `scripts/check.sh`'s own drift guard caught it. Updated the sentence.
 
 `bash scripts/check.sh` green (219 tests) before commit.
+
+Deployed, in order: Agent Engine (`Deployed to Agent Platform`, engine unchanged
+`1737023312967499776`), `scripts/grafana_bootstrap.py` (dashboard version 9 unchanged, five alert
+rules read back, the gate errors rule carrying the subtraction expr), console revision
+`airlock-console-00021-8hd`.
+
+Verified live on the redeployed stack: a fault run on `nimbus-clean-clip` with the rights gate
+timed out (`scripts/query_agent_engine.py`) pushed `airlock_gate_injected_errors_total{gate="rights"}
+= 1` (confirmed by PromQL against Grafana Cloud directly), while the alert rule's own expression,
+`sum by (gate) (sum_over_time(airlock_gate_errors_total[15m])) - sum by (gate)
+(sum_over_time(airlock_gate_injected_errors_total[15m]))`, evaluated to `0` for every gate at the
+same instant, so the injected fault does not page. Separately, muting the rights gate through the
+console's own switch and running the Nimbus clean clip live (browser, not the CLI) showed the
+RIGHTS row with the amber warning triangle (`svg.text-warn`) in place of the green check, next to
+"No issues found ... NOT seen by Grafana for this run", BLOCK control unavailable, 78 s.
