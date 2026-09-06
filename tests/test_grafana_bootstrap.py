@@ -18,7 +18,7 @@ def test_five_rules_with_stable_uids_on_the_pushed_counters():
     exprs = [r["data"][0]["model"]["expr"] for r in rules]
     assert exprs == [
         'sum(sum_over_time(airlock_daily_proof_total{outcome="fail"}[7h]))',
-        "sum by (gate) (sum_over_time(airlock_gate_errors_total[15m]))",
+        "sum by (gate) (sum_over_time(airlock_gate_errors_total[15m])) - sum by (gate) (sum_over_time(airlock_gate_injected_errors_total[15m]))",
         "sum by (gate) (sum_over_time(airlock_calibration_misses_total[24h]))",
         'sum(sum_over_time(airlock_verdict_total{status="ERROR"}[15m]))',
         "sum(sum_over_time(airlock_daily_proof_total[7h]))",

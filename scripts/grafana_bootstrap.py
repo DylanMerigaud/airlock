@@ -5,11 +5,14 @@ Uses the Grafana HTTP API with the service account token (Editor). Idempotent: t
 upserted by uid, the folder by title, the contact point by name, the alert rules by uid through the
 provisioning API (/api/v1/provisioning), the notification policy tree is replaced whole.
 
-Three rules, all on the counters the gates and the proof push (a series is absent when nothing
+Five rules. Four on the counters the gates and the proof push (a series is absent when nothing
 happened, so "no data" is OK, not an alert):
-  Airlock daily proof failed    sum(sum_over_time(airlock_daily_proof_total{outcome="fail"}[7h])) > 0
-  Airlock gate errors           sum by (gate) (sum_over_time(airlock_gate_errors_total[15m])) > 0
-  Airlock calibration missed    sum by (gate) (sum_over_time(airlock_calibration_misses_total[24h])) > 0
+  Airlock daily proof failed              sum(sum_over_time(airlock_daily_proof_total{outcome="fail"}[7h])) > 0
+  Airlock gate errors                     sum by (gate) (sum_over_time(airlock_gate_errors_total[15m]) - sum_over_time(airlock_gate_injected_errors_total[15m])) > 0
+  Airlock calibration missed              sum by (gate) (sum_over_time(airlock_calibration_misses_total[24h])) > 0
+  Airlock verdict could not reach Grafana sum(sum_over_time(airlock_verdict_total{status="ERROR"}[15m])) > 0
+And a dead man's switch, where absence itself is the alert (noDataState Alerting, not OK):
+  Airlock daily proof did not run         sum(sum_over_time(airlock_daily_proof_total[7h])) < 1
 One contact point (email, AIRLOCK_ALERT_EMAIL, default dylanmerigaud@gmail.com), the default policy
 routed to it. The investigator agent reads the rules' state through mcp-grafana's
 alerting_manage_rules(operation="list"), the tool the server actually exposes.
@@ -177,10 +180,12 @@ def alert_rules(ds_uid: str) -> list[dict]:
     specs = [
         ("airlock-daily-proof-failed", "Airlock daily proof failed",
          'sum(sum_over_time(airlock_daily_proof_total{outcome="fail"}[7h]))',
-         "A scheduled proof failed in the last 13 hours: a gate missed its injected defect, or the clean clip did not PASS. Read the proof's Loki lines ({app=\"airlock\"} |= \"daily-proof\")."),
+         "A scheduled proof failed in the last 7 hours: a gate missed its injected defect, or the clean clip did not PASS. Read the proof's Loki lines ({app=\"airlock\"} |= \"daily-proof\")."),
         ("airlock-gate-errors", "Airlock gate errors",
-         "sum by (gate) (sum_over_time(airlock_gate_errors_total[15m]))",
-         "A gate raised in the last 15 minutes (its run is ERROR and the verdict on that run is BLOCK control unavailable). Read the gate's Loki lines ({app=\"airlock\", gate=\"<gate>\", status=\"ERROR\"})."),
+         # Real errors only: an injected fault (the demo switch) proves the same path without paging the
+         # person who would otherwise learn to ignore this rule (found live, third and fourth panels).
+         "sum by (gate) (sum_over_time(airlock_gate_errors_total[15m])) - sum by (gate) (sum_over_time(airlock_gate_injected_errors_total[15m]))",
+         "A gate raised in the last 15 minutes on its own, not from the fault switch (its run is ERROR and the verdict on that run is BLOCK control unavailable). Read the gate's Loki lines ({app=\"airlock\", gate=\"<gate>\", status=\"ERROR\"})."),
         ("airlock-calibration-missed", "Airlock calibration missed",
          "sum by (gate) (sum_over_time(airlock_calibration_misses_total[24h]))",
          "A calibration run in the last 24 hours injected a defect the gate did not catch: the gate's PASS is advisory until the next catch (rule R2)."),

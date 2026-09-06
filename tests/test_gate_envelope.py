@@ -93,3 +93,33 @@ def test_a_failing_telemetry_push_never_takes_the_run_down():
     assert r.status == "PASS"
     assert any("influx: RuntimeError" in str(e.get("telemetry_error")) for e in r.evidence)
     assert len(sent) == 1 and sent[0][1]["run_id"] == RUN  # the Loki event still went out after the Influx failure
+
+
+def test_an_injected_fault_is_tagged_so_the_alert_rule_can_exclude_it():
+    """A judge's own fault switch must not count toward the same alert a real outage pages on
+    (found live, third and fourth panels, 2026-09-05 and 2026-09-06): the pushed line carries
+    injected_errors_total=1 alongside errors_total=1, so the rule can subtract it."""
+    lines: list[str] = []
+
+    class Records:
+        def push_lines(self, ls):
+            lines.extend(ls)
+
+    run_gate("rights", lambda a: GateResult(gate="rights", status="PASS"), asset(), "source", influx=Records(), fault=FAULT_TIMEOUT)
+    assert len(lines) == 1
+    assert "errors_total=1i" in lines[0] and "injected_errors_total=1i" in lines[0]
+
+
+def test_a_real_error_is_not_tagged_as_injected():
+    lines: list[str] = []
+
+    class Records:
+        def push_lines(self, ls):
+            lines.extend(ls)
+
+    def raises(a: Asset) -> GateResult:
+        raise RuntimeError("a real Video Intelligence failure")
+
+    run_gate("rights", raises, asset(), "source", influx=Records())
+    assert len(lines) == 1
+    assert "errors_total=1i" in lines[0] and "injected_errors_total=0i" in lines[0]

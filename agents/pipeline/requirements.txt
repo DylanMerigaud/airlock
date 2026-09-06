@@ -6,3 +6,5 @@ google-cloud-videointelligence==2.20.0
 google-cloud-storage
 google-genai==2.20.0
 pyyaml>=6
+opentelemetry-sdk>=1.42
+opentelemetry-exporter-otlp-proto-http>=1.42

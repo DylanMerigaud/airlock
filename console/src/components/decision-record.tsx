@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { formatVerdictCostLine, groupRuleIds, readC2pa, type LokiLine } from "@/lib/events";
 import { labelForTarget } from "@/lib/assets";
 import { ownerLabel } from "@/lib/incident-types";
-import { REVIEWER_ROLES, type ReviewerRole } from "@/lib/review";
+import { REVIEWER_ROLES, reviewerRoleForOwner, type ReviewerRole } from "@/lib/review";
 import type { ReviewState } from "@/lib/use-review";
 import type { RunState } from "@/lib/use-run";
 
@@ -64,6 +64,17 @@ export function DecisionRecord({
 }) {
   const [rulesOpen, setRulesOpen] = React.useState(false);
   const [role, setRole] = React.useState<ReviewerRole>(REVIEWER_ROLES[0]);
+  const roleTouched = React.useRef(false);
+  // The escalation, and the owner it routes to, can arrive after this dropdown is already
+  // showing (the incident opens once the escalation agent runs, after verdict.needs_human is
+  // already true). Keep the default in step with the routed owner until the reviewer picks one
+  // themselves, so the button does not default to signing every incident as the same role
+  // regardless of who it was routed to (the same bug already fixed for the Queue's resolve
+  // button, found live 2026-09-05, reproduced here 2026-09-06).
+  React.useEffect(() => {
+    if (roleTouched.current) return;
+    setRole(reviewerRoleForOwner(state.escalation?.owner ?? null));
+  }, [state.escalation?.owner]);
   const verdict = state.verdict;
   const investigation = state.investigation;
 
@@ -302,7 +313,10 @@ export function DecisionRecord({
                 <span>Signing as</span>
                 <select
                   value={role}
-                  onChange={(event) => setRole(event.target.value as ReviewerRole)}
+                  onChange={(event) => {
+                    roleTouched.current = true;
+                    setRole(event.target.value as ReviewerRole);
+                  }}
                   disabled={review.phase === "pending"}
                   className="h-7 rounded-[2px] border border-line-strong bg-surface px-2 text-[12px] text-ink"
                 >

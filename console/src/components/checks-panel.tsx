@@ -64,7 +64,20 @@ const TONE_CLASS = {
  * label: at 4.2:1 on white it clears the 3:1 an icon needs and not the 4.5:1
  * text needs, so every PASS word on this screen is set in ink beside it.
  */
-function CheckIcon({ status }: { status: ChipStatus }) {
+function CheckIcon({ status, unseen = false }: { status: ChipStatus; unseen?: boolean }) {
+  // The gate's own PASS is not what the row must show once Grafana never saw this run's event: the
+  // verdict blocks on that regardless, and a green check on the exact row that caused the BLOCK reads
+  // as "this one is fine" (found live, mute demo, third and fourth panels). One amber warning triangle
+  // stands in for the gate's own icon in that one case; the words beside it already say why.
+  if (unseen && status === "PASS") {
+    return (
+      <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" className="text-warn">
+        <path d="M8 1.6 15 14H1z" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+        <path d="M8 6v3.6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        <circle cx="8" cy="11.7" r="0.85" fill="currentColor" />
+      </svg>
+    );
+  }
   if (status === "PASS") {
     return (
       <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" className="text-pass">
@@ -158,6 +171,7 @@ function CheckRow({
   name,
   hue,
   status,
+  unseen = false,
   line,
   under,
   underTone = "quiet",
@@ -170,6 +184,8 @@ function CheckRow({
   name: string;
   hue?: string;
   status: ChipStatus;
+  /** This run's event was not seen by Grafana: the icon overrides a PASS to a warning (see CheckIcon). */
+  unseen?: boolean;
   line: string;
   under?: string;
   underTone?: keyof typeof TONE_CLASS;
@@ -195,7 +211,7 @@ function CheckRow({
         className="flex w-full items-start gap-2.5 px-3 py-2 text-left transition-colors hover:bg-sunk"
       >
         <span className="mt-[1px] shrink-0">
-          <CheckIcon status={status} />
+          <CheckIcon status={status} unseen={unseen} />
         </span>
         <span className="min-w-0 flex-1">
           <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -576,6 +592,7 @@ export function ChecksList({
             name={gate}
             hue={GATE_DOT[gate]}
             status={card.status}
+            unseen={card.probe?.seen_this_run === false}
             line={gateLine(card)}
             under={calibration.text}
             underTone={calibration.tone}

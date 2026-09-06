@@ -3770,3 +3770,42 @@ Four small fixes found by the fourth (final) judge panel before the other three 
   cleanup (which resolved 42 and 43 but not this one, opened earlier). Resolved, annotation 158.
 
 `bash scripts/check.sh` green (217 tests) before and after.
+
+## Round seven: the rest of the fourth panel (2026-09-06)
+
+The remaining findings once all four fourth-panel reports had landed:
+
+- **An injected fault paged the same alert rule a real outage does.** The Grafana architect and
+  the Google Cloud judge both flagged this, and the architect's investigation showed my own
+  framing (README/RUNS documenting the mechanism, not accepting the consequence) did not hold up:
+  the demo's own fault switch fired "Airlock gate errors" the way a genuine Video Intelligence
+  timeout would, which is exactly the kind of alert a person on call learns to ignore. Fixed at
+  the source rather than in prose: `run_gate()` now pushes `injected_errors_total=1` alongside
+  `errors_total=1` when the error came from the fault switch (`airlock/gates/base.py`), and the
+  alert rule's PromQL subtracts it (`airlock-gate-injected-errors-total` from
+  `airlock-gate-errors-total` over 15 minutes, `scripts/grafana_bootstrap.py`). Two new tests
+  (`tests/test_gate_envelope.py`) cover both directions: an injected timeout tags
+  `injected_errors_total=1`, a real exception tags `injected_errors_total=0`.
+- **The mute demo's headline interaction left a green check on the exact row that caused the
+  BLOCK.** Reproduced live in both the third and fourth passes by the Google Cloud judge: muting
+  a gate makes Grafana never see this run's event, the verdict correctly blocks on "control
+  unavailable", but the gate's own row still showed a plain green PASS, which reads as "this one
+  is fine" on the one row that is not. `CheckIcon` (`console/src/components/checks-panel.tsx`) now
+  takes an `unseen` flag and swaps the green check for an amber warning triangle when the gate
+  passed but `probe.seen_this_run === false`; threaded through `CheckRow` and set from
+  `card.probe?.seen_this_run === false` at the gate row's own call site.
+- **The Record's "Signing as" dropdown always defaulted to the first role**, regardless of which
+  owner the escalation actually routed the incident to, the same bug already fixed once for the
+  Queue's resolve button (2026-09-05) and reproduced here by the fourth-pass Google Cloud judge.
+  `decision-record.tsx` now syncs the default to `reviewerRoleForOwner(state.escalation?.owner)`
+  as the escalation arrives, and stops syncing the moment the reviewer touches the dropdown
+  themselves.
+- **console/README.md cited a passage that does not exist.** The `/api/run` route description
+  attributed "the run keeps going server-side" to `docs/RUNS.md`, which contains no such
+  sentence, a false citation the fourth-pass practitioner caught. The fact stands on its own
+  (Agent Engine's `streamQuery` is not a process this route owns), so the citation is removed
+  rather than invented into RUNS.md after the fact.
+- **`docs/DEVPOST.md` still claimed 217 tests** after this round's two additions brought the
+  suite to 219; `scripts/check.sh`'s own drift guard caught it. Updated the sentence.
+
+`bash scripts/check.sh` green (219 tests) before commit.

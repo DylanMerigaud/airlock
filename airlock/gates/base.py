@@ -133,7 +133,12 @@ def _run_gate(gate: str, fn: GateFn, asset: Asset, source_of_truth: str, mute: b
     # unavailable" by construction, which is the right outcome for a gate Grafana did not see.
     if influx is not None:
         fields: dict[str, int | float] = {"runs_total": 1, "errors_total": 0 if ok else 1, "elapsed_ms": result.elapsed_ms,
-                                          "blocks_total": 1 if result.status == "BLOCK" else 0}
+                                          "blocks_total": 1 if result.status == "BLOCK" else 0,
+                                          # A judge's own fault switch should not page the same rule a real
+                                          # outage does, or the person on call learns to ignore it (found live,
+                                          # third and fourth panels, 2026-09-05 and 2026-09-06). This field lets
+                                          # the alert rule subtract injected errors from the count that fires.
+                                          "injected_errors_total": 1 if (not ok and fault) else 0}
         if result.usage.get("cost_usd") is not None:
             fields["cost_usd"] = float(result.usage["cost_usd"])
             fields["tokens_in"] = int(result.usage.get("tokens_in") or 0)
