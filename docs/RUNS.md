@@ -3824,3 +3824,25 @@ same instant, so the injected fault does not page. Separately, muting the rights
 console's own switch and running the Nimbus clean clip live (browser, not the CLI) showed the
 RIGHTS row with the amber warning triangle (`svg.text-warn`) in place of the green check, next to
 "No issues found ... NOT seen by Grafana for this run", BLOCK control unavailable, 78 s.
+
+## Custom domain and the Devpost submission (2026-09-07)
+
+Submitted the Devpost draft: every field re-verified live against the actual form first (all tabs,
+all selects and text inputs), then the terms checkbox and the submit button, both clicked in
+Dylan's own authenticated browser session, never assumed. Devpost's own confirmation: "Project
+submitted! Continue to edit your project until the hackathon deadline: September 09, 2026 at
+05:00pm EDT." Three stray incidents left open by this round's own verification runs (44, 46, 47)
+resolved from the console first, so the Queue reads zero for whoever opens it next.
+
+A custom domain for the hosted URL, `airlock.merigaud.com`: `gcloud run domain-mappings create`
+against the console service, a CNAME to `ghs.googlehosted.com` added on Cloudflare (`merigaud.com`,
+unproxied so Google's own edge terminates TLS and can see the record to issue the certificate),
+the domain already Google-verified on the account so no extra verification step. The first
+certificate check failed ("challenge data was not visible through the public internet") while DNS
+was still settling, even though both Google's and Cloudflare's own public resolvers already
+answered the CNAME correctly at that point; Google's own retry (its polling interval, not a manual
+one) succeeded 40 minutes after the mapping was created: `Ready: True`, `CertificateProvisioned:
+True`. Verified: `https://airlock.merigaud.com/api/health` answers 200, `ok: true`. The
+`.run.app` URL keeps answering as its own address, unremoved; README.md and the Devpost story now
+lead with the custom domain, docs/RUNS.md's own earlier entries keep the `.run.app` URL as it was
+actually shown at the time (a log is not rewritten after the fact).

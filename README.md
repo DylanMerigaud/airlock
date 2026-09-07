@@ -4,7 +4,7 @@ Studios ship dozens of generated assets a week, and nobody can prove which one w
 which rule, and whether the check itself was working. Airlock answers one question per asset:
 can this ship, on what proof, and was the control that said so in a state to say it?
 
-Try it, no login: https://airlock-console-771466810465.us-central1.run.app (pick an asset, run the airlock, read the trace; four presets: a real 1960s commercial that blocks, a synthetic test clip that blocks on one claim, the same clip with its study on file that passes, a clean clip that passes; or upload a 30 s clip; break the control with the fault switch and watch the verdict refuse).
+Try it, no login: https://airlock.merigaud.com (pick an asset, run the airlock, read the trace; four presets: a real 1960s commercial that blocks, a synthetic test clip that blocks on one claim, the same clip with its study on file that passes, a clean clip that passes; or upload a 30 s clip; break the control with the fault switch and watch the verdict refuse).
 
 ![The reviewer console after the Crest commercial ran, one screen: the clip on the stage with the findings marked on the scrubber, the verdict and the checks list with one status line per gate on the right, the stats in the footer](docs/img/console-v3-crest-block-2026-08-29.png)
 

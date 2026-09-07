@@ -106,13 +106,13 @@ mcp, fastmcp, mcp-grafana, grafana-cloud, loki, c2pa, veo, next.js, typescript
 - [x] An agent built with ADK and deployed on Agent Engine (`agents/pipeline/agent.py`, `docs/RUNS.md` M1 and M3)
 - [x] Grafana Labs track: the agent reads Grafana through MCP before every verdict and writes back an annotation and an incident (`agents/pipeline/agent.py`, `docs/RUNS.md` verifications A, B, C)
 - [x] Public repository under an OSI licence: Apache-2.0 (`LICENSE`), github.com/DylanMerigaud/airlock
-- [x] Hosted URL a judge can open without a login: https://airlock-console-771466810465.us-central1.run.app (Cloud Run, `docs/RUNS.md` M4)
+- [x] Hosted URL a judge can open without a login: https://airlock.merigaud.com (Cloud Run behind a custom domain mapping, `docs/RUNS.md` M4; the underlying `https://airlock-console-771466810465.us-central1.run.app` keeps answering too)
 - [x] Demo video of 3 minutes or less: https://youtu.be/T-cPGG8NhZo (final, synthetic voice declared)
 - [x] Every synthetic input named (`SYNTHETIC.md`); every real input named with its source and licence (`assets/real/SOURCE.md`)
 
 ## Try it
 
-Open https://airlock-console-771466810465.us-central1.run.app, pick the Crest commercial (Prelinger Archives, public domain, 30 s) and run
+Open https://airlock.merigaud.com, pick the Crest commercial (Prelinger Archives, public domain, 30 s) and run
 the airlock: expect four BLOCKs, the verdict citing 16 CFR 255.2(a) and the missing C2PA manifest,
 an annotation on the public dashboard, and an incident. A check takes one to three minutes; the
 rights gate waits for the Video Intelligence API, which slows down when several checks overlap. Pick the Nimbus test clip (synthetic,
