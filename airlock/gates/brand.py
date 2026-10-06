@@ -77,11 +77,16 @@ def load_charter(path: pathlib.Path = CHARTER_PATH) -> dict[str, Any]:
 
 
 def prompt_for(charter: dict[str, Any]) -> str:
+    # gemini-2.5-flash read the charter's own tagline ("Clear as morning.") as a health claim on 8 of 50 answers about the clean
+    # clip (measured 2026-10-06 through the GCS URI the daily proof sends), each time blocking it and opening an incident.
+    tagline = charter.get("tagline")
+    own_words = (f" The tagline \"{tagline}\" and the wordmark are the brand's own approved wording: showing either is never "
+                 "an exclusion violation; an exclusion is violated only by other text or imagery that does what it forbids.") if tagline else ""
     return (
         "You are checking a video asset against a brand charter. The charter, in YAML:\n\n"
         + yaml.safe_dump(charter, sort_keys=False)
         + f"\nThe wordmark is the exact word \"{charter.get('brand')}\" written on screen or on a product. Report wordmark_seen "
-        f"as true only if that exact word appears; a different brand name does not count. Then: every piece of "
+        f"as true only if that exact word appears; a different brand name does not count.{own_words} Then: every piece of "
         "on-screen text; the dominant colours of the frames as hex; the tone words that describe the delivery; every charter "
         "exclusion that the asset violates, quoting the evidence with its timestamp; any other brand name seen. Be literal. "
         "Write every timestamp as a clock reading from the start of the clip, mm:ss or mm:ss.s (16.5 seconds in is 00:16.5)."
