@@ -35,6 +35,7 @@ from typing import Any
 DEFAULT_PROJECT = "airlock-agentic-cinema"
 DEFAULT_PROJECT_NUMBER = "771466810465"
 DEFAULT_REGION = "us-central1"
+DEFAULT_GEMINI_LOCATION = "global"
 DEFAULT_BUCKET = "airlock-agentic-cinema-assets"
 DEFAULT_ENGINE_RESOURCE = f"projects/{DEFAULT_PROJECT_NUMBER}/locations/{DEFAULT_REGION}/reasoningEngines/1737023312967499776"
 DEFAULT_GRAFANA_URL = "https://narrowsubmarine1895.grafana.net"
@@ -73,6 +74,15 @@ def project() -> str:
 
 def region() -> str:
     return _first("GOOGLE_CLOUD_LOCATION", "AIRLOCK_REGION", default=DEFAULT_REGION)
+
+
+def gemini_location() -> str:
+    """Where the gates' Gemini calls go: the `global` endpoint, which pools capacity across regions.
+    The regional endpoint (us-central1) answered 429 RESOURCE_EXHAUSTED on 8 of 60 and 6 of 60 brand-gate
+    calls at two in parallel (and 28 of 90 at six in parallel); the global endpoint answered 60 of 60 at the
+    two-in-parallel load (measured 2026-10-06). A 429 makes a gate ERROR and the verdict rules "control
+    unavailable"."""
+    return _first("AIRLOCK_GEMINI_LOCATION", default=DEFAULT_GEMINI_LOCATION)
 
 
 def bucket() -> str:
@@ -227,6 +237,7 @@ def describe() -> list[dict[str, Any]]:
 
     row(("GOOGLE_CLOUD_PROJECT", "AIRLOCK_PROJECT"), project(), DEFAULT_PROJECT)
     row(("GOOGLE_CLOUD_LOCATION", "AIRLOCK_REGION"), region(), DEFAULT_REGION)
+    row(("AIRLOCK_GEMINI_LOCATION",), gemini_location(), DEFAULT_GEMINI_LOCATION)
     row(("AIRLOCK_ASSETS_BUCKET",), bucket(), DEFAULT_BUCKET)
     row(("AGENT_ENGINE_RESOURCE",), engine_resource(), DEFAULT_ENGINE_RESOURCE)
     row(("AIRLOCK_RUNTIME",), runtime(), DEFAULT_RUNTIME)
