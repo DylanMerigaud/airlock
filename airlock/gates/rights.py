@@ -17,6 +17,7 @@ not checked at all.
 
 from __future__ import annotations
 
+import logging
 import os
 import pathlib
 import re
@@ -25,6 +26,8 @@ from typing import Any
 import yaml
 
 from airlock.gates.base import Asset, GateResult
+
+log = logging.getLogger("airlock.gates")
 
 SOURCE_OF_TRUTH = "Video Intelligence API (logos, faces, text, explicit content) against rights-registry.yaml"
 REGISTRY_PATH = pathlib.Path(__file__).resolve().parents[2] / "rights-registry.yaml"
@@ -52,14 +55,46 @@ def configured_features() -> list[str]:
     return names
 
 
+def await_annotation(client: Any, request: dict[str, Any]) -> Any:
+    """Start a Video Intelligence operation and wait for it, starting a fresh one when it stalls.
+
+    The service's tail looks like a stalled operation rather than a slow one: the daily proof's
+    calibration call ran to the 600 s ceiling on 2026-09-25 (591 s), 09-26 (600 s) and 10-06 (595 s),
+    each time opening an incident, while the same gate passed in the same job right after (37 s on
+    10-06). So each attempt waits
+    AIRLOCK_VI_TIMEOUT_S (default 240 s, about five times the 49 s median), a stalled operation is
+    cancelled so it is not billed twice, and the next attempt starts clean, up to AIRLOCK_VI_ATTEMPTS
+    (default 2). Two attempts stay under 480 s, inside the 600 s a console run's stream stays silent
+    and the 1800 s the daily proof job allows for its two rights calls. The last timeout is raised,
+    naming the attempts, and the envelope turns it into an ERROR the verdict treats as an instrument
+    failure.
+    """
+    timeout = float(os.environ.get("AIRLOCK_VI_TIMEOUT_S", "240"))
+    attempts = max(1, int(os.environ.get("AIRLOCK_VI_ATTEMPTS", "2")))
+    for attempt in range(1, attempts + 1):
+        op = client.annotate_video(request=request)
+        try:
+            return op.result(timeout=timeout)
+        except TimeoutError as exc:
+            log.warning("Video Intelligence operation %d of %d gave no answer in %.0f s", attempt, attempts, timeout)
+            try:
+                op.cancel()
+            except Exception as cancel_exc:  # a cancel that fails is said, the next attempt still starts
+                log.warning("could not cancel the stalled Video Intelligence operation: %s: %s", type(cancel_exc).__name__, cancel_exc)
+            if attempt == attempts:
+                raise TimeoutError(f"Video Intelligence gave no answer in {timeout:.0f} s on each of {attempts} attempt(s)") from exc
+    raise AssertionError("unreachable: the loop returns or raises")  # pragma: no cover
+
+
 def annotate(asset: Asset) -> dict[str, Any]:
     """Call Video Intelligence and flatten what the gate needs.
 
     Measured 2026-08-28: 60 s clip with four features 246 s; 30 s excerpt 59 s alone and 598 s when
     three jobs ran at once; 8 s clip 30 to 90 s. Measured 2026-09-02 (docs/RUNS.md): four parallel
     one-feature operations finish in the same wall time as one four-feature operation (30 s excerpt
-    median 49.0 s against 49.6 s), logo recognition being the long pole; the spread is the service's. A timeout (AIRLOCK_VI_TIMEOUT_S) raises, and the
-    envelope turns it into an ERROR the verdict treats as an instrument failure.
+    median 49.0 s against 49.6 s), logo recognition being the long pole; the spread is the service's.
+    A stalled operation is retried once (await_annotation); a second timeout raises, and the envelope
+    turns it into an ERROR the verdict treats as an instrument failure.
     """
     from google.cloud import videointelligence_v1 as vi
 
@@ -71,8 +106,7 @@ def annotate(asset: Asset) -> dict[str, Any]:
         request["input_uri"] = asset.gcs_uri
     else:
         request["input_content"] = pathlib.Path(asset.path).read_bytes()
-    op = client.annotate_video(request=request)
-    response = op.result(timeout=float(os.environ.get("AIRLOCK_VI_TIMEOUT_S", "600")))
+    response = await_annotation(client, request)
     if response is None:  # the client stub types the result as Optional; an empty answer is an instrument failure
         raise RuntimeError("Video Intelligence returned no annotation results")
     a = response.annotation_results[0]
